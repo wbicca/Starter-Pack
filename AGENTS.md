@@ -32,5 +32,11 @@ canonical skill/stack to use. Resolves all known BMAD ↔ Superpowers overlaps.
 - **E2E vs TDD**: unit → `test-driven-development`; E2E suites → `bmad-qa-generate-e2e-tests`.
 - **DEPRECATED — never use**: `bmad-create-prd`, `bmad-edit-prd`, `bmad-validate-prd` → always `bmad-prd`.
 
+## External skills are optional
+Agents route to vendored BMAD/Superpowers skills as their canonical path. Any external
+plugin skill (e.g. design or platform helpers) is an **optional enhancement only** —
+agents must work without it, falling back to internal best practices, BMAD, Superpowers,
+and project docs (see `docs/CONSTITUTION.md` §1).
+
 ## Model default
 Executor agents = **Sonnet**. Opus only per the escalation list in `CLAUDE.md`.

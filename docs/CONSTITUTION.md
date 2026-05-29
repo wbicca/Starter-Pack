@@ -3,7 +3,9 @@
 When a future decision conflicts with anything here, this file wins.
 
 1. **Self-contained.** Everything ships vendored in-repo. No reliance on globally
-   installed plugins.
+   installed plugins. Core behavior must be self-contained. External skills/plugins
+   may be referenced only as optional enhancements and must never be required for the
+   starter to work.
 2. **One canonical path per function.** No duplicate skills (see `AGENTS.md`).
 3. **Orchestrate, don't default to executing.** Triage → delegate (see `CLAUDE.md`).
 4. **Plan before large work.** BMAD for product/architecture; Superpowers for execution.
