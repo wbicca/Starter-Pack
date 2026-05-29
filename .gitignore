@@ -46,4 +46,11 @@ Thumbs.db
 .claude/settings.local.json
 _bmad/custom/config.user.toml
 
+# BMAD output: ephemeral artifacts — keep only the base structure
+/_bmad-output/**
+!/_bmad-output/planning-artifacts/
+!/_bmad-output/planning-artifacts/.gitkeep
+!/_bmad-output/implementation-artifacts/
+!/_bmad-output/implementation-artifacts/.gitkeep
+
 # Kept vendored on purpose: _bmad, .claude/skills, .claude/agents, .claude/hooks, docs
