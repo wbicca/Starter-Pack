@@ -40,6 +40,8 @@ writes, not interactive doc work. See `AGENTS.md` → "Delegation & isolation".
   architecture, security, RLS/Auth, data migration, or a persistently-failing error.
 
 ## Hard rules
+- Respond to the user in **Portuguese (pt-BR)**. Keep contracts, agents, and skills in
+  English where it aids precision; otherwise Portuguese.
 - One canonical path per function — do not duplicate an existing skill (see `AGENTS.md`).
 - Do not touch `_bmad/` or installed BMAD skills.
 - Keep docs short. Keep agents short.

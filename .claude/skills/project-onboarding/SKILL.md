@@ -53,7 +53,10 @@ questions is the bar.
 
 ## Step 5 — Write the project docs
 Create or update these under `docs/` — **create the `docs/` directory if it doesn't exist.**
-Keep each lean — contracts, not manuals.
+Keep each lean — contracts, not manuals. Write the **prose in the conversation's language**
+(Portuguese for a Portuguese-speaking user), but keep **structural keywords in English** —
+especially `STACK.md`'s `Status: UNCONFIGURED | PARTIAL | CONFIGURED`, which the init gate
+matches literally.
 For **new** docs, start from the lean templates in this skill's `templates/` directory
 (`PROJECT_BRIEF.md`, `STACK.md`, `ARCHITECTURE.md`, `DECISIONS.md`); fill only what's
 known and leave a `TODO:` for genuine unknowns — never invent. For **existing** docs,
