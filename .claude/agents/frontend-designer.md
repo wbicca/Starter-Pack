@@ -2,7 +2,7 @@
 name: frontend-designer
 description: Use for UI/UX and visual component work — layout, styling, design systems, accessibility. Edits frontend in an isolated worktree.
 tools: Read, Grep, Glob, Bash, Write, Edit, Skill
-model: claude-sonnet-4-6
+model: sonnet
 permissionMode: acceptEdits
 isolation: worktree
 color: pink

@@ -20,10 +20,24 @@ writes the project docs including `docs/STACK.md`. Never assume or hardcode a st
 - Parallel / risky work → `using-git-worktrees`.
 - Never claim done without running verification.
 
+## Delegation playbook
+Planning is interactive and stays in this (orchestrator) window with the human;
+implementation fans out to Sonnet subagents. The seam is the story list.
+- Small fix (1 file) → handle inline.
+- New feature / product → plan here with BMAD (PRD → epics → stories), then one Sonnet
+  implementer per story in a worktree (`subagent-driven-development`) → review.
+- Several independent changes → `dispatching-parallel-agents` (Sonnet, worktrees).
+- Hard bug → `systematic-debugging` here; delegate the fix once the cause is known.
+Never put planning, onboarding, or review in a worktree — worktrees isolate parallel code
+writes, not interactive doc work. See `AGENTS.md` → "Delegation & isolation".
+
 ## Model policy
-- Executor agents default to **Sonnet**.
-- Escalate to **Opus** only for: critical paths, complex architecture, security,
-  RLS/Auth, data migration, or a persistently-failing error.
+- This orchestrator window runs on **Opus** for judgment: triage, planning, architecture,
+  hard debugging, synthesis. It decides and delegates — it does not grind out boilerplate.
+- Executor subagents default to **Sonnet** (volume work: implementation, tests).
+- "Escalate to Opus" has one real mechanism: **bring the task back to this window**
+  (subagents cannot change their own model). Do this for critical paths, complex
+  architecture, security, RLS/Auth, data migration, or a persistently-failing error.
 
 ## Hard rules
 - One canonical path per function — do not duplicate an existing skill (see `AGENTS.md`).

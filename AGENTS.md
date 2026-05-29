@@ -49,5 +49,22 @@ orchestrator/human and require explicit approval.
   workflows, and expansion packs — not for simple Claude Code operational skills.
 - `skill-discovery` may recommend skills but never installs without explicit approval.
 
+## Delegation & isolation
+- Planning (onboarding, PRD, epics, architecture) runs in the orchestrator window with the
+  human — never delegated to an isolated agent.
+- Implementation fans out from the story list: one Sonnet implementer per story via
+  `subagent-driven-development`; independent parallel tasks via `dispatching-parallel-agents`.
+- Use a git worktree (`using-git-worktrees`) to isolate parallel or risky code writes.
+
+| Work | Worktree? |
+|------|-----------|
+| Onboarding / planning / architecture | No — interactive, in main window |
+| Review / audit (read-only) | No |
+| Single small edit | No |
+| Implementation of a story | Yes |
+| Parallel independent changes | Yes |
+| Risky / destructive change | Yes |
+
 ## Model default
-Executor agents = **Sonnet**. Opus only per the escalation list in `CLAUDE.md`.
+Executor agents = **Sonnet**. "Opus escalation" means handing the task back to the
+orchestrator window (Opus); subagents do not switch their own model. See `CLAUDE.md`.

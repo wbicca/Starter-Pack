@@ -2,7 +2,7 @@
 name: documentation-writer
 description: Use to write or update documentation and README files, and to persist artifacts like PRDs. Edits docs only; never changes source code.
 tools: Read, Grep, Glob, Write, Edit, Skill
-model: claude-sonnet-4-6
+model: sonnet
 permissionMode: default
 color: blue
 ---

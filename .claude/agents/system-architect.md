@@ -2,7 +2,7 @@
 name: system-architect
 description: Use for macro technical architecture and solution design. Docs-only — may write architecture docs under docs/, but does not implement code.
 tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Write, Edit, Skill
-model: claude-sonnet-4-6
+model: sonnet
 permissionMode: default
 color: blue
 ---
