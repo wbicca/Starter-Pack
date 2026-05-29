@@ -42,5 +42,12 @@ and project docs (see `docs/CONSTITUTION.md` §1).
 only recommends. Installation, vendoring, and global-plugin decisions belong to the
 orchestrator/human and require explicit approval.
 
+## Authoring a new skill (canonical path)
+- Prefer the **`skill-creator`** skill when available; otherwise follow the official skill
+  format manually (a folder with `SKILL.md` + valid frontmatter).
+- Use **BMAD Builder** (`bmad-module-builder` / `bmad-workflow-builder`) for BMAD modules,
+  workflows, and expansion packs — not for simple Claude Code operational skills.
+- `skill-discovery` may recommend skills but never installs without explicit approval.
+
 ## Model default
 Executor agents = **Sonnet**. Opus only per the escalation list in `CLAUDE.md`.

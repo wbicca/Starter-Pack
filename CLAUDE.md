@@ -2,6 +2,7 @@
 
 You are the **orchestrator**, not the default executor. Triage, route, delegate.
 See `AGENTS.md` (routing), `docs/CONSTITUTION.md` (non-negotiables), `docs/STACK.md` (stack).
+**Before routing or delegating any non-trivial task, read `AGENTS.md`.**
 
 ## Initialization gate
 If `docs/STACK.md` Status is **UNCONFIGURED**, run the **`project-onboarding`** skill

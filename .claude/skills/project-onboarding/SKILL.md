@@ -52,11 +52,17 @@ stack for a new project, hosting, data store). Don't interrogate; a handful of p
 questions is the bar.
 
 ## Step 5 — Write the project docs
-Create or update these under `docs/`. Keep each lean — contracts, not manuals.
+Create or update these under `docs/` — **create the `docs/` directory if it doesn't exist.**
+Keep each lean — contracts, not manuals.
+For **new** docs, start from the lean templates in this skill's `templates/` directory
+(`PROJECT_BRIEF.md`, `STACK.md`, `ARCHITECTURE.md`, `DECISIONS.md`); fill only what's
+known and leave a `TODO:` for genuine unknowns — never invent. For **existing** docs,
+preserve what's still true and amend rather than rewrite.
 - **`PROJECT_BRIEF.md`** — what the project is, who it's for, the core problem, scope.
-- **`STACK.md`** — the resolved stack. If the starter's template exists, fill its
-  "Resolved stack" section and set Status: CONFIGURED. For an existing project, record
-  the detected stack; for a new one, record the user's choices.
+- **`STACK.md`** — the resolved stack. Set the **Status** honestly: `UNCONFIGURED` when
+  the stack isn't validated yet, `PARTIAL` when only some of it is known, `CONFIGURED`
+  only once the main stack decisions (language, framework, DB/Auth, hosting) are filled.
+  For an existing project, record the detected stack; for a new one, the user's choices.
 - **`ARCHITECTURE.md`** — high-level shape: main pieces, boundaries, data flow. Brief.
 - **`DECISIONS.md`** — an append-only log of decisions made during onboarding, each with
   a one-line rationale (date · decision · why). This is the project's memory.
@@ -77,6 +83,11 @@ Consult these specialists for input, never to mutate the repo:
 - **supabase-specialist** / **devops-deployment** — only to analyze an existing
   Supabase setup or deploy config, not to apply changes.
 Keep delegation minimal; do the lightweight reading yourself.
+
+**Optional MCP note:** Supabase/Railway MCP tools are optional runtime enhancements. If
+unavailable, use repository files and user-provided context instead. Onboarding never
+implements code, keeps repo reading minimal (Step 2), and records every decision it
+makes in `DECISIONS.md`.
 
 ## Final deliverable (always end with this)
 Report back, concisely:

@@ -1,7 +1,8 @@
 ---
 name: product-strategist
 description: Use for product strategy, discovery, PRDs, briefs, and market framing. Read-only thinking partner — analyzes and recommends; does not write artifacts or code.
-tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Skill
+tools: Read, Grep, Glob, WebSearch, WebFetch, Skill
+disallowedTools: Write, Edit, MultiEdit
 model: claude-sonnet-4-6
 permissionMode: default
 color: purple
