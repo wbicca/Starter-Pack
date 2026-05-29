@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Environment files — never commit real secrets
+.env
+.env.*
+!.env.example
+!.env.local.example
+!.env.template
+
+# Build output
+dist/
+build/
+.next/
+out/
+coverage/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Caches
+.cache/
+.turbo/
+.eslintcache
+*.tsbuildinfo
+
+# Temp files
+*.tmp
+*.temp
+*~
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Local-only Claude/BMAD config (keep the rest vendored)
+.claude/settings.local.json
+_bmad/custom/config.user.toml
+
+# Kept vendored on purpose: _bmad, .claude/skills, .claude/agents, .claude/hooks, docs

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// PreToolUse/Edit·MultiEdit·Write — block obvious hardcoded secrets in new content.
+// PreToolUse/Edit·MultiEdit·Write — best-effort block of obvious hardcoded secrets in
+// new content. Heuristic, not exhaustive: it catches common shapes, not every secret.
 
 function deny(reason) {
   process.stdout.write(JSON.stringify({
@@ -28,7 +29,7 @@ try {
   process.exit(0);
 }
 
-// Collect all "new content" fields across Write / Edit / MultiEdit shapes.
+// Collect all "new content" across Write / Edit / MultiEdit shapes.
 const parts = [];
 if (typeof input.content === "string") parts.push(input.content);
 if (typeof input.new_string === "string") parts.push(input.new_string);
@@ -43,31 +44,60 @@ for (const key of ["edits", "replacements"]) {
 const text = parts.join("\n");
 if (!text.trim()) process.exit(0);
 
-// Safe placeholders — if the assigned value is clearly a placeholder, ignore.
-const PLACEHOLDER = /(your_key_here|change_me|changeme|example|placeholder|<[^>]*>|x{6,}|\.\.\.)/i;
+// A value is a safe placeholder ONLY if the WHOLE value is one (no substring matching).
+const PLACEHOLDERS = new Set([
+  "your_key_here", "change_me", "changeme", "placeholder", "example_value",
+]);
+function isPlaceholder(value) {
+  const v = value.trim().replace(/^["']|["']$/g, "").toLowerCase();
+  if (v === "") return true;
+  if (PLACEHOLDERS.has(v)) return true;
+  if (/^<.*>$/.test(v)) return true;        // <your-key>
+  if (/^\$\{.*\}$/.test(v)) return true;    // ${ENV_VAR}
+  if (/^x{6,}$/.test(v)) return true;       // xxxxxx
+  return false;
+}
 
-const SECRETS = [
-  { re: /SUPABASE_SERVICE_ROLE_KEY\s*=/, why: "Supabase service role key" },
-  { re: /STRIPE_SECRET_KEY\s*=/, why: "Stripe secret key" },
-  { re: /RESEND_API_KEY\s*=/, why: "Resend API key" },
-  { re: /JWT_SECRET\s*=/, why: "JWT secret" },
-  { re: /PRIVATE_KEY\s*=/, why: "private key" },
-  { re: /\bsk_live_[A-Za-z0-9]/, why: "Stripe live secret token" },
-  { re: /\bsk_test_[A-Za-z0-9]/, why: "Stripe test secret token" },
-  { re: /-----BEGIN (?:RSA )?PRIVATE KEY-----/, why: "PEM private key block" },
-  { re: /\beyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/, why: "JWT token" },
+// Assignment-style: KEY=value. Placeholder check applies to the value.
+const ASSIGNMENTS = [
+  { re: /SUPABASE_SERVICE_ROLE_KEY/i, why: "Supabase service role key" },
+  { re: /STRIPE_SECRET_KEY/i, why: "Stripe secret key" },
+  { re: /RESEND_API_KEY/i, why: "Resend API key" },
+  { re: /JWT_SECRET/i, why: "JWT secret" },
+  { re: /PRIVATE_KEY/i, why: "private key" },
 ];
 
-for (const s of SECRETS) {
+// Intrinsic secret shapes: always block (no placeholder exemption).
+const INTRINSIC = [
+  { re: /\bsk_live_[A-Za-z0-9]/, why: "Stripe live secret token" },
+  { re: /\bsk_test_[A-Za-z0-9]/, why: "Stripe test secret token" },
+  { re: /\bAKIA[0-9A-Z]{12,}/, why: "AWS access key id (AKIA)" },
+  { re: /\bASIA[0-9A-Z]{12,}/, why: "AWS temporary access key id (ASIA)" },
+  { re: /\bghp_[A-Za-z0-9]{20,}/, why: "GitHub personal access token (ghp_)" },
+  { re: /\bgithub_pat_[A-Za-z0-9_]{20,}/, why: "GitHub fine-grained PAT" },
+  { re: /\bAIza[0-9A-Za-z_\-]{20,}/, why: "Google API key (AIza)" },
+  { re: /-----BEGIN (?:RSA )?PRIVATE KEY-----/, why: "PEM private key block" },
+  { re: /\beyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/, why: "JWT token" },
+  // DATABASE_URL / POSTGRES_URL (or any postgres URL) with an inline real credential
+  { re: /\b(?:postgres|postgresql):\/\/[^:\s\/@]+:([^@\s\/]+)@/, why: "database URL with inline credentials", group: 1 },
+];
+
+const lines = text.split("\n");
+
+for (const s of ASSIGNMENTS) {
+  const assignRe = new RegExp(s.re.source + "\\s*[:=]", "i");
+  const line = lines.find((l) => assignRe.test(l));
+  if (!line) continue;
+  const value = line.split(/[:=]/).slice(1).join("=");
+  if (isPlaceholder(value)) continue; // whole-value placeholder → allow
+  deny(`Possible secret detected (${s.why}). Use placeholders and document required variables in .env.example.`);
+}
+
+for (const s of INTRINSIC) {
   const m = text.match(s.re);
   if (!m) continue;
-  // For KEY= patterns, check the value on that line isn't a placeholder.
-  const line = text.split("\n").find((l) => s.re.test(l)) ?? "";
-  const isAssignment = /=/.test(s.re.source);
-  if (isAssignment) {
-    const value = line.split("=").slice(1).join("=").trim().replace(/^["']|["']$/g, "");
-    if (!value || PLACEHOLDER.test(value)) continue; // empty or placeholder → allow
-  }
+  // For URL credentials, let an obvious placeholder password through.
+  if (s.group && isPlaceholder(m[s.group])) continue;
   deny(`Possible secret detected (${s.why}). Use placeholders and document required variables in .env.example.`);
 }
 
