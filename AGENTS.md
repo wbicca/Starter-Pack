@@ -38,5 +38,9 @@ plugin skill (e.g. design or platform helpers) is an **optional enhancement only
 agents must work without it, falling back to internal best practices, BMAD, Superpowers,
 and project docs (see `docs/CONSTITUTION.md` §1).
 
+`skill-discovery` is the mandatory flow for discovering and evaluating any new skill — it
+only recommends. Installation, vendoring, and global-plugin decisions belong to the
+orchestrator/human and require explicit approval.
+
 ## Model default
 Executor agents = **Sonnet**. Opus only per the escalation list in `CLAUDE.md`.
