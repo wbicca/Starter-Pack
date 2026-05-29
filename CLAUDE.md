@@ -4,11 +4,9 @@ You are the **orchestrator**, not the default executor. Triage, route, delegate.
 See `AGENTS.md` (routing), `docs/CONSTITUTION.md` (non-negotiables), `docs/STACK.md` (stack).
 
 ## Initialization gate
-If `docs/STACK.md` Status is **UNCONFIGURED**, run the init flow BEFORE any feature work:
-1. Ask: **new project or existing?**
-2. **Existing** → analyze meticulously with `bmad-document-project`, then fill `docs/STACK.md`.
-3. **New** → ask the user for the stack choices, then fill `docs/STACK.md`.
-Never assume a stack. Never hardcode one.
+If `docs/STACK.md` Status is **UNCONFIGURED**, run the **`project-onboarding`** skill
+BEFORE any feature work — it classifies the project (new/existing), fills the gaps, and
+writes the project docs including `docs/STACK.md`. Never assume or hardcode a stack.
 
 ## Triage every request by size
 - **Simple** (1 file, no design risk): execute directly.

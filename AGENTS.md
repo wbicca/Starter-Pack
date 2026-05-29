@@ -6,8 +6,8 @@ canonical skill/stack to use. Resolves all known BMAD ↔ Superpowers overlaps.
 ## Routing table
 | Task | Canonical | Notes |
 |------|-----------|-------|
-| Onboard existing project | `bmad-document-project` | full brownfield analysis → fills `docs/STACK.md` |
-| Onboard new project | interactive stack questions | orchestrator asks; no skill needed |
+| Project onboarding (new or existing) | `project-onboarding` | classifies the project + writes docs/PROJECT_BRIEF/STACK/ARCHITECTURE/DECISIONS; uses `bmad-document-project` internally for existing repos |
+| Discover / evaluate a new skill | `skill-discovery` | recommends only, never installs (see "External skills are optional") |
 | Feature / impl ideation | Superpowers `brainstorming` | default gate before any coding |
 | Product discovery for a PRD | `bmad-brainstorming` | only inside the BMAD planning track |
 | PRD / product brief | `bmad-prd` | create / update / validate |
