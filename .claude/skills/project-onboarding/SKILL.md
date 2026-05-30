@@ -1,7 +1,7 @@
 ---
 name: project-onboarding
 description: >
-  Initialize a real project bootstrapped from the BRX starter. Use this whenever a
+  Initialize a real project bootstrapped from the Starter Pack template. Use this whenever a
   project is being set up for the first time, when the user says "onboard this
   project", "set up a new project", "let's start this repo", "initialize the starter",
   or when docs/STACK.md still reads UNCONFIGURED. Also trigger when you land in an
@@ -45,6 +45,13 @@ carry the most signal per token:
 The goal is a confident mental model, not full coverage. Stop scanning once you can
 classify the project and name its stack.
 
+### codegraph check (optional)
+Check whether codegraph is in use — its MCP tools (`codegraph_*`) are available, or a
+`codegraph` config exists. If it **is** in use but this project has **no `.codegraph/`
+index yet**, remind the user (don't let them forget): run **`codegraph init -i`** in the
+project root to enable graph-based navigation — the watcher keeps it synced afterward. If
+`.codegraph/` already exists, or codegraph isn't in use, skip this silently.
+
 ## Step 3 — Classify
 Determine two things and state them back to the user:
 1. **New** (empty/scaffold only) or **existing** (has real code/history).
@@ -75,8 +82,6 @@ preserve what's still true and amend rather than rewrite.
 - **`ARCHITECTURE.md`** — high-level shape: main pieces, boundaries, data flow. Brief.
 - **`DECISIONS.md`** — an append-only log of decisions made during onboarding, each with
   a one-line rationale (date · decision · why). This is the project's memory.
-
-When updating an existing doc, preserve what's still true and amend rather than rewrite.
 
 ## Guardrails (ask before crossing these)
 - **Never** modify `docs/CONSTITUTION.md` without explicit user approval — it's the

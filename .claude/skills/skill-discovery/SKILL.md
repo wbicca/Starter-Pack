@@ -5,7 +5,7 @@ description: >
   with a task — WITHOUT installing anything. Use whenever the user asks "is there a skill
   for X", "find a skill", "what could help me do Y", wonders whether to add a plugin, or
   hits a capability gap and you're tempted to reach for an external tool. Always run this
-  before adding any new skill: it checks whether BMAD, Superpowers, or the BRX agents
+  before adding any new skill: it checks whether BMAD, Superpowers, or this starter's agents
   already cover the need, then recommends at most 3 options classified by how (if at all)
   to adopt them. It only advises — installation, vendoring, and making anything mandatory
   are human decisions made elsewhere.
@@ -36,8 +36,8 @@ vendor, or enable anything yourself.
 ## Process
 1. **Restate the need** in one sentence — the concrete capability, not the tool name.
 2. **Check what already exists FIRST.** Does BMAD, Superpowers, an existing `.claude/skills`
-   skill, or a BRX agent (`AGENTS.md`) already cover this? If yes → recommend **não instalar**
-   and point to the canonical path. Stop here.
+   skill, or one of this starter's agents (`AGENTS.md`) already cover this? If yes →
+   recommend **don't install** and point to the canonical path. Stop here.
 3. **If genuinely uncovered**, find up to **3** candidate options (internal or external).
 4. **Evaluate** each against the criteria below.
 5. **Classify** each option (see categories).
@@ -46,7 +46,7 @@ vendor, or enable anything yourself.
 
 ## Evaluation criteria (ask these of every candidate)
 - Does it resolve a *real* gap?
-- Does it duplicate BMAD/Superpowers/BRX agents?
+- Does it duplicate BMAD/Superpowers/this starter's agents?
 - Is the source trustworthy?
 - Is it small and specific (vs. a sprawling dependency)?
 - Does it require dangerous permissions?
@@ -55,12 +55,12 @@ vendor, or enable anything yourself.
 - Can it stay optional?
 
 ## Classification (pick one per option)
-- **não instalar** — already covered, or not worth it.
-- **usar como opcional** — useful enhancement; reference it as optional, never required.
-- **instalar como plugin pessoal/global** — experimental/individual; belongs in the user's
+- **don't install** — already covered, or not worth it.
+- **use as optional** — useful enhancement; reference it as optional, never required.
+- **install as a personal/global plugin** — experimental/individual; belongs in the user's
   global setup, NOT in the starter.
-- **vendorizar no projeto** — essential to the BRX standard; copy in-repo — only after approval.
-- **criar skill própria** — the need is BRX-specific; author a dedicated skill instead.
+- **vendor into the project** — essential to this starter's standard; copy in-repo — only after approval.
+- **build your own skill** — the need is specific to this starter; author a dedicated skill instead.
 
 ## Response format
 Lead with the headline (often "already covered — recommend installing nothing"). Then, for
@@ -91,7 +91,7 @@ If approved, installation is carried out by the orchestrator (e.g. via the globa
 
 ## Final checklist
 - [ ] Restated the real need.
-- [ ] Checked BMAD / Superpowers / existing skills / BRX agents first.
+- [ ] Checked BMAD / Superpowers / existing skills / this starter's agents first.
 - [ ] ≤ 3 options, each evaluated against all criteria.
 - [ ] Each option classified into one of the 5 categories.
 - [ ] Nothing installed/vendored/enabled; ended with an approval request.

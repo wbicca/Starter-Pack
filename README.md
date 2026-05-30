@@ -1,4 +1,4 @@
-# BRX Starter
+# Starter Pack
 
 Template **Claude Code** para **vibecoding**. Clone este repositório para começar qualquer
 projeto novo já com uma camada de orquestração consistente, agentes especializados, hooks
@@ -10,7 +10,7 @@ Ele costura dois motores:
 - **Superpowers** — disciplina de **execução** (TDD, debugging sistemático, verificação,
   worktrees, fan-out por subagentes).
 
-A **camada BRX** é a cola entre os dois: define quem orquestra, qual caminho é canônico
+A **camada de orquestração** é a cola entre os dois: define quem orquestra, qual caminho é canônico
 para cada tarefa (resolvendo sobreposições BMAD ↔ Superpowers) e o que é inegociável.
 
 > Idioma: as respostas ao usuário são em **português**. Contratos, agentes e skills ficam
@@ -29,7 +29,7 @@ para cada tarefa (resolvendo sobreposições BMAD ↔ Superpowers) e o que é in
             ┌──────────────────────────┼───────────────────────────┐
             ▼                          ▼                            ▼
    ┌────────────────┐        ┌──────────────────┐         ┌──────────────────┐
-   │  BMAD (plano)  │        │ Superpowers (exec)│         │  Agentes BRX     │
+   │  BMAD (plano)  │        │ Superpowers (exec)│         │  Agentes         │
    │  PRD, épicos,  │        │ TDD, debugging,   │         │  (Sonnet, por    │
    │  arquitetura   │        │ verificação,      │         │  função, em      │
    │                │        │ worktrees         │         │  worktree)       │
@@ -100,7 +100,7 @@ A lista completa está em **`AGENTS.md`** (o contrato de roteamento).
 Todos rodam em **Sonnet** por padrão. "Escalar para Opus" = trazer a tarefa de volta à
 janela orquestradora (subagentes não trocam o próprio modelo).
 
-### As skills BRX
+### As skills do Starter Pack
 - **`project-onboarding`** — inicializa um projeto: classifica, pergunta só o essencial,
   cria os docs (`PROJECT_BRIEF`, `STACK`, `ARCHITECTURE`, `DECISIONS`). Não implementa código.
 - **`skill-discovery`** — descobre/avalia/recomenda skills (internas ou externas) **sem

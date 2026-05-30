@@ -1,21 +1,11 @@
-# BRX Standard Stack
+# Standard Stack
 
-> **Status: UNCONFIGURED** — fill this via the init flow before doing feature work.
-
-## Initialization (run once, while Status is UNCONFIGURED)
-Ask the user: **new project or existing project?**
-
-### Existing project
-- Run a full, meticulous analysis via `bmad-document-project`.
-- Detect language, framework, UI, DB/Auth, hosting, test tooling, and conventions.
-- Write the findings into "Resolved stack" below; set Status: CONFIGURED.
-
-### New project
-- Ask the user which stacks to use (language, framework, UI, DB/Auth, hosting, tests).
-- Record their choices in "Resolved stack" below; set Status: CONFIGURED.
+> **Status: UNCONFIGURED**  (allowed values: UNCONFIGURED · PARTIAL · CONFIGURED)
+> Filled per project by the **`project-onboarding`** skill — don't hand-run the init flow
+> here; that procedure lives in the skill, which sets the Status honestly.
 
 ## Resolved stack
-_(empty until initialized)_
+_(empty until configured)_
 - Language:
 - Framework:
 - UI:
@@ -25,4 +15,4 @@ _(empty until initialized)_
 
 ## Hard stack rules (apply once configured)
 - If Supabase/Postgres is chosen: RLS on by default for every table.
-- Auth/RLS changes are Opus-escalation work (see `CLAUDE.md` model policy).
+- Auth/RLS or data-migration changes are Opus-escalation work (see `CLAUDE.md` model policy).

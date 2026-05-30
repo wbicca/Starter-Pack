@@ -1,4 +1,4 @@
-# BRX Constitution — non-negotiables
+# Constitution — non-negotiables
 
 When a future decision conflicts with anything here, this file wins.
 

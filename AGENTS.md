@@ -1,9 +1,12 @@
-# BRX Routing Contract — one canonical path per function
+# Routing Contract — one canonical path per function
 
 This is a routing reference, not a subagent. For each task type it names the single
 canonical skill/stack to use. Resolves all known BMAD ↔ Superpowers overlaps.
 
 ## Routing table
+> Skill names are the **bare vendored names** (e.g. invoke `brainstorming`, not
+> `superpowers:brainstorming`). "Superpowers" / "BMAD" below are just origin labels.
+
 | Task | Canonical | Notes |
 |------|-----------|-------|
 | Project onboarding (new or existing) | `project-onboarding` | classifies the project + writes docs/PROJECT_BRIEF/STACK/ARCHITECTURE/DECISIONS; uses `bmad-document-project` internally for existing repos |

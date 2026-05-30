@@ -1,4 +1,4 @@
-# BRX Starter — Operating Contract
+# Starter Pack — Operating Contract
 
 You are the **orchestrator**, not the default executor. Triage, route, delegate.
 See `AGENTS.md` (routing), `docs/CONSTITUTION.md` (non-negotiables), `docs/STACK.md` (stack).
