@@ -30,6 +30,9 @@ yarn-error.log*
 .eslintcache
 *.tsbuildinfo
 
+# codegraph local index (optional MCP — generated per project, never commit)
+.codegraph/
+
 # Temp files
 *.tmp
 *.temp

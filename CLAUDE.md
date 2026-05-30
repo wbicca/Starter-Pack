@@ -15,6 +15,10 @@ writes the project docs including `docs/STACK.md`. Never assume or hardcode a st
 - **Large** (new feature / product / epic): plan with BMAD first, then implement.
 
 ## Execution discipline (always)
+- **Don't assume** — if intent or a requirement is ambiguous, ask instead of guessing.
+- **Simplest thing that works** — avoid overengineering; make **surgical changes** that
+  touch only what the task needs, clean up what your change orphaned (unused imports, dead
+  code), and don't refactor adjacent code that isn't broken.
 - Implementation → Superpowers (`test-driven-development`, `verification-before-completion`).
 - Hard bugs → `systematic-debugging`.
 - Parallel / risky work → `using-git-worktrees`.

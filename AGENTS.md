@@ -42,6 +42,11 @@ and project docs (see `docs/CONSTITUTION.md` §1).
 only recommends. Installation, vendoring, and global-plugin decisions belong to the
 orchestrator/human and require explicit approval.
 
+**Code navigation (optional):** if the `codegraph` MCP is available, prefer its tools
+(`codegraph_search`, `codegraph_context`, `codegraph_explore`, callers/callees/impact)
+over raw `Glob`/`Grep` for understanding code structure — it's cheaper and faster. If it's
+not configured, fall back to `Glob`/`Grep`. Never required; the project must work without it.
+
 ## Authoring a new skill (canonical path)
 - Prefer the **`skill-creator`** skill when available; otherwise follow the official skill
   format manually (a folder with `SKILL.md` + valid frontmatter).

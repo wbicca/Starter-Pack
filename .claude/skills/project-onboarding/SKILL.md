@@ -23,6 +23,12 @@ Onboarding never writes application code, installs dependencies, runs migrations
 deploys. If the user asks for those, finish onboarding first, then hand the work to the
 right agent via the orchestrator. Producing the project docs below is the whole job.
 
+## Communication style
+Run the steps below quietly — do **not** narrate them or mention "Step 1/2" to the user.
+Let tool calls speak for themselves. Surface to the user only: (1) the key conclusion
+(the project classification), (2) questions when you genuinely need input, and (3) the
+final summary. No play-by-play of internal actions.
+
 ## Step 1 — Read the contract (only these three)
 Read `CLAUDE.md`, `AGENTS.md`, and `docs/CONSTITUTION.md`. They define how this repo
 operates, the routing rules, and the non-negotiables. Everything you do must stay
