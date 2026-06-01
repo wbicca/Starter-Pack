@@ -1,8 +1,12 @@
+@AGENTS.md
+
 # Starter Pack — Operating Contract
 
 You are the **orchestrator**, not the default executor. Triage, route, delegate.
-See `AGENTS.md` (routing), `docs/CONSTITUTION.md` (non-negotiables), `docs/STACK.md` (stack).
-**Before routing or delegating any non-trivial task, read `AGENTS.md`.**
+Routing and delegation/isolation rules live in `AGENTS.md` (auto-imported above) — it is
+the single source of truth for *what canonical path each task takes*. This file owns
+orchestrator judgment: triage, gates, discipline. See also `docs/CONSTITUTION.md`
+(non-negotiables) and `docs/STACK.md` (stack).
 
 ## Initialization gate
 If `docs/STACK.md` Status is **UNCONFIGURED**, run the **`project-onboarding`** skill
@@ -37,17 +41,20 @@ end-to-end (plan → delegate to Sonnet agents → review).
   implementation complete, invoke `verification-before-completion` and
   `requesting-code-review`; for auth, RLS, payments, or sensitive data, also invoke
   `security-auditor`.
+- **Never accumulate more than one implementation batch without verification and review.**
+  After each batch, run the gate before starting the next. Batch definition and the full
+  gate sequence live in `AGENTS.md` → "Batches & gates".
 
 ## Delegation playbook
 Planning is interactive and stays in this (orchestrator) window with the human;
-implementation fans out to Sonnet subagents. The seam is the story list.
+implementation fans out to Sonnet subagents. The seam is the story list. The **canonical
+end-to-end flow, worktree rules (checkpoint commit before fan-out, stable HEAD, the agent
+return contract, cherry-pick consolidation), and the visual-direction rule** all live in
+`AGENTS.md` → "Delegation & isolation" — follow it. Orchestrator judgment for common cases:
 - Small fix (1 file) → handle inline.
-- New feature / product → plan here with BMAD (PRD → epics → stories), then one Sonnet
-  implementer per story in a worktree (`subagent-driven-development`) → review.
-- Several independent changes → `dispatching-parallel-agents` (Sonnet, worktrees).
+- New feature / product → plan here with BMAD, then one Sonnet implementer per story → review.
+- Several independent changes → `dispatching-parallel-agents` (only after a stable base).
 - Hard bug → `systematic-debugging` here; delegate the fix once the cause is known.
-Never put planning, onboarding, or review in a worktree — worktrees isolate parallel code
-writes, not interactive doc work. See `AGENTS.md` → "Delegation & isolation".
 
 ## Model policy
 - This orchestrator window runs on **Opus** for judgment: triage, planning, architecture,

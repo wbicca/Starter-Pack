@@ -2,6 +2,13 @@
   "enabledPlugins": {
     "superpowers@claude-plugins-official": false
   },
+  "worktree": {
+    "baseRef": "head"
+  },
+  "permissions": {
+    "defaultMode": "default",
+    "disableBypassPermissionsMode": "disable"
+  },
   "hooks": {
     "SessionStart": [
       {
@@ -16,6 +23,24 @@
       }
     ],
     "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/orchestrator-write-guard.mjs\""
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/orchestrator-write-guard.mjs\""
+          }
+        ]
+      },
       {
         "matcher": "Bash",
         "hooks": [

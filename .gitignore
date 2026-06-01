@@ -47,6 +47,7 @@ Thumbs.db
 
 # Local-only Claude/BMAD config (keep the rest vendored)
 .claude/settings.local.json
+.claude/worktrees/
 _bmad/custom/config.user.toml
 
 # BMAD output: ephemeral artifacts — keep only the base structure

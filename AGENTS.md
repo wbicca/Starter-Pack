@@ -88,6 +88,44 @@ not configured, fall back to `Glob`/`Grep`. Never required; the project must wor
 | Parallel independent changes (after scaffold) | Yes |
 | Risky / destructive change | Yes |
 
+### Parallel fan-out protocol (canonical)
+Worktrees isolate **parallel code writes**, not interactive doc work. Planning, onboarding,
+and review never use a worktree. `worktree.baseRef` is `head`, so every new worktree starts
+from the current branch HEAD — keep HEAD stable before fanning out.
+
+1. **Planning** happens in the main Opus window with the human.
+2. **Scaffold / initial foundation** goes to a **single** Sonnet implementer in a worktree.
+3. Before **any** parallel fan-out, create a **checkpoint commit** of the stable base.
+4. Each parallel agent starts from the **stable HEAD** (never from another agent's worktree).
+5. Each agent works in **its own** worktree.
+6. Each agent returns: **summary · files changed · tests run · risks · commit hash**.
+7. The orchestrator consolidates by **cherry-pick** (or requests human approval) — it does
+   not hand-apply agent code into the main window.
+8. **Never** dispatch an isolated agent asking it to edit a worktree that already belongs to
+   another agent.
+9. Exploratory visual iteration uses a **single** worktree or preview page until the visual
+   direction is approved.
+10. Only **parallelize visual propagation after** the visual language is approved.
+
+## Batches & gates
+**Never accumulate more than one implementation batch without verification and review.**
+
+A **batch** is one of: a single story · one structural change · a small, cohesive set of
+components · one approved redesign round.
+
+After **each** batch, before starting the next:
+1. run `verification-before-completion`;
+2. run `requesting-code-review`;
+3. trigger `security-auditor` when the batch touches auth, RLS, payments, webhooks, PII,
+   relevant dependencies, or external assets;
+4. fix blockers;
+5. only then start the next batch.
+
+**External assets:** record origin and license in `NOTICE.md` (or an asset log) before publication.
+
+**Design:** `frontend-designer` defines the direction and light variants → the **user approves
+the direction** → `frontend-engineer` implements → only then propagate to other sections.
+
 ## Model default
 Executor agents = **Sonnet**. "Opus escalation" means handing the task back to the
 orchestrator window (Opus); subagents do not switch their own model. See `CLAUDE.md`.

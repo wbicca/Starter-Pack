@@ -158,6 +158,29 @@ Se quiser forçar, pode dizer *"usa o backend-engineer para isso"*.
 - **Economia:** a janela Opus decide e delega; o volume vai para Sonnet. Não use a janela
   principal para digitar boilerplate.
 
+### 5.1 Fan-out paralelo — protocolo canônico
+
+A regra completa vive em `AGENTS.md` → "Delegation & isolation". Na prática:
+1. **Planeje** na janela principal (Opus, com você).
+2. **Scaffold/fundação** vai para **um único** implementador Sonnet em worktree.
+3. Antes de qualquer paralelização, faça um **checkpoint commit** da base estável.
+4. Como `worktree.baseRef = head`, cada agente paralelo **parte do HEAD estável** — nunca do
+   worktree de outro agente. Cada um tem **sua própria** worktree.
+5. Cada agente **devolve**: resumo · arquivos alterados · testes executados · riscos · **hash do commit**.
+6. O orquestrador **consolida por cherry-pick** dos commits dos agentes (ou pede sua aprovação);
+   ele **não** cola código de agente à mão na janela principal.
+7. **Redesign:** itere a direção visual em **uma única worktree ou página de preview**; só
+   **propague para outras seções depois que você aprovar** a linguagem visual.
+
+### 5.2 Batches e gates
+
+**Nunca acumule mais de um batch de implementação sem verificação e review.** Um *batch* é
+uma story, uma mudança estrutural, um conjunto pequeno e coeso de componentes, ou uma rodada
+de redesign aprovada. Depois de cada batch: `verification-before-completion` →
+`requesting-code-review` → `security-auditor` (quando houver auth, RLS, pagamentos, webhook,
+PII, dependências relevantes ou assets externos) → corrigir bloqueadores → só então o próximo
+batch. Assets externos: registre origem e licença em `NOTICE.md` antes de publicar.
+
 ---
 
 ## Scaffolding applications safely
@@ -224,6 +247,27 @@ Rodam automaticamente (best-effort, não são fronteira absoluta):
 
 Se um hook bloquear algo legítimo, peça confirmação explícita ou ajuste a abordagem
 (ex.: pré-visualize com `ls`/`git status` antes de deletar).
+
+### Orchestrator write policy
+
+- Em sessões normais, o **Opus principal não escreve código da aplicação** nem altera
+  arquivos de governança (`CLAUDE.md`, `AGENTS.md`, `.claude/**`). O hook
+  `orchestrator-write-guard` **nega** essas escritas de forma determinística.
+- **Implementação deve ser delegada a agentes Sonnet** (em worktree). A janela principal
+  decide, planeja, revisa e sintetiza — não digita boilerplate.
+- Para **manutenção intencional do starter** ou uma **correção inline excepcional**, inicie
+  uma **sessão separada** com o override explícito:
+
+  ```bash
+  CLAUDE_ORCHESTRATOR_WRITE_OVERRIDE=1 claude --model opus
+  ```
+
+- Mesmo no modo de manutenção, cada escrita **exige aprovação humana** (o override apenas
+  rebaixa `DENY` → `ASK`, **nunca** para `ALLOW` automático).
+- Escrita **fora da raiz do projeto** (ex.: `../`) é **sempre negada**, inclusive com o
+  override — faça isso manualmente fora do Claude Code se for realmente necessário.
+- O override **nunca desativa os hooks de segurança** (`.env` real, segredos, comandos
+  destrutivos continuam bloqueados). **Não use como modo padrão.**
 
 ---
 
