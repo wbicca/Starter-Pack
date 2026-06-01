@@ -12,3 +12,9 @@ When a future decision conflicts with anything here, this file wins.
 6. **Cheapest competent model.** Sonnet by default; Opus only when justified.
 7. **Don't modify the engine.** `_bmad/` and installed BMAD skills are read-only.
 8. **Docs stay lean.** Reference contracts, not manuals.
+
+## Project-specific non-negotiables
+
+Filled during `project-onboarding`, only with explicit user approval. Do not invent rules.
+
+No project-specific non-negotiables defined yet.

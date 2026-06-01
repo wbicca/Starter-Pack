@@ -75,21 +75,37 @@ if (rmTarget) {
   }
 }
 
-// --- 4) Bash redirection / writes to a real .env file ---
-// Catches: > .env   >> .env.local   cat > .env   tee .env   printf .. > .env.production
-const ALLOWED_ENV = /\.env\.(example|local\.example|template)$|\.env\.example$/;
-// pull candidate targets from redirections and tee
-const targets = [];
+// --- 4) Shell writes (redirection / tee / cp / mv / rsync) to protected files ---
+// Protected: starter contract files + real .env files. Allow .env example/template.
+const ALLOWED_ENV = /^\.env\.(example|local\.example|template)$/;
+const PROTECTED_STARTER = ["claude.md", "agents.md", "constitution.md"];
+const PROTECTED_MSG =
+  "Protected starter file or real environment file. Scaffold in a temporary subdirectory or ask the human to perform the approved environment setup manually.";
+
+const writeTargets = [];
+// redirections (> / >>) and tee
 for (const m of unquoted.matchAll(/(?:>>?|\btee\s+(?:-a\s+)?)\s*([^\s;|&]+)/g)) {
-  targets.push(m[1]);
+  writeTargets.push(m[1]);
 }
-for (const t of targets) {
-  const base = t.split("/").pop() || t;
+// cp / mv / rsync → destination is the last non-flag token of the segment (best-effort)
+for (const m of unquoted.matchAll(/\b(?:cp|mv|rsync)\b([^;|&]*)/g)) {
+  const toks = m[1].split(/\s+/).filter((t) => t && !t.startsWith("-"));
+  if (toks.length) writeTargets.push(toks[toks.length - 1]);
+}
+for (const t of writeTargets) {
+  const base = (t.split("/").pop() || t);
+  if (PROTECTED_STARTER.includes(base)) deny(PROTECTED_MSG);
   const isEnv = /^\.env$|^\.env\.[^/]+$/.test(base);
-  const isAllowed = ALLOWED_ENV.test(base) || base === ".env.example" || base === ".env.local.example" || base === ".env.template";
-  if (isEnv && !isAllowed) {
-    deny("Blocked: writing to a real .env file via the shell. Real environment files are protected — use .env.example, or set values through your platform's secret manager.");
-  }
+  if (isEnv && !ALLOWED_ENV.test(base)) deny(PROTECTED_MSG);
+}
+
+// --- 5) Scaffolders aimed at the repo root (would overwrite starter files) ---
+const isScaffolder =
+  /\b(create-next-app|create-react-app|create-remix|create-astro|create-svelte|create-vite|create-vue|nuxi)\b/.test(c) ||
+  /\b(npm|pnpm|yarn|bun)\s+create\b/.test(c);
+const targetsRoot = /\s\.(\/)?(\s|$)/.test(unquoted);
+if (isScaffolder && targetsRoot) {
+  deny("Blocked: scaffolding into the Starter Pack root would overwrite CLAUDE.md/AGENTS.md/docs. Scaffold in a temporary subdirectory (e.g. .tmp-app/) and integrate selectively.");
 }
 
 process.exit(0);

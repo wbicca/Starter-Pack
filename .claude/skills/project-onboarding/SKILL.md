@@ -25,9 +25,30 @@ right agent via the orchestrator. Producing the project docs below is the whole 
 
 ## Communication style
 Run the steps below quietly — do **not** narrate them or mention "Step 1/2" to the user.
-Let tool calls speak for themselves. Surface to the user only: (1) the key conclusion
-(the project classification), (2) questions when you genuinely need input, and (3) the
-final summary. No play-by-play of internal actions.
+Let tool calls speak for themselves. Surface to the user only: (1) the Step 0 questions,
+(2) the key conclusion (the project classification), (3) questions when you genuinely need
+more input, and (4) the final summary. No play-by-play of internal actions.
+
+**Operating rules:**
+- Ask the Step 0 questions **before any extensive scan**; keep the initial inspection minimal.
+- Do not use a general-purpose subagent for trivial repository scans. Perform lightweight
+  discovery directly with Glob, Grep and safe listings.
+- If a tool's output comes back empty, duplicated, or corrupted **twice in a row, STOP** and
+  recommend `systematic-debugging` before retrying — don't loop on broken output.
+
+## Step 0 — Ask first (before any scan)
+Before reading or scanning anything, ask the user (one short batch) and **wait for answers**:
+1. "Descreva em uma frase o projeto que deseja criar ou analisar."
+2. "O nome atual da pasta corresponde ao produto real? Posso usá-lo como referência ou devo ignorá-lo?"
+3. "Este é um projeto novo, um projeto existente, ou você ainda não tem certeza?"
+4. "Existem regras inegociáveis específicas deste projeto? (ex.: compliance, dados sensíveis,
+   stack obrigatória, multi-tenant, white-label, segurança, performance, integrações obrigatórias)"
+
+Rules:
+- The folder name is a **hint only, never the source of truth** — do not classify the product from it.
+- Do **not** classify or scan extensively before you have the answers.
+- If the user isn't sure whether it's new or existing, do a **minimal inspection** (top-level
+  `ls`/Glob only) just to help them decide — nothing more.
 
 ## Step 1 — Read the contract (only these three)
 Read `CLAUDE.md`, `AGENTS.md`, and `docs/CONSTITUTION.md`. They define how this repo
@@ -83,6 +104,11 @@ preserve what's still true and amend rather than rewrite.
 - **`DECISIONS.md`** — an append-only log of decisions made during onboarding, each with
   a one-line rationale (date · decision · why). This is the project's memory.
 
+**Project-specific non-negotiables:** if the user named project-specific hard rules in
+Step 0 (Q4), propose filling the **"Project-specific non-negotiables"** section of
+`docs/CONSTITUTION.md`. Write it **only with explicit user approval**, in their wording —
+never invent rules. If there are none, leave the section's default placeholder.
+
 ## Guardrails (ask before crossing these)
 - **Never** modify `docs/CONSTITUTION.md` without explicit user approval — it's the
   non-negotiables.
@@ -109,12 +135,15 @@ Report back, concisely:
 2. **Files written/updated** — list with a word on each.
 3. **Decisions recorded** — what went into `DECISIONS.md`.
 4. **Open gaps** — what's still unknown or needs the user.
-5. **Recommended next steps** — the natural follow-on work (and which agent owns it).
+5. **Recommended next flow** — classify the demand and name the next **mandatory** flow
+   (e.g. BMAD planning before any implementation). Never jump straight to coding for a new
+   project or a non-trivial feature.
 
 ## Validation checklist (run before declaring done)
-- [ ] Read CLAUDE.md, AGENTS.md, CONSTITUTION.md.
+- [ ] Asked the Step 0 questions (purpose, folder-name relationship, new/existing, project rules) BEFORE scanning.
+- [ ] Treated the folder name as a hint only, not the source of truth.
 - [ ] Classified: new/existing + type, confirmed with the user.
-- [ ] Asked only essential, non-inferable questions.
+- [ ] Proposed Project-specific non-negotiables if any — written only with explicit approval.
 - [ ] PROJECT_BRIEF / STACK / ARCHITECTURE / DECISIONS created or updated and lean.
 - [ ] No application code written; no protected file changed without approval.
-- [ ] Delivered the 5-part summary.
+- [ ] Delivered the summary + recommended the next mandatory flow.

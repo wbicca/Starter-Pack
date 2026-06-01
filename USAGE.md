@@ -160,6 +160,22 @@ Se quiser forçar, pode dizer *"usa o backend-engineer para isso"*.
 
 ---
 
+## Scaffolding applications safely
+
+Geradores como `create-next-app`, `npm create vite`, etc. **sobrescrevem arquivos na pasta
+onde rodam** — rodar na raiz do Starter Pack apaga/corrompe `CLAUDE.md`, `AGENTS.md`, `docs/`.
+Regras:
+- **Nunca** rode `create-next-app`, `npm create vite` ou equivalente **na raiz** do Starter Pack.
+- Crie o scaffold numa **subpasta temporária**, ex.: `.tmp-app/`.
+- Integre **seletivamente** os arquivos do app para a raiz.
+- **Preserve sempre:** `CLAUDE.md`, `AGENTS.md`, `USAGE.md`, `docs/`, `.claude/`, `_bmad/`.
+- Remova a subpasta temporária **só após conferir** a integração.
+
+> O hook `block-dangerous-bash` bloqueia (best-effort) scaffolders apontados para `.`/raiz e
+> escrita via shell em arquivos protegidos do starter. Não é sandbox perfeito — siga a regra acima.
+
+---
+
 ## 6. Ferramentas opcionais
 
 ### 6.1 codegraph (navegação de código — opcional)

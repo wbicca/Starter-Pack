@@ -58,19 +58,34 @@ not configured, fall back to `Glob`/`Grep`. Never required; the project must wor
 - `skill-discovery` may recommend skills but never installs without explicit approval.
 
 ## Delegation & isolation
-- Planning (onboarding, PRD, epics, architecture) runs in the orchestrator window with the
-  human — never delegated to an isolated agent.
-- Implementation fans out from the story list: one Sonnet implementer per story via
-  `subagent-driven-development`; independent parallel tasks via `dispatching-parallel-agents`.
-- Use a git worktree (`using-git-worktrees`) to isolate parallel or risky code writes.
+
+**End-to-end flow (new project / non-trivial feature):**
+1. **Onboarding** → `project-onboarding` (main window).
+2. **Planning** → BMAD in the main **Opus** window (PRD → stories), with the human.
+3. **Scaffold** → **one** Sonnet implementer, in an isolated worktree, builds the base scaffold.
+4. **After the scaffold is integrated & stable** → independent stories fan out to Sonnet agents
+   in **separate** worktrees (`subagent-driven-development` / `dispatching-parallel-agents`).
+5. **Auth / RLS / schema** → `supabase-specialist` and/or `database-architect`.
+6. **UI / design** → `frontend-designer` before `frontend-engineer` when there's a visual decision.
+7. **Backend / API** → `backend-engineer`.
+8. **Finalization** → `qa-tester`, `code-reviewer`, and `security-auditor` when applicable.
+9. **Synthesis** → Opus receives the results; it does not write boilerplate directly.
+
+**Rules:**
+- No scaffold, multi-file change, or new product is implemented **inline by the orchestrator** —
+  the only exception is a small, clearly-local change.
+- Planning never uses a worktree; medium/large implementation does.
+- **Parallelization starts only after the shared scaffold is stable** — never fan out onto an
+  empty or unstable base.
 
 | Work | Worktree? |
 |------|-----------|
 | Onboarding / planning / architecture | No — interactive, in main window |
 | Review / audit (read-only) | No |
 | Single small edit | No |
+| Base scaffold (one agent) | Yes |
 | Implementation of a story | Yes |
-| Parallel independent changes | Yes |
+| Parallel independent changes (after scaffold) | Yes |
 | Risky / destructive change | Yes |
 
 ## Model default

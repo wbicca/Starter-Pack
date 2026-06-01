@@ -14,6 +14,17 @@ writes the project docs including `docs/STACK.md`. Never assume or hardcode a st
 - **Medium** (multi-file, clear scope): delegate to a specialized agent (Sonnet).
 - **Large** (new feature / product / epic): plan with BMAD first, then implement.
 
+## Planning gate (BMAD) — required before non-trivial work
+New projects, new modules, and non-trivial features **must not** jump straight to
+implementation. Before mutating code, run BMAD planning **proportional to complexity**,
+produce stories, and get approval:
+- New simple project → product brief + a lean PRD/spec + minimal architecture (only if
+  needed) + stories.
+- Larger product → fuller BMAD flow, proportional to complexity.
+- Small, clearly-local change in an existing project → BMAD may be skipped.
+**"Faça tudo" is never authorization to implement inline** — it means orchestrate
+end-to-end (plan → delegate to Sonnet agents → review).
+
 ## Execution discipline (always)
 - **Don't assume** — if intent or a requirement is ambiguous, ask instead of guessing.
 - **Simplest thing that works** — avoid overengineering; make **surgical changes** that
@@ -22,7 +33,10 @@ writes the project docs including `docs/STACK.md`. Never assume or hardcode a st
 - Implementation → Superpowers (`test-driven-development`, `verification-before-completion`).
 - Hard bugs → `systematic-debugging`.
 - Parallel / risky work → `using-git-worktrees`.
-- Never claim done without running verification.
+- Never claim done without running verification. Before marking a **non-trivial**
+  implementation complete, invoke `verification-before-completion` and
+  `requesting-code-review`; for auth, RLS, payments, or sensitive data, also invoke
+  `security-auditor`.
 
 ## Delegation playbook
 Planning is interactive and stays in this (orchestrator) window with the human;
@@ -39,6 +53,7 @@ writes, not interactive doc work. See `AGENTS.md` → "Delegation & isolation".
 - This orchestrator window runs on **Opus** for judgment: triage, planning, architecture,
   hard debugging, synthesis. It decides and delegates — it does not grind out boilerplate.
 - Executor subagents default to **Sonnet** (volume work: implementation, tests).
+- **Opus plans, routes, reviews and synthesizes. Sonnet agents implement.**
 - "Escalate to Opus" has one real mechanism: **bring the task back to this window**
   (subagents cannot change their own model). Do this for critical paths, complex
   architecture, security, RLS/Auth, data migration, or a persistently-failing error.
