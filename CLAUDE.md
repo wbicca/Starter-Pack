@@ -45,6 +45,11 @@ end-to-end (plan → delegate to Sonnet agents → review).
   After each batch, run the gate before starting the next. Batch definition and the full
   gate sequence live in `AGENTS.md` → "Batches & gates".
 
+## Engineering quality
+
+Follow the path-scoped rules in `.claude/rules/code-quality.md` when implementing or reviewing code.
+Project-specific commands and stack decisions live in `docs/STACK.md`.
+
 ## Delegation playbook
 Planning is interactive and stays in this (orchestrator) window with the human;
 implementation fans out to Sonnet subagents. The seam is the story list. The **canonical

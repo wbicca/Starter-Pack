@@ -11,6 +11,21 @@
 - Hosting: <e.g. Vercel; Railway for services>
 - Tests: <e.g. Vitest + Playwright>
 
+## Commands
+
+> Fill in only commands that are actually configured. Leave the rest as TBD /
+> UNCONFIGURED — never invent one. Set Status to CONFIGURED once a command is verified.
+
+| Purpose | Command | Status |
+|---|---|---|
+| Install | TBD | UNCONFIGURED |
+| Development | TBD | UNCONFIGURED |
+| Lint | TBD | UNCONFIGURED |
+| Format | TBD | UNCONFIGURED |
+| Typecheck | TBD | UNCONFIGURED |
+| Test | TBD | UNCONFIGURED |
+| Build | TBD | UNCONFIGURED |
+
 ## Hard rules
 - <e.g. If Supabase/Postgres: RLS on by default for every table.>
 - <Auth/RLS or data-migration changes are Opus-escalation work.>
