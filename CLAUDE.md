@@ -47,8 +47,22 @@ end-to-end (plan → delegate to Sonnet agents → review).
 
 ## Engineering quality
 
-Follow the path-scoped rules in `.claude/rules/code-quality.md` when implementing or reviewing code.
-Project-specific commands and stack decisions live in `docs/STACK.md`.
+Common engineering standards for Claude and Codex live in `docs/ENGINEERING_STANDARDS.md`
+(`.claude/rules/code-quality.md` is the path-scoped pointer to it). Project-specific
+commands and stack decisions live in `docs/STACK.md`. Apply both when implementing or
+reviewing code.
+
+Three explicit gates wrap that work:
+- **`refactor-pass`** — after a large change (big feature, large fix, long session):
+  behavior-preserving cleanup.
+- **`quality-gate`** — after **each** implementation batch: run configured
+  checks + diff/secret inspection.
+- **`release-sanity`** — before any release: pre-publication security/asset audit.
+
+## Hook signals
+When the `orchestrator-write-guard` hook returns `ORCHESTRATOR_WRITE_DENIED` (or
+`GOVERNANCE_WRITE_DENIED`), **delegate the write immediately to the right agent and do not
+retry it inline.** The denial is a routing signal, not an error to work around.
 
 ## Delegation playbook
 Planning is interactive and stays in this (orchestrator) window with the human;

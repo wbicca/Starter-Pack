@@ -98,19 +98,16 @@ const MAIN_SILENT_ROOT = new Set([
 ]);
 
 // --- Reasons ------------------------------------------------------------------
+// Short, operational codes. Policy is unchanged — only the wording is terser so the
+// orchestrator gets a clear next action instead of a paragraph.
 const REASON_GOV =
-  "Main orchestrator cannot modify starter governance files in a normal session. " +
-  "Restart Claude Code with CLAUDE_ORCHESTRATOR_WRITE_OVERRIDE=1 for intentional maintenance.";
+  "GOVERNANCE_WRITE_DENIED: use an explicit maintenance session with CLAUDE_ORCHESTRATOR_WRITE_OVERRIDE=1.";
 const REASON_APP =
-  "Main orchestrator cannot edit application code directly. Delegate implementation to a " +
-  "Sonnet subagent. For an intentional exceptional inline fix, restart Claude Code with " +
-  "CLAUDE_ORCHESTRATOR_WRITE_OVERRIDE=1.";
+  "ORCHESTRATOR_WRITE_DENIED: delegate implementation to an allowed implementation agent. Do not retry inline.";
 const REASON_OUTSIDE =
-  "Writing outside the project root is not allowed. Perform this operation manually " +
-  "outside Claude Code if it is intentionally required.";
+  "OUT_OF_PROJECT_WRITE_DENIED: writing outside the project root is not allowed.";
 const REASON_RO_BASH =
-  "Read-only agent attempted a mutating Bash command. Use inspection-only commands or " +
-  "delegate the change to an implementation agent.";
+  "READ_ONLY_MUTATION_DENIED: inspect only or delegate changes to an implementation agent.";
 
 // --- Override -----------------------------------------------------------------
 // Explicit maintenance switch: downgrades main-window DENY -> ASK, never to ALLOW.
@@ -204,7 +201,7 @@ const isAppCode = APP_EXTS.has(ext);
 // Subagent policies (agent_id present).
 if (!isMain) {
   if (READ_ONLY.has(agentType)) {
-    deny(`Agent ${agentType} is read-only and may not write files.`);
+    deny(REASON_RO_BASH);
   }
   if (agentType === "system-architect") {
     if (ARCHITECT_ALLOW.has(rel)) pass();

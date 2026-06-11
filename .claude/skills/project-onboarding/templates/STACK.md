@@ -25,6 +25,9 @@
 | Typecheck | TBD | UNCONFIGURED |
 | Test | TBD | UNCONFIGURED |
 | Build | TBD | UNCONFIGURED |
+| E2E | TBD | UNCONFIGURED |
+| Security | TBD | UNCONFIGURED |
+| Release | TBD | UNCONFIGURED |
 
 ## Hard rules
 - <e.g. If Supabase/Postgres: RLS on by default for every table.>

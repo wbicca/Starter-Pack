@@ -3,6 +3,21 @@
 This is a routing reference, not a subagent. For each task type it names the single
 canonical skill/stack to use. Resolves all known BMAD ↔ Superpowers overlaps.
 
+## Cross-agent contract
+
+This repository is designed to work with Claude Code and Codex.
+
+- AGENTS.md is the shared agent contract.
+- CLAUDE.md contains Claude-specific orchestration rules and imports AGENTS.md.
+- Codex should follow AGENTS.md directly.
+- Implementation agents must follow `docs/ENGINEERING_STANDARDS.md`.
+- Project-specific commands live in `docs/STACK.md`.
+- Do not assume project context from the folder name; ask first.
+- Do not implement non-trivial work before planning and approval.
+- After each implementation batch, run `quality-gate`.
+- After large changes, run `refactor-pass`.
+- Before release, run `release-sanity`.
+
 ## Routing table
 > Skill names are the **bare vendored names** (e.g. invoke `brainstorming`, not
 > `superpowers:brainstorming`). "Superpowers" / "BMAD" below are just origin labels.
@@ -25,6 +40,9 @@ canonical skill/stack to use. Resolves all known BMAD ↔ Superpowers overlaps.
 | Code review (canonical engine) | Superpowers `requesting-code-review` | light, coupled to TDD/verification; continuous |
 | Handling review feedback | Superpowers `receiving-code-review` | not a 2nd reviewer |
 | Deep adversarial audit (opt-in) | `bmad-code-review` | only when explicitly requested |
+| Refactor round (after large change) | `refactor-pass` | behavior-preserving cleanup; see `docs/ENGINEERING_STANDARDS.md` |
+| Batch verification gate | `quality-gate` | mandatory after each implementation batch |
+| Pre-release audit | `release-sanity` | before publishing; runs the quality-gate checklist first |
 | Parallel / risky work | Superpowers `using-git-worktrees` | |
 
 ## Duplication rulings (do NOT pick the loser)
