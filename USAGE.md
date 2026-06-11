@@ -271,6 +271,37 @@ Se um hook bloquear algo legítimo, peça confirmação explícita ou ajuste a a
 
 ---
 
+## Using with Codex
+
+O Starter Pack funciona de forma nativa com o Codex usando o mesmo contrato compartilhado
+(`AGENTS.md` + `docs/ENGINEERING_STANDARDS.md` + `docs/STACK.md`). Passo a passo:
+
+1. Inicie a sessão com `codex` na raiz do projeto.
+2. Confirme que as instruções foram carregadas (o Codex lê `AGENTS.md` diretamente).
+3. Liste as skills disponíveis com `/skills`.
+4. Inspecione os subagentes com `/agent`.
+5. Em tarefas **não triviais**, peça explicitamente um subagente — o Codex não faz fan-out
+   sozinho (planejamento fica na thread principal; sem árvores recursivas de agentes).
+6. Use as skills compartilhadas chamando-as por token:
+   - `$project-onboarding` — inicializar o projeto e escrever os docs base;
+   - `$quality-gate` — após cada batch de implementação;
+   - `$refactor-pass` — após uma mudança grande;
+   - `$release-sanity` — antes de um release.
+7. **Hooks específicos do Codex ainda serão adicionados** numa rodada separada, após o smoke
+   test desta integração.
+8. `.claude/hooks/` continua **exclusivo do Claude Code** — não é lido pelo Codex.
+
+> Nesta etapa o Codex enxerga apenas as skills essenciais em `.agents/skills/` (onboarding +
+> os três gates). BMAD e Superpowers completos **não** são expostos ao Codex ainda.
+
+### Trust the repository
+
+Codex loads project-scoped `.codex/` configuration only for trusted repositories.
+When opening a new clone, review and trust the project before validating custom agents,
+project config, or future local hooks.
+
+---
+
 ## 9. Os docs que o projeto ganha
 
 Gerados/atualizados pelo `project-onboarding` (prosa em português):

@@ -18,6 +18,23 @@ This repository is designed to work with Claude Code and Codex.
 - After large changes, run `refactor-pass`.
 - Before release, run `release-sanity`.
 
+Claude Code loads skills from `.claude/skills/`; Codex loads them from `.agents/skills/`
+(cross-agent-safe skills are symlinked there; Claude-specific ones get a lean Codex wrapper).
+
+### Codex routing
+
+- Codex must explicitly spawn subagents for non-trivial implementation and review work.
+- Use `frontend-engineer` for frontend implementation.
+- Use `backend-engineer` for backend/API implementation.
+- Use `code-reviewer` after each non-trivial implementation batch.
+- Use `security-auditor` for auth, RLS, payments, webhook, PII, dependencies, permissions, or external assets.
+- Use built-in `explorer` for read-heavy investigation when needed.
+- Keep planning in the main thread.
+- Do not spawn recursive agent trees.
+- After each batch, invoke `$quality-gate`.
+- After large changes, invoke `$refactor-pass`.
+- Before release, invoke `$release-sanity`.
+
 ## Routing table
 > Skill names are the **bare vendored names** (e.g. invoke `brainstorming`, not
 > `superpowers:brainstorming`). "Superpowers" / "BMAD" below are just origin labels.

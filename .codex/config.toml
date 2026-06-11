@@ -1,0 +1,7 @@
+# Codex configuration — minimal. Models are NOT pinned at this stage; subagents inherit
+# the session configuration when appropriate. max_depth = 1 prevents recursive fan-out.
+# No MCPs, no broad permissions, no unrestricted access are enabled here.
+
+[agents]
+max_threads = 4
+max_depth = 1
