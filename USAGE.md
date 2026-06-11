@@ -271,6 +271,49 @@ Se um hook bloquear algo legítimo, peça confirmação explícita ou ajuste a a
 
 ---
 
+## Automatic quick checks
+
+O `quick-check` roda automaticamente no evento `Stop` (fim de cada turno) tanto no Claude
+Code quanto no Codex. Ele executa apenas verificações rápidas e óbvias — não substitui
+`$quality-gate`, `$refactor-pass` ou `$release-sanity`.
+
+**O que ele verifica (best-effort, somente leitura):**
+- Erros de whitespace / marcadores de conflito (`git diff --check`).
+- Marcadores de conflito (`<<<<<<<`, `=======`, `>>>>>>>`) em arquivos modificados ou não rastreados.
+- Arquivos `.env` reais **versionáveis** — tracked, staged, modificados ou não rastreados e não ignorados.
+- Segredos óbvios em linhas adicionadas do diff (tokens Stripe, AWS, GitHub, Google, JWT, PEM, URLs de banco com credencial).
+- Temporários residuais **versionáveis** (`.tmp-*`, `*.tmp`, `audit*.log`).
+- Caminhos fora da raiz do repositório (best-effort).
+
+**O que ele NÃO faz:** install, build, typecheck, testes, E2E, formatter, linter pesado.
+
+**Quando bloqueia:** indica a categoria do problema, o arquivo e o fix esperado — nunca
+imprime o valor real de um segredo.
+
+**Política de `.env`:**
+- `.env` reais **tracked, staged ou não ignorados** → **bloqueiam** a conclusão (estão prestes a entrar no commit).
+- `.env` **ignorados** existentes só localmente → geram **aviso** (não-bloqueante): o quick-check só
+  olha o **nome** do arquivo, nunca lê o conteúdo de um `.env` ignorado.
+- Arquivos de exemplo permitidos (`.env.example`, `.env.local.example`, `.env.template`) → **silenciosos**.
+
+O quick-check é best-effort: **não** substitui um secret scanner nem uma auditoria de segurança.
+
+**Loop infinito:** o campo `stop_hook_active` previne que o próprio hook dispare outro `Stop`
+recursivamente; se estiver `true`, o script passa direto sem executar os checks.
+
+**No Codex:** hooks locais (`.codex/hooks.json`) precisam ser revisados e confiados pelo
+usuário ao abrir o repositório pela primeira vez — o Codex não carrega hooks de projetos
+não confiáveis.
+
+**Uso manual (CLI):**
+```bash
+node scripts/quality/quick-check.mjs
+```
+Saída no stderr: uma linha por bloqueador (`BLOCKER:`) e por aviso (`WARNING:`). Exit 0 =
+limpo **ou** apenas avisos; exit 2 = bloqueadores encontrados.
+
+---
+
 ## Using with Codex
 
 O Starter Pack funciona de forma nativa com o Codex usando o mesmo contrato compartilhado
