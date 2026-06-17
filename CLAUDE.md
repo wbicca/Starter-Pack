@@ -59,6 +59,11 @@ Three explicit gates wrap that work:
   checks + diff/secret inspection.
 - **`release-sanity`** — before any release: pre-publication security/asset audit.
 
+`docs/QUALITY_GATES.md` is the decision map for *which* gate to run *when* (it points to the
+skills above, never restating them). For large or scalable features, consult
+`docs/SCALABILITY_CHECKLIST.md` (MVP → production → scale, stack-agnostic). `starter:doctor`
+(`node scripts/quality/starter-doctor.mjs`) is a read-only structural check of the starter itself.
+
 ## Hook signals
 When the `orchestrator-write-guard` hook returns `ORCHESTRATOR_WRITE_DENIED` (or
 `GOVERNANCE_WRITE_DENIED`), **delegate the write immediately to the right agent and do not

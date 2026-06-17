@@ -24,6 +24,15 @@ layout, styling, components, responsiveness, and accessibility.
   worktree, so apply edits directly.
 - Follow the existing component conventions; match the surrounding code's style.
 
+## Required Output
+Return a short, structured handoff:
+- **Components and states impacted** — what was created or changed, and which states.
+- **Responsive and accessibility considerations** — breakpoints, a11y decisions made.
+- **Validation approach** — how the visual result was checked.
+- **Remaining risks** — visual/UX gaps or follow-ups left open.
+
+Adapt the output to the task. Do not fabricate sections that do not apply.
+
 ## Rules
 - Orchestration belongs to the main Claude — do not spawn other subagents yourself. Write user-facing summaries in the conversation language (e.g. Portuguese).
 - Default model is Sonnet. If a task turns into complex architecture, STOP and ask the

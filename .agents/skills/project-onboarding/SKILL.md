@@ -69,6 +69,14 @@ language**, but keep **structural keywords in English** — especially `STACK.md
 - **`ARCHITECTURE.md`** — high-level shape: main pieces, boundaries, data flow. Brief.
 - **`DECISIONS.md`** — append-only log (date · decision · why) = the project's memory.
 
+Beyond the four core docs, generate these **conditional** docs only when they apply to the
+type (same `templates/` directory; fill only what's known, `TBD:` for unknowns, never an
+empty doc): **`API_CONTRACTS.md`** (exposes/consumes an API), **`DATABASE.md`** (owns a
+datastore), **`TESTING.md`** (non-trivial logic to test), **`DEPLOYMENT.md`** (is deployed
+somewhere). A doc N/A for the type is skipped; an in-scope-but-unknown area is created with
+`TBD:`. Static frontend → core docs only; backend/API → + API_CONTRACTS, DATABASE, TESTING;
+SaaS full-stack → all. For an **existing** project, preserve and amend existing docs.
+
 **Project-specific non-negotiables:** if the user named hard rules in Step 0 (Q4), propose
 filling that section of `docs/CONSTITUTION.md` — **only with explicit user approval**, in
 their wording. Never modify `docs/CONSTITUTION.md` otherwise.

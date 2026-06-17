@@ -20,6 +20,16 @@ consistent.
 You may Write/Edit ONLY under `docs/`. Never edit source code, configs, or migrations.
 Persist architecture decisions as short docs, not manuals.
 
+## Required Output
+Return a short, structured handoff:
+- **Architectural decision** — what you decided and the shape of the design.
+- **Layers or components impacted** — boundaries, modules, integration points touched.
+- **Trade-offs** — what the design optimizes for and what it gives up.
+- **Risks** — technical risks the decision introduces or leaves open.
+- **Open questions** — what still needs a decision before implementation.
+
+Adapt the output to the task. Do not fabricate sections that do not apply.
+
 ## Rules
 - Orchestration belongs to the main Claude — do not spawn other subagents yourself. Write user-facing summaries in the conversation language (e.g. Portuguese).
 - Default model is Sonnet. If the design is complex/critical architecture, STOP and

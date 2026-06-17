@@ -181,6 +181,11 @@ de redesign aprovada. Depois de cada batch: `verification-before-completion` →
 PII, dependências relevantes ou assets externos) → corrigir bloqueadores → só então o próximo
 batch. Assets externos: registre origem e licença em `NOTICE.md` antes de publicar.
 
+> **Mapa dos gates:** `docs/QUALITY_GATES.md` diz *qual* nível rodar *quando* (Quick Check ·
+> Development Gate · Release Gate) e aponta para a skill canônica de cada um — sem reescrevê-las.
+> Para features grandes/escaláveis, consulte `docs/SCALABILITY_CHECKLIST.md` (checklist
+> prático MVP → produção → escala, stack-agnostic).
+
 ---
 
 ## Scaffolding applications safely
@@ -312,6 +317,18 @@ node scripts/quality/quick-check.mjs
 Saída no stderr: uma linha por bloqueador (`BLOCKER:`) e por aviso (`WARNING:`). Exit 0 =
 limpo **ou** apenas avisos; exit 2 = bloqueadores encontrados.
 
+**Diagnóstico estrutural (`starter:doctor`):** um check determinístico e somente-leitura da
+*integridade do próprio Starter Pack* — estrutura, consistência de governança (agente/hook
+declarado tem arquivo), higiene de segurança e prontidão do projeto (`STACK` preenchida?).
+Não instala, não edita, não builda. Rode-o quando quiser conferir o repo após mexer no
+starter:
+```bash
+node scripts/quality/starter-doctor.mjs
+```
+Exit 0 = tudo OK ou só avisos; exit 1 = há bloqueador (arquivo obrigatório/agente/hook
+faltando, `settings.json` inválido, segredo versionável). Reusa o `quick-check.mjs` como
+scanner de segredos — não duplica os padrões.
+
 ---
 
 ## Using with Codex
@@ -352,6 +369,15 @@ Gerados/atualizados pelo `project-onboarding` (prosa em português):
 - **`STACK.md`** — stack resolvida + `Status` (UNCONFIGURED/PARTIAL/CONFIGURED) + regras duras.
 - **`ARCHITECTURE.md`** — peças, fronteiras, fluxo de dados (resumido).
 - **`DECISIONS.md`** — log append-only de decisões (data · decisão · porquê) = a memória do projeto.
+
+E, **condicionalmente por tipo de projeto** (só quando se aplicam — nunca docs vazios):
+- **`API_CONTRACTS.md`** — quando há API exposta/consumida (backend/API, SaaS).
+- **`DATABASE.md`** — quando há datastore próprio (backend/API, SaaS, dashboard/CRM).
+- **`TESTING.md`** — quando há lógica não-trivial a testar.
+- **`DEPLOYMENT.md`** — quando o projeto é publicado em algum lugar.
+
+> Os templates desses docs vivem dentro da skill `project-onboarding` (`templates/`) — fonte
+> única; o onboarding gera cada um só onde faz sentido e marca `TBD:` no que for desconhecido.
 
 ---
 

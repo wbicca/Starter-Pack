@@ -1,20 +1,30 @@
 # Starter Pack
 
-Template **Claude Code** para **vibecoding**. Clone este repositório para começar qualquer
-projeto novo já com uma camada de orquestração consistente, agentes especializados, hooks
-de segurança e um ecossistema de skills governado — tudo pronto e **self-contained**
-(vendorizado no repo, funciona sem depender de plugins globais).
+**Starter Pack cross-agent para desenvolvimento de software assistido por IA.** Clone este
+repositório para começar qualquer projeto novo já com uma camada de orquestração consistente,
+agentes especializados, skills governadas, hooks de segurança, quality gates e quick checks
+compartilhados — tudo **self-contained** (vendorizado no repo, funciona sem depender de
+plugins globais).
 
-Ele costura dois motores:
+Funciona **nativamente com dois runtimes de IA** a partir do mesmo contrato compartilhado:
+- **Claude Code** — runtime principal (orquestrador Opus + subagentes Sonnet, skills, hooks).
+- **Codex** — runtime secundário, lendo o contrato compartilhado (`AGENTS.md`) e expondo as
+  skills essenciais + agentes nativos.
+
+E costura dois motores de disciplina:
 - **BMAD** — disciplina de **planejamento** (PRD, épicos, stories, arquitetura).
 - **Superpowers** — disciplina de **execução** (TDD, debugging sistemático, verificação,
   worktrees, fan-out por subagentes).
 
-A **camada de orquestração** é a cola entre os dois: define quem orquestra, qual caminho é canônico
-para cada tarefa (resolvendo sobreposições BMAD ↔ Superpowers) e o que é inegociável.
+A **camada de orquestração** é a cola: define quem orquestra, qual caminho é canônico para cada
+tarefa (resolvendo sobreposições BMAD ↔ Superpowers) e o que é inegociável.
 
-> Idioma: as respostas ao usuário são em **português**. Contratos, agentes e skills ficam
-> em inglês onde isso traz precisão técnica (nomes de tools, alinhamento com BMAD/Superpowers).
+> Idioma: as respostas ao usuário são em **português**. Contratos, agentes e skills ficam em
+> inglês onde isso traz precisão técnica (nomes de tools, alinhamento com BMAD/Superpowers).
+
+> **Contrato cross-agent:** `AGENTS.md` é o contrato de roteamento **universal** (Claude Code
+> **e** Codex). `CLAUDE.md` é o contrato **específico do Claude Code** e importa `AGENTS.md`.
+> O Codex segue `AGENTS.md` diretamente.
 
 ---
 
@@ -36,20 +46,23 @@ para cada tarefa (resolvendo sobreposições BMAD ↔ Superpowers) e o que é in
    └────────────────┘        └──────────────────┘         └──────────────────┘
                                        │
                               ┌────────▼─────────┐
-                              │  Hooks (rede de  │  bloqueiam comandos destrutivos,
-                              │  segurança)      │  escrita em .env, segredos; formatam
-                              └──────────────────┘
+                              │  Hooks + quick-  │  bloqueiam comandos destrutivos, escrita
+                              │  check (rede)    │  em .env, segredos; formatam; quick-check
+                              └──────────────────┘  roda no fim do turno (Claude e Codex)
 ```
 
 **Fluxo mental:** você fala (em PT) → o **orquestrador (Opus)** lê o `CLAUDE.md`
 automaticamente, consulta o `AGENTS.md` para rotear, e **delega**: planejamento via BMAD,
 execução via Superpowers, trabalho especializado para os **agentes**. Os **hooks** rodam por
-baixo como rede de segurança. A `CONSTITUTION` decide qualquer conflito.
+baixo como rede de segurança e o **quick-check** fecha cada turno. A `CONSTITUTION` decide
+qualquer conflito. **No Codex** o mesmo `AGENTS.md` governa o roteamento; o fan-out é manual
+(você pede o subagente explicitamente).
 
 ### As junções (e por que existem)
 | Junção | O que conecta | Regra canônica |
 |--------|---------------|----------------|
 | Planejamento ↔ Execução | BMAD produz stories → Superpowers as implementa | plano na janela principal; implementação em subagentes |
+| Claude Code ↔ Codex | dois runtimes, um contrato | `AGENTS.md` é universal; `CLAUDE.md` é específico do Claude |
 | BMAD ↔ Superpowers (brainstorming) | dois "brainstorming" | Superpowers p/ dev/design; `bmad-brainstorming` só no track de produto |
 | PRD ↔ writing-plans | não são duplicados | BMAD = altitude de produto; `writing-plans` = plano técnico de uma story |
 | Code review | bmad-code-review vs Superpowers | canônico = `requesting-code-review`; `bmad-code-review` = auditoria adversarial opt-in |
@@ -64,25 +77,40 @@ A lista completa está em **`AGENTS.md`** (o contrato de roteamento).
 
 ```
 .
-├── CLAUDE.md                 # Contrato do orquestrador (auto-carregado toda sessão)
-├── AGENTS.md                 # Contrato de roteamento: 1 caminho canônico por tarefa
+├── CLAUDE.md                 # Contrato do orquestrador — específico do Claude Code (auto-carregado; importa AGENTS.md)
+├── AGENTS.md                 # Contrato de roteamento UNIVERSAL (Claude Code + Codex): 1 caminho canônico por tarefa
 ├── README.md                 # Este guia (entrada para humanos)
-├── USAGE.md                  # Guia de uso detalhado (todas as formas de uso)
+├── USAGE.md                  # Playbook detalhado (todas as formas de uso, incl. Codex)
 ├── NOTICE.md                 # Atribuição de terceiros (BMAD, Superpowers)
 ├── .gitignore                # Higiene (node_modules, .env, build, caches…)
 ├── docs/
 │   ├── CONSTITUTION.md       # Inegociáveis (só muda por decisão humana)
-│   └── STACK.md              # Stack do projeto (preenchido no onboarding)
+│   ├── ENGINEERING_STANDARDS.md  # Padrões de engenharia comuns a Claude e Codex
+│   ├── QUALITY_GATES.md      # Mapa de decisão dos gates (qual nível rodar, quando)
+│   ├── SCALABILITY_CHECKLIST.md  # Checklist prático MVP → produção → escala (stack-agnostic)
+│   └── STACK.md              # Stack do projeto (preenchida no onboarding)
+├── scripts/
+│   └── quality/
+│       ├── quick-check.mjs   # Quick check determinístico compartilhado (Claude + Codex, no Stop)
+│       └── starter-doctor.mjs  # Diagnóstico estrutural do starter (read-only): node scripts/quality/starter-doctor.mjs
 ├── _bmad/                    # Motor BMAD (read-only — não editar)
 ├── _bmad-output/             # Saída do BMAD (artefatos efêmeros; só .gitkeep versionado)
+├── .agents/
+│   └── skills/               # Skills compartilhadas expostas ao Codex (onboarding + os três gates)
+├── .codex/
+│   ├── config.toml           # Config do Codex (sem MCP, max_depth=1 — sem fan-out recursivo)
+│   ├── agents/               # Espelhos nativos de agentes (TOML)
+│   └── hooks.json            # Wiring de hooks do Codex (quick-check no Stop)
 └── .claude/
     ├── settings.json         # Hooks + override do plugin Superpowers (vendorizado)
+    ├── settings.local.json   # Overrides locais (não compartilhados)
+    ├── rules/                # Regras path-scoped (code-quality → ENGINEERING_STANDARDS)
     ├── agents/               # 12 subagentes especializados
     ├── skills/               # Skills vendorizadas (BMAD, Superpowers, project-onboarding, skill-discovery)
     └── hooks/                # Hooks de segurança/qualidade (.mjs) + bootstrap Superpowers
 ```
 
-### Os 12 agentes
+### Os 12 agentes (Claude Code)
 | Agente | Papel | Escrita? | Worktree |
 |--------|-------|----------|----------|
 | `product-strategist` | estratégia/produto/PRD | read-only | não |
@@ -99,22 +127,36 @@ A lista completa está em **`AGENTS.md`** (o contrato de roteamento).
 | `documentation-writer` | docs e README | só docs | não |
 
 Todos rodam em **Sonnet** por padrão. "Escalar para Opus" = trazer a tarefa de volta à
-janela orquestradora (subagentes não trocam o próprio modelo).
+janela orquestradora (subagentes não trocam o próprio modelo). O **Codex** expõe um subconjunto
+desses papéis como agentes nativos em `.codex/agents/` (TOML) e os invoca explicitamente.
 
 ### As skills do Starter Pack
 - **`project-onboarding`** — inicializa um projeto: classifica, pergunta só o essencial,
   cria os docs (`PROJECT_BRIEF`, `STACK`, `ARCHITECTURE`, `DECISIONS`). Não implementa código.
 - **`skill-discovery`** — descobre/avalia/recomenda skills (internas ou externas) **sem
   instalar nada**; toda instalação exige aprovação humana.
+- **Gates** (`quality-gate`, `refactor-pass`, `release-sanity`) — disciplina de verificação;
+  o `quality-gate` roda após cada batch, `refactor-pass` após mudanças grandes, `release-sanity`
+  antes de publicar. Mais o **BMAD** e o **Superpowers** completos (vendorizados em `.claude/skills/`).
 
-### Os 4 hooks (rede de segurança — best-effort, não fronteira)
-- `block-dangerous-bash` — bloqueia comandos destrutivos (delete de raiz/home/glob, flags
-  longas, `git clean`/`reset --hard`, escrita em `.env` real).
+### Os hooks (rede de segurança — best-effort, não fronteira) + quick-check
+Em `.claude/hooks/` (Claude Code):
+- `orchestrator-write-guard` — **governança de fluxo**: impede a janela Opus de escrever código
+  de aplicação / arquivos de governança inline e impede agentes read-only de mutar via
+  Write/Edit/Bash. Em sessão normal **nega**; com `CLAUDE_ORCHESTRATOR_WRITE_OVERRIDE=1` rebaixa
+  para **ASK** (nunca ALLOW automático). Escrita fora da raiz é sempre negada.
+- `block-dangerous-bash` — bloqueia comandos destrutivos (delete de raiz/home/glob, `git
+  reset --hard`/`clean`, scaffolders na raiz, escrita em `.env` real).
 - `protect-sensitive-files` — barra escrita em `.env` real (permite `.env.example` etc.).
 - `scan-secrets` — barra segredos óbvios em conteúdo novo (AWS, GitHub, Google, Stripe,
   DB-URL, JWT, PEM…); ignora placeholders.
-- `format-after-edit` — formata best-effort o arquivo editado (detecta pnpm/npm/yarn/bun);
-  nunca instala/builda/testa, nunca bloqueia.
+- `format-after-edit` — formata best-effort o arquivo editado; nunca instala/builda/testa,
+  nunca bloqueia.
+
+Além disso, `.claude/hooks/superpowers/` faz o bootstrap do Superpowers no `SessionStart`
+(não é hook de segurança), e **`scripts/quality/quick-check.mjs`** roda no `Stop` (fim do
+turno) tanto no Claude Code quanto no Codex (`.codex/hooks.json`) — um quick check
+determinístico e somente-leitura, compartilhado pelos dois runtimes.
 
 ---
 
@@ -127,6 +169,8 @@ janela orquestradora (subagentes não trocam o próprio modelo).
   planejamento, onboarding ou review (são interativos/leitura).
 - **Triagem por tamanho:** simples (1 arquivo) → inline; média (multi-arquivo) → 1 agente;
   grande (feature/produto) → planejar com BMAD primeiro, depois implementar.
+- **No Codex:** sem fan-out automático — peça o subagente explicitamente; planejamento fica na
+  thread principal; sem árvores recursivas de agentes (`max_depth=1`).
 
 ---
 
@@ -144,7 +188,8 @@ janela orquestradora (subagentes não trocam o próprio modelo).
 
 ## 5. Passo a passo de uso
 
-> **Playbook completo — todas as situações, com exemplos do que digitar: `USAGE.md`.**
+> **Playbook completo — todas as situações, com exemplos do que digitar, e a seção
+> "Using with Codex": `USAGE.md`.**
 > Você conversa em português; o orquestrador (Opus) lê o `CLAUDE.md` e roteia pelo `AGENTS.md`.
 
 Resumo dos fluxos (detalhe em `USAGE.md`):
@@ -154,13 +199,16 @@ Resumo dos fluxos (detalhe em `USAGE.md`):
 - **Bug** → `systematic-debugging`; **entender sistema/incidente** → `bmad-investigate`.
 - **Review** → `requesting-code-review`; **testes E2E** → `qa-tester`.
 - **Banco/Supabase, deploy** → `database-architect` / `supabase-specialist` / `devops-deployment`.
+- **Verificação** → `quality-gate` após cada batch; `refactor-pass` após mudança grande; `release-sanity` antes de publicar.
 - **Nova capacidade** → `skill-discovery` (recomenda, não instala) · **criar skill** → `skill-creator`.
 
 ---
 
 ## 6. O que é "engrenagem" vs "guia"
-- **Engrenagem (governa comportamento):** `CLAUDE.md` (auto-carregado), `AGENTS.md`
-  (roteamento), `docs/CONSTITUTION.md` (inegociáveis), `.claude/{agents,skills,hooks}`.
-- **Guia (humano):** este `README.md` e os docs em `docs/` gerados por projeto.
+- **Engrenagem (governa comportamento):** `AGENTS.md` (roteamento universal), `CLAUDE.md`
+  (auto-carregado no Claude), `docs/CONSTITUTION.md` (inegociáveis),
+  `docs/ENGINEERING_STANDARDS.md` (padrões de código), `.claude/{agents,skills,hooks,rules}`,
+  `.codex/`, `scripts/quality/`.
+- **Guia (humano):** este `README.md`, o `USAGE.md` e os docs em `docs/` gerados por projeto.
 
 Dúvidas sobre licenças/atribuição de BMAD e Superpowers: ver `NOTICE.md`.

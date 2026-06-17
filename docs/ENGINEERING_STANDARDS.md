@@ -69,6 +69,9 @@ After a large feature, a large fix, or a long development session — see the
 - **do not change behavior without tests.**
 
 ## Quality gate
+> Which gate to run *when* (Quick Check · Development · Release) is mapped in
+> `docs/QUALITY_GATES.md` — it routes to the canonical skills below without restating them.
+
 After **each** implementation batch — see the `quality-gate` skill:
 - run formatter / linter / typecheck / tests / build **when configured** in `docs/STACK.md`;
 - inspect the `git diff`;

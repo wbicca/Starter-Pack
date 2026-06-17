@@ -156,6 +156,11 @@ After **each** batch, before starting the next:
 4. fix blockers;
 5. only then start the next batch.
 
+**Gate decision map:** `docs/QUALITY_GATES.md` says *which* gate to run *when* (Quick Check ·
+Development Gate · Release Gate) and routes to the canonical skill for each — it does not
+restate them. For large/scalable features, consult `docs/SCALABILITY_CHECKLIST.md`
+(MVP → production → scale, stack-agnostic).
+
 **External assets:** record origin and license in `NOTICE.md` (or an asset log) before publication.
 
 **Design:** `frontend-designer` defines the direction and light variants → the **user approves

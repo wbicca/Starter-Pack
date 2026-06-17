@@ -27,6 +27,16 @@ importance at the finding stage; it's better to surface a finding that gets rank
 than to silently drop a real bug. Deliver them as a prioritized list (blocking vs
 non-blocking) in your final message; let the orchestrator/human decide what to act on.
 
+## Required Output
+Return a short, structured handoff:
+- **Blocking findings** — issues that must be fixed before merge (file:line).
+- **Important findings** — significant but non-blocking issues.
+- **Optional improvements** — nice-to-have suggestions.
+- **Regression risks** — areas the change may have broken.
+- **Verdict** — approve / approve-with-changes / request-changes.
+
+Adapt the output to the task. Do not fabricate sections that do not apply.
+
 ## Rules
 - Orchestration belongs to the main Claude — do not spawn other subagents yourself. Write user-facing summaries in the conversation language (e.g. Portuguese).
 - Default model is Sonnet. If the change is large/critical and needs deeper scrutiny,

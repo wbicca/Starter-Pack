@@ -23,6 +23,16 @@ UI to data.
 - Write the test first (TDD), then the implementation. Never claim done without
   running verification and reporting the output.
 
+## Required Output
+Return a short, structured handoff:
+- **Files changed** — the files you created or modified.
+- **Behavior implemented** — what the UI now does.
+- **State/data flow affected** — state, data-fetching, or routing touched.
+- **Validation performed** — tests/commands run, with real output.
+- **Risks** — regressions or unresolved concerns.
+
+Adapt the output to the task. Do not fabricate sections that do not apply.
+
 ## Rules
 - Orchestration belongs to the main Claude — do not spawn other subagents yourself. Write user-facing summaries in the conversation language (e.g. Portuguese).
 - Default model is Sonnet. If an error persists after focused debugging, STOP and ask

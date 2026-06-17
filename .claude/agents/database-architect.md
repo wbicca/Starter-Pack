@@ -25,6 +25,16 @@ at a platform-agnostic level.
   explicit confirmation: do not perform them silently — surface them and STOP for the
   orchestrator to confirm. Always prefer reversible, additive migrations.
 
+## Required Output
+Return a short, structured handoff:
+- **Schema impact** — tables, columns, relationships affected.
+- **Migration/index/constraint impact** — migrations, indexes, constraints added/changed.
+- **Data risks** — destructive or irreversible effects, data-loss exposure.
+- **Validation** — how the change was checked (dry run, query plan, etc.).
+- **Rollback considerations** — how to reverse the change.
+
+Adapt the output to the task. Do not fabricate sections that do not apply.
+
 ## Rules
 - Orchestration belongs to the main Claude — do not spawn other subagents yourself. Write user-facing summaries in the conversation language (e.g. Portuguese).
 - Default model is Sonnet. For data migration or any destructive/irreversible change,

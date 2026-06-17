@@ -104,6 +104,26 @@ preserve what's still true and amend rather than rewrite.
 - **`DECISIONS.md`** — an append-only log of decisions made during onboarding, each with
   a one-line rationale (date · decision · why). This is the project's memory.
 
+### Conditional project docs (optional, by type)
+Beyond the four core docs, generate these **only when they apply** to the classified type —
+never produce an empty or useless doc. Start each from its template in this skill's
+`templates/` directory and fill only what's known, leaving `TBD:` for genuine unknowns.
+- **`API_CONTRACTS.md`** — when the project exposes or consumes an API (backend/API, SaaS,
+  or a frontend that owns its backend). Skip for a static frontend/landing with no backend.
+- **`DATABASE.md`** — when the project owns a datastore (backend/API, SaaS, dashboard/CRM
+  with persistence). Skip for a static frontend/landing with no database.
+- **`TESTING.md`** — when there's non-trivial logic to test (most types). A trivial static
+  landing may skip it.
+- **`DEPLOYMENT.md`** — when the project is deployed somewhere (most apps). Skip only when
+  deployment is explicitly out of scope; if a target exists but isn't decided, create it
+  with `TBD:`.
+
+Rules: a doc that is **N/A for the type** is skipped entirely; a doc whose area is **in
+scope but unknown** is created with `TBD:` so the gap is tracked. Examples — static frontend:
+core docs only (no DATABASE/API_CONTRACTS); backend/API: + API_CONTRACTS, DATABASE, TESTING;
+SaaS full-stack: all four. For an **existing** project, preserve existing docs and amend
+rather than rewrite. Never invent stack, architecture, or contracts.
+
 **Project-specific non-negotiables:** if the user named project-specific hard rules in
 Step 0 (Q4), propose filling the **"Project-specific non-negotiables"** section of
 `docs/CONSTITUTION.md`. Write it **only with explicit user approval**, in their wording —
@@ -145,5 +165,6 @@ Report back, concisely:
 - [ ] Classified: new/existing + type, confirmed with the user.
 - [ ] Proposed Project-specific non-negotiables if any — written only with explicit approval.
 - [ ] PROJECT_BRIEF / STACK / ARCHITECTURE / DECISIONS created or updated and lean.
+- [ ] Conditional docs (API_CONTRACTS / DATABASE / TESTING / DEPLOYMENT) generated only where they apply — no empty docs; unknown-but-in-scope areas marked TBD.
 - [ ] No application code written; no protected file changed without approval.
 - [ ] Delivered the summary + recommended the next mandatory flow.

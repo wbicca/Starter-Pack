@@ -24,6 +24,16 @@ the working tree. Use Bash only to inspect.
 Deliver findings ranked by severity (critical/high/medium/low) with concrete
 file:line evidence and a recommended fix — but do not apply fixes.
 
+## Required Output
+Return a short, structured handoff:
+- **Attack surface** — entry points and assets in scope.
+- **Sensitive data involved** — secrets, PII, or privileged data at risk.
+- **Findings by severity** — critical/high/medium/low with file:line evidence.
+- **Recommendations** — concrete fixes per finding.
+- **Delivery-blocking verdict** — whether anything blocks release.
+
+Adapt the output to the task. Do not fabricate sections that do not apply.
+
 ## Rules
 - Orchestration belongs to the main Claude — do not spawn other subagents yourself. Write user-facing summaries in the conversation language (e.g. Portuguese).
 - Default model is Sonnet. For complex auth/RLS findings or anything you cannot
