@@ -2,6 +2,7 @@
 name: qa-tester
 description: Use to create or extend test suites, especially E2E for existing features. Edits test files in an isolated worktree; does not change production code.
 tools: Read, Grep, Glob, Bash, Write, Edit, Skill
+skills: test-driven-development, verification-before-completion
 model: sonnet
 permissionMode: acceptEdits
 isolation: worktree

@@ -2,6 +2,7 @@
 name: supabase-specialist
 description: Use for Supabase-specific work — RLS policies, auth config, edge functions, and platform settings. Edits Supabase config in an isolated worktree.
 tools: Read, Grep, Glob, Bash, Write, Edit, Skill, mcp__supabase__apply_migration, mcp__supabase__execute_sql, mcp__supabase__list_tables, mcp__supabase__list_migrations, mcp__supabase__get_advisors, mcp__supabase__deploy_edge_function, mcp__supabase__get_logs
+skills: verification-before-completion
 model: sonnet
 permissionMode: acceptEdits
 isolation: worktree

@@ -2,6 +2,7 @@
 name: database-architect
 description: Use for data modeling, schema design, and migrations (platform-agnostic). Edits schema/migrations in an isolated worktree. Extreme care with destructive changes.
 tools: Read, Grep, Glob, Bash, Write, Edit, Skill
+skills: verification-before-completion
 model: sonnet
 permissionMode: acceptEdits
 isolation: worktree

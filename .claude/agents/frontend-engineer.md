@@ -2,6 +2,7 @@
 name: frontend-engineer
 description: Use to implement frontend behavior — state, data-fetching, routing, component logic, and unit tests via TDD. Edits frontend in an isolated worktree.
 tools: Read, Grep, Glob, Bash, Write, Edit, Skill
+skills: test-driven-development, verification-before-completion
 model: sonnet
 permissionMode: acceptEdits
 isolation: worktree

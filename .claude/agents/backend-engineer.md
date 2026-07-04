@@ -2,6 +2,7 @@
 name: backend-engineer
 description: Use to implement backend logic — APIs, services, business logic, and unit/integration tests via TDD. Edits backend in an isolated worktree.
 tools: Read, Grep, Glob, Bash, Write, Edit, Skill
+skills: test-driven-development, verification-before-completion
 model: sonnet
 permissionMode: acceptEdits
 isolation: worktree

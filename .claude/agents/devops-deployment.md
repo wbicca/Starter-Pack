@@ -2,6 +2,7 @@
 name: devops-deployment
 description: Use for deployment and CI/infra config — build/deploy pipelines, hosting config, platform env vars. Edits deploy config in an isolated worktree. Never touches real local secrets.
 tools: Read, Grep, Glob, Bash, Write, Edit, Skill, mcp__railway__deploy, mcp__railway__set_variables, mcp__railway__get_logs, mcp__railway__list_services
+skills: verification-before-completion
 model: sonnet
 permissionMode: acceptEdits
 isolation: worktree

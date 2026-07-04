@@ -100,6 +100,8 @@ const WORKTREE_AGENTS = [
   "frontend-designer", "frontend-engineer", "backend-engineer", "database-architect",
   "supabase-specialist", "devops-deployment", "qa-tester",
 ];
+// Code/test-writing implementers that should also preload TDD via skills: frontmatter.
+const TDD_AGENTS = ["frontend-engineer", "backend-engineer", "qa-tester"];
 // Canonical starter skills named in AGENTS.md / CLAUDE.md — each must ship a SKILL.md.
 const CANONICAL_SKILLS = [
   "project-onboarding", "quality-gate", "refactor-pass", "release-sanity", "skill-discovery",
@@ -177,6 +179,19 @@ section("Agent frontmatter and skill contract", (api) => {
   }
   if (noIsolation.length) api.warn(`worktree implementer(s) missing isolation: worktree: ${noIsolation.join(", ")}`);
   else api.ok(`all ${WORKTREE_AGENTS.length} worktree implementers declare isolation: worktree`);
+
+  // Worktree implementers should preload discipline skills via skills: frontmatter
+  // (subagents don't get the SessionStart skill injection — advisory → warn).
+  const missingPreload = [];
+  for (const a of WORKTREE_AGENTS) {
+    const rel = `.claude/agents/${a}.md`;
+    if (!exists(rel)) continue;
+    const skills = (fmField(frontmatter(readSafe(rel)), "skills") || "").split(",").map((s) => s.trim());
+    if (!skills.includes("verification-before-completion")) missingPreload.push(`${a} (verification-before-completion)`);
+    if (TDD_AGENTS.includes(a) && !skills.includes("test-driven-development")) missingPreload.push(`${a} (test-driven-development)`);
+  }
+  if (missingPreload.length) api.warn(`implementer(s) missing preloaded skill(s) in skills: frontmatter: ${missingPreload.join(", ")}`);
+  else api.ok(`all ${WORKTREE_AGENTS.length} worktree implementers preload discipline skills via skills: frontmatter`);
 
   // Canonical starter skills must each ship a SKILL.md.
   const missingSkills = CANONICAL_SKILLS.filter((s) => !exists(`.claude/skills/${s}/SKILL.md`));
