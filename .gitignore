@@ -49,6 +49,8 @@ Thumbs.db
 .claude/settings.local.json
 .claude/worktrees/
 _bmad/custom/config.user.toml
+# quick-check session baseline (written by the SessionStart hook, per-machine)
+.claude/.quick-check-baseline.json
 
 # BMAD output: ephemeral artifacts — keep only the base structure
 /_bmad-output/**

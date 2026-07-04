@@ -1,20 +1,28 @@
 #!/usr/bin/env node
 // Stop hook + manual CLI — fast, read-only "quick check".
 //
-// BLOCKERS (fail completion): whitespace/conflict errors, conflict markers, real
-//   .env files that are versionable (tracked/staged/modified/untracked-not-ignored),
-//   obvious secrets in added lines, versionable residual temporaries, paths outside
-//   the repo root.
+// BLOCKERS (fail completion): whitespace/conflict errors (working tree + staged),
+//   conflict markers, real .env files that are versionable (tracked/staged/modified/
+//   untracked-not-ignored), obvious secrets in added diff lines OR in untracked file
+//   content, versionable residual temporaries, paths outside the repo root.
 // WARNINGS (do NOT block): ignored local files that exist on disk (e.g. .env.local,
 //   *.tmp) — surfaced by name only, never read, so an intentionally-local file is not
 //   treated as a leak. Allowed example files (.env.example, …) are silent.
+//
+// BASELINE: if .claude/.quick-check-baseline.json exists (written by the SessionStart
+//   hook scripts/quality/session-baseline.mjs), findings on files ALREADY flagged at
+//   session start are downgraded to warnings labeled "pre-existing (before this
+//   session)" — this session only blocks on problems it created. Missing/corrupt
+//   baseline → everything blocks, as before. In hook mode, an unchanged warning set
+//   (tracked via lastWarningsHash in the baseline) is emitted only once.
 //
 // Does NOT run: install, build, typecheck, tests, E2E, formatter, heavy linter.
 // Does NOT replace: $quality-gate, $refactor-pass, $release-sanity, a real secret
 //   scanner, or a security audit.
 
 import { spawnSync } from "node:child_process";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, statSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { resolve, normalize, relative } from "node:path";
 
 // ---------------------------------------------------------------------------
@@ -46,6 +54,54 @@ function readStdinTimeout(ms = 120) {
 const uniq = (arr) => [...new Set(arr)];
 const listOf = (arr, n = 3) =>
   arr.slice(0, n).join(", ") + (arr.length > n ? ` (+${arr.length - n} more)` : "");
+
+// Capped text read — null for missing, oversized (>512KB), or binary files
+// (null-byte sniff in the first 8KB). Keeps content scans cheap and text-only.
+const MAX_SCAN_BYTES = 512 * 1024;
+function readTextCapped(abs) {
+  try {
+    if (!existsSync(abs) || statSync(abs).size > MAX_SCAN_BYTES) return null;
+    const buf = readFileSync(abs);
+    if (buf.subarray(0, 8192).includes(0)) return null;
+    return buf.toString("utf8");
+  } catch { return null; }
+}
+
+// ---------------------------------------------------------------------------
+// Session baseline — pre-existing findings snapshot (session-baseline.mjs)
+// ---------------------------------------------------------------------------
+
+const BASELINE_REL = ".claude/.quick-check-baseline.json";
+
+// Missing/corrupt baseline → empty sets, i.e. exactly the pre-baseline behavior.
+function loadBaseline(root) {
+  try {
+    const b = JSON.parse(readFileSync(resolve(root, BASELINE_REL), "utf8"));
+    const set = (k) => new Set(Array.isArray(b[k]) ? b[k] : []);
+    return {
+      whitespaceFiles: set("whitespaceFiles"),
+      conflictFiles: set("conflictFiles"),
+      envTracked: set("envTracked"),
+      secretFiles: set("secretFiles"),
+      lastWarningsHash: typeof b.lastWarningsHash === "string" ? b.lastWarningsHash : null,
+    };
+  } catch {
+    return {
+      whitespaceFiles: new Set(), conflictFiles: new Set(),
+      envTracked: new Set(), secretFiles: new Set(), lastWarningsHash: null,
+    };
+  }
+}
+
+// Best-effort: remember the last emitted warning set so hook mode doesn't repeat it.
+function storeWarningsHash(root, hash) {
+  try {
+    const p = resolve(root, BASELINE_REL);
+    const b = JSON.parse(readFileSync(p, "utf8"));
+    b.lastWarningsHash = hash;
+    writeFileSync(p, JSON.stringify(b, null, 2) + "\n");
+  } catch { /* silent — dedup is a convenience, never an error */ }
+}
 
 // ---------------------------------------------------------------------------
 // Git file sets — computed once, reused by every check.
@@ -90,95 +146,117 @@ const inSkippedDir = (f) =>
   f.endsWith("/") || SKIP_DIRS.some((d) => f.startsWith(d) || f.includes("/" + d));
 
 // ---------------------------------------------------------------------------
-// Blocker — git diff --check (whitespace / leftover markers)
+// git diff --check (whitespace / leftover markers) — working tree + staged
 // ---------------------------------------------------------------------------
 
-function checkWhitespace(root) {
-  const r = run("git", ["diff", "--check"], { cwd: root });
-  if (r.status !== 0 && r.stdout) {
-    const files = uniq(r.stdout.split("\n").filter(Boolean).map((l) => l.split(":")[0])).join(", ");
-    return `whitespace/conflict errors in ${files || "working tree"} (fix with git diff --check)`;
+function whitespaceProblemFiles(root) {
+  const files = [];
+  for (const args of [["diff", "--check"], ["diff", "--cached", "--check"]]) {
+    const r = run("git", args, { cwd: root });
+    if (r.status !== 0 && r.stdout) {
+      files.push(...r.stdout.split("\n").filter(Boolean).map((l) => l.split(":")[0]));
+    }
   }
-  return null;
+  return uniq(files).filter(Boolean);
 }
 
 // ---------------------------------------------------------------------------
-// Blocker — conflict markers in modified + staged + untracked (NOT ignored) files
+// Conflict markers in modified + staged + untracked (NOT ignored) files
 // ---------------------------------------------------------------------------
 
-function checkConflictMarkers(root, sets) {
+// `=======` alone is a legal Markdown setext underline — it only counts as a conflict
+// marker when the SAME file also has a `<<<<<<< ` line (git emits the trio together).
+// Since `<<<<<<< ` already flags the file by itself, the check reduces to open/close.
+function hasConflictMarkers(content) {
+  return content.split("\n").some((l) => /^<{7} |^>{7} /.test(l));
+}
+
+function conflictMarkerFiles(root, sets) {
   const files = uniq([...sets.modified, ...sets.staged, ...sets.untracked]);
   const conflicts = [];
   for (const rel of files) {
-    const abs = resolve(root, rel);
-    if (!existsSync(abs)) continue;
-    let content;
-    try { content = readFileSync(abs, "utf8"); } catch { continue; }
-    if (content.split("\n").some((l) => /^<{7} |^={7}$|^>{7} /.test(l))) {
-      conflicts.push(rel);
-    }
+    if (inSkippedDir(rel)) continue;
+    const content = readTextCapped(resolve(root, rel));
+    if (content != null && hasConflictMarkers(content)) conflicts.push(rel);
   }
-  if (conflicts.length > 0) {
-    return `unresolved conflict markers in ${listOf(conflicts)} — resolve merge conflicts before continuing`;
-  }
-  return null;
+  return conflicts;
 }
 
 // ---------------------------------------------------------------------------
-// Blocker — obvious secrets in ADDED lines of the diff
+// Obvious secrets — ADDED diff lines (per-file) + untracked file CONTENT
 // ---------------------------------------------------------------------------
 
-function checkSecrets(root) {
-  const diffText =
-    run("git", ["diff"], { cwd: root }).stdout +
-    run("git", ["diff", "--cached"], { cwd: root }).stdout;
-  if (!diffText) return null;
+// --- secret patterns ---
+// Regex char-classes prevent this SOURCE FILE from matching the scanner's
+// literal-prefix patterns (e.g. sk_live_ is safe as a prefix + char-class).
+// The PEM header uses [A-Z ]* so the source never contains the exact literal.
+const INTRINSIC = [
+  { re: /\bsk_live_[A-Za-z0-9]{4,}/, cat: "Stripe live secret token" },
+  { re: /\bsk_test_[A-Za-z0-9]{4,}/, cat: "Stripe test secret token" },
+  { re: /\bAKIA[0-9A-Z]{12,}/, cat: "AWS access key (AKIA)" },
+  { re: /\bASIA[0-9A-Z]{12,}/, cat: "AWS temp access key (ASIA)" },
+  { re: /\bghp_[A-Za-z0-9]{20,}/, cat: "GitHub PAT (ghp_)" },
+  { re: /\bgithub_pat_[A-Za-z0-9_]{20,}/, cat: "GitHub fine-grained PAT" },
+  { re: /\bAIza[0-9A-Za-z_\-]{20,}/, cat: "Google API key (AIza)" },
+  // PEM private key — char-class on the type segment avoids the exact literal.
+  { re: /-----BEGIN [A-Z ]*PRIVATE KEY-----/, cat: "PEM private key block" },
+  // JWT: eyJ<20+> . <10+> . <10+>
+  { re: /\beyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/, cat: "JWT token" },
+  // Database URL with inline credentials
+  { re: /\b(?:postgres|postgresql):\/\/[^:\s/@]+:([^@\s/]+)@/, cat: "database URL with inline credentials", group: 1 },
+];
 
-  // Only examine lines that start with "+" (added), skipping "+++ b/…" headers.
-  const addedLines = diffText.split("\n").filter((l) => l.startsWith("+") && !l.startsWith("+++"));
-  const text = addedLines.join("\n");
-  if (!text.trim()) return null;
+const PLACEHOLDERS = new Set(["your_key_here", "changeme", "change_me", "placeholder", "example_value"]);
+function isPlaceholder(v) {
+  const s = (v || "").trim().replace(/^["']|["']$/g, "").toLowerCase();
+  if (!s) return true;
+  if (PLACEHOLDERS.has(s)) return true;
+  if (/^<.*>$/.test(s)) return true;
+  if (/^\$\{.*\}$/.test(s)) return true;
+  if (/^x{6,}$/.test(s)) return true;
+  return false;
+}
 
-  // --- secret patterns ---
-  // Regex char-classes prevent this SOURCE FILE from matching the scanner's
-  // literal-prefix patterns (e.g. sk_live_ is safe as a prefix + char-class).
-  // The PEM header uses [A-Z ]* so the source never contains the exact literal.
-  const INTRINSIC = [
-    { re: /\bsk_live_[A-Za-z0-9]{4,}/, cat: "Stripe live secret token" },
-    { re: /\bsk_test_[A-Za-z0-9]{4,}/, cat: "Stripe test secret token" },
-    { re: /\bAKIA[0-9A-Z]{12,}/, cat: "AWS access key (AKIA)" },
-    { re: /\bASIA[0-9A-Z]{12,}/, cat: "AWS temp access key (ASIA)" },
-    { re: /\bghp_[A-Za-z0-9]{20,}/, cat: "GitHub PAT (ghp_)" },
-    { re: /\bgithub_pat_[A-Za-z0-9_]{20,}/, cat: "GitHub fine-grained PAT" },
-    { re: /\bAIza[0-9A-Za-z_\-]{20,}/, cat: "Google API key (AIza)" },
-    // PEM private key — char-class on the type segment avoids the exact literal.
-    { re: /-----BEGIN [A-Z ]*PRIVATE KEY-----/, cat: "PEM private key block" },
-    // JWT: eyJ<20+> . <10+> . <10+>
-    { re: /\beyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/, cat: "JWT token" },
-    // Database URL with inline credentials
-    { re: /\b(?:postgres|postgresql):\/\/[^:\s/@]+:([^@\s/]+)@/, cat: "database URL with inline credentials", group: 1 },
-  ];
-
-  const PLACEHOLDERS = new Set(["your_key_here", "changeme", "change_me", "placeholder", "example_value"]);
-  function isPlaceholder(v) {
-    const s = (v || "").trim().replace(/^["']|["']$/g, "").toLowerCase();
-    if (!s) return true;
-    if (PLACEHOLDERS.has(s)) return true;
-    if (/^<.*>$/.test(s)) return true;
-    if (/^\$\{.*\}$/.test(s)) return true;
-    if (/^x{6,}$/.test(s)) return true;
-    return false;
-  }
-
+// Match all patterns against one text chunk; record { file, cat } — NEVER the value.
+function matchIntrinsic(text, file, findings) {
   for (const s of INTRINSIC) {
     const m = text.match(s.re);
     if (!m) continue;
     // For DB URL, skip obvious placeholder passwords.
     if (s.group != null && isPlaceholder(m[s.group])) continue;
-    // NEVER print the matched value — report category + expected fix only.
-    return `possible secret in added diff lines (${s.cat}) — remove credential, use placeholder, document in .env.example`;
+    if (!findings.some((f) => f.file === file && f.cat === s.cat)) {
+      findings.push({ file, cat: s.cat });
+    }
   }
-  return null;
+}
+
+function secretFindings(root, sets) {
+  const findings = []; // { file, cat }
+
+  // Added diff lines (working tree + staged), attributed per-file via +++ headers.
+  const diffText =
+    run("git", ["diff"], { cwd: root }).stdout + "\n" +
+    run("git", ["diff", "--cached"], { cwd: root }).stdout;
+  const addedByFile = new Map();
+  let current = "";
+  for (const line of diffText.split("\n")) {
+    if (line.startsWith("+++ ")) {
+      current = line.slice(4).replace(/^b\//, "").replace(/^"(.*)"$/, "$1").trim();
+      if (current === "/dev/null") current = "";
+      continue;
+    }
+    if (!line.startsWith("+")) continue;
+    addedByFile.set(current, (addedByFile.get(current) ?? "") + line.slice(1) + "\n");
+  }
+  for (const [file, text] of addedByFile) matchIntrinsic(text, file, findings);
+
+  // Untracked files never appear in a diff — scan their CONTENT directly.
+  for (const rel of sets.untracked) {
+    if (inSkippedDir(rel)) continue;
+    const content = readTextCapped(resolve(root, rel));
+    if (content != null) matchIntrinsic(content, rel, findings);
+  }
+  return findings;
 }
 
 // ---------------------------------------------------------------------------
@@ -206,29 +284,69 @@ function checkOutsidePaths(root) {
 
 // ---------------------------------------------------------------------------
 // Run all checks → { blockers, warnings }.  Empty/empty = clean.
+// Baseline subtraction: findings on files already flagged at session start are
+// downgraded to "pre-existing (before this session)" warnings, at FILE level.
 // ---------------------------------------------------------------------------
 
 function runChecks() {
   const root = repoRoot();
   const sets = fileSets(root);
+  const baseline = loadBaseline(root);
   const blockers = [];
   const warnings = [];
-  const pushB = (r) => { if (r) blockers.push(r); };
 
-  pushB(checkWhitespace(root));
-  pushB(checkConflictMarkers(root, sets));
-  pushB(checkSecrets(root));
-  pushB(checkOutsidePaths(root));
+  // Split a file list against a baseline set: fresh files block, baselined ones warn.
+  const split = (files, baseSet) => ({
+    fresh: files.filter((f) => !baseSet.has(f)),
+    pre:   files.filter((f) => baseSet.has(f)),
+  });
+
+  // --- whitespace / conflict errors (git diff --check, working tree + staged) ---
+  const ws = split(whitespaceProblemFiles(root), baseline.whitespaceFiles);
+  if (ws.fresh.length) {
+    blockers.push(`whitespace/conflict errors in ${listOf(ws.fresh)} (fix with git diff --check)`);
+  }
+  if (ws.pre.length) {
+    warnings.push(`whitespace/conflict errors pre-existing (before this session) in ${listOf(ws.pre)} — fix when convenient.`);
+  }
+
+  // --- conflict markers ---
+  const cm = split(conflictMarkerFiles(root, sets), baseline.conflictFiles);
+  if (cm.fresh.length) {
+    blockers.push(`unresolved conflict markers in ${listOf(cm.fresh)} — resolve merge conflicts before continuing`);
+  }
+  if (cm.pre.length) {
+    warnings.push(`conflict markers pre-existing (before this session) in ${listOf(cm.pre)} — resolve when convenient.`);
+  }
+
+  // --- secrets (diff added lines + untracked content) ---
+  const found = secretFindings(root, sets);
+  const secFresh = found.filter((f) => !baseline.secretFiles.has(f.file));
+  const secPre = found.filter((f) => baseline.secretFiles.has(f.file));
+  if (secFresh.length) {
+    const files = uniq(secFresh.map((f) => f.file || "added diff lines"));
+    blockers.push(`possible secret in ${listOf(files)} (${secFresh[0].cat}) — remove credential, use placeholder, document in .env.example`);
+  }
+  if (secPre.length) {
+    warnings.push(`possible secret pre-existing (before this session) in ${listOf(uniq(secPre.map((f) => f.file)))} — remove it; never commit.`);
+  }
+
+  // --- paths outside the repo root ---
+  const outside = checkOutsidePaths(root);
+  if (outside) blockers.push(outside);
 
   // --- Versionable .env / temporaries → BLOCK (would be committed) ---
   const versionable = uniq([...sets.tracked, ...sets.staged, ...sets.modified, ...sets.untracked]);
-  const envBad = versionable.filter(isRealEnv);
-  if (envBad.length) {
-    pushB(`real .env file is versionable: ${listOf(envBad)} — git rm --cached / rename to .env.example / .env.template`);
+  const env = split(versionable.filter(isRealEnv), baseline.envTracked);
+  if (env.fresh.length) {
+    blockers.push(`real .env file is versionable: ${listOf(env.fresh)} — git rm --cached / rename to .env.example / .env.template`);
+  }
+  if (env.pre.length) {
+    warnings.push(`real .env file pre-existing (before this session): ${listOf(env.pre)} — untrack it; never commit.`);
   }
   const tmpBad = versionable.filter(isTemp);
   if (tmpBad.length) {
-    pushB(`versionable temporary file(s): ${listOf(tmpBad)} — remove before committing`);
+    blockers.push(`versionable temporary file(s): ${listOf(tmpBad)} — remove before committing`);
   }
 
   // --- Ignored local files → WARN only (name scan, content never read) ---
@@ -242,7 +360,7 @@ function runChecks() {
     warnings.push(`ignored local temporary file detected: ${listOf(tmpWarn)}. Remove it if no longer needed.`);
   }
 
-  return { blockers, warnings };
+  return { root, baseline, blockers, warnings };
 }
 
 // ---------------------------------------------------------------------------
@@ -269,7 +387,7 @@ if (isHookMode) {
     process.exit(0);
   }
 
-  const { blockers, warnings } = runChecks();
+  const { root, baseline, blockers, warnings } = runChecks();
 
   // Blockers take precedence — block completion, never print raw credential values.
   if (blockers.length > 0) {
@@ -283,8 +401,15 @@ if (isHookMode) {
     process.exit(0);
   }
 
-  // Warnings only → surface a non-blocking systemMessage.
+  // Warnings only → surface a non-blocking systemMessage, but only once per distinct
+  // warning set: an unchanged set (same hash as lastWarningsHash) stays silent.
   if (warnings.length > 0) {
+    const hash = createHash("sha256").update([...warnings].sort().join("\n")).digest("hex");
+    if (hash === baseline.lastWarningsHash) {
+      process.stdout.write("{}");
+      process.exit(0);
+    }
+    storeWarningsHash(root, hash);
     process.stdout.write(JSON.stringify({
       systemMessage: `QUICK_CHECK_WARNING: ${warnings.join(" ")}`,
     }));

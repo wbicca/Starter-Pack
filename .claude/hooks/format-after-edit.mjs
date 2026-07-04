@@ -1,6 +1,9 @@
 #!/usr/bin/env node
-// PostToolUse/Edit·MultiEdit·Write — best-effort formatting, scoped to the edited file
-// when possible. Never blocks the session, never installs, never builds/tests/typechecks.
+// PostToolUse/Edit·MultiEdit·Write — best-effort formatting, STRICTLY scoped to the
+// edited file. Runs only file-scoped scripts (format:file / lint:fix:file); if the
+// project only has repo-wide format/lint scripts, this is a silent no-op — a repo-wide
+// run after every edit mutates untouched files and can take a minute. Never blocks the
+// session, never installs, never builds/tests/typechecks.
 
 import { existsSync, readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
@@ -58,22 +61,20 @@ function argv(script, arg) {
 }
 
 const scripts = pkg.scripts || {};
-let chosen = null; // { args, note }
+let chosen = null; // { args }
 if (file && scripts["format:file"]) {
   chosen = { args: argv("format:file", file) };
 } else if (file && scripts["lint:fix:file"]) {
   chosen = { args: argv("lint:fix:file", file) };
-} else if (scripts["format"]) {
-  // No file-scoped script → fall back to the global formatter, and say so.
-  chosen = { args: argv("format"), note: `format-after-edit: no file-scoped script; ran '${pm} format' on the repo (fallback).` };
 }
-// Note: a global "lint" is intentionally NOT run automatically (can be slow / side-effecting).
+// No file-scoped script → silent no-op. Repo-wide "format"/"lint" scripts are
+// intentionally NOT run automatically (slow, and they mutate files this edit
+// never touched).
 
 if (!chosen) process.exit(0);
 
 try {
   execFileSync(pm, chosen.args, { cwd, stdio: "ignore", timeout: 60_000 });
-  if (chosen.note) console.error(chosen.note);
 } catch {
   console.error(`format-after-edit: '${pm} ${chosen.args.join(" ")}' failed (non-blocking).`);
 }

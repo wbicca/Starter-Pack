@@ -12,7 +12,21 @@
 //                              denials to ASK (a human approves each individual write).
 //   * never ALLOW automatically for the main window.
 //   * writing OUTSIDE the project root (or any traversal that escapes the cwd) is
-//     ALWAYS DENY — even under the override.
+//     DENY — even under the override — EXCEPT the Claude Code harness conventions
+//     (/tmp, /private/tmp, and THIS project's own ~/.claude/projects/<slug> memory
+//     dir), which pass silently. The env-derived os.tmpdir() is intentionally NOT
+//     trusted (a hostile TMPDIR must not widen the allowlist).
+//
+// Subagent write policy:
+//   * read-only roles       -> DENY any mutation (Write/Edit or mutating Bash).
+//   * implementers touching the governance surface (CLAUDE.md, AGENTS.md, .claude/,
+//     .codex/, .agents/, scripts/quality/) -> ASK — governance edits happen only in
+//     explicit, human-approved maintenance batches.
+//   * implementers writing app code -> silent pass.
+//
+// Bash mutation detection is target-based: redirect TARGETS are extracted with an
+// anchored regex (so `=>` / `Promise<T>` in grep patterns never match) and write
+// VERBS are anchored to command position (so verbs inside prose/patterns don't match).
 //
 // "Silent pass-through" = exit 0 with NO stdout (never emit permissionDecision
 // "defer" — that value has another meaning and is not used here).
@@ -22,52 +36,58 @@
 // still run and can still block. Bash coverage is best-effort, not a perfect sandbox.
 
 import path from "node:path";
+import os from "node:os";
+import fs from "node:fs";
 
 // --- Application-code surface -------------------------------------------------
 const APP_EXTS = new Set([
-  ".ts", ".tsx", ".js", ".jsx", ".css", ".scss",
-  ".vue", ".svelte", ".py", ".rb", ".go", ".java", ".sql",
+  ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts", ".css", ".scss",
+  ".vue", ".svelte", ".py", ".rb", ".go", ".java", ".sql", ".sh", ".html", ".htm",
 ]);
-const APP_EXT_RE = /\.(tsx?|jsx?|css|scss|vue|svelte|py|rb|go|java|sql)\b/;
-// Bash write/move verbs that can land content in a target file.
-const BASH_WRITE_OP = /(>>?|\btee\b|\bcp\b|\bmv\b|\bsed\s+-i|\bperl\s+-[a-z]*i)/;
-// Governance targets reachable from a Bash command string.
-const BASH_GOV_TARGET = /(\bCLAUDE\.md\b|\bAGENTS\.md\b|\.claude\/)/;
-// Mutating Bash verbs/flags a read-only agent must never run (best-effort).
-const MUTATING_BASH = new RegExp([
-  ">",                                   // > and >> redirections
-  "\\btee\\b", "\\bcp\\b", "\\bmv\\b", "\\brm\\b", "\\btouch\\b", "\\bmkdir\\b",
-  "\\bsed\\s+-i", "\\bperl\\s+-[a-z]*i",
-  "\\bgit\\s+(?:add|commit|restore|reset|clean|checkout|switch|merge|rebase|cherry-pick)\\b",
-  "\\b(?:npm|pnpm|yarn|bun)\\s+install\\b",
+const APP_EXT_RE = /\.(tsx?|jsx?|mjs|cjs|mts|cts|css|scss|vue|svelte|py|rb|go|java|sql|sh|html?)\b/;
+// Bash write verbs, anchored to command position (start of command, after ; & | ( or a
+// newline, after a backtick, inside $( ), or as the command run by xargs) so the same
+// words inside grep patterns or prose never match. The bare `(` and backtick openers
+// catch subshell/command-substitution forms like `(cp a b)` and `` `cp a b` ``.
+const VERB_WRITE = /(?:^|[;&|\n(`]\s*|\$\(\s*|\bxargs\s+(?:-\S+\s+)*)(?:sudo\s+)?(?:tee|cp|mv|rm|touch|mkdir|rmdir|ln)\b|\bsed\s+-i|\bperl\s+-[a-z]*i/;
+// Governance surface reachable from a Bash command string.
+const BASH_GOV_TARGET = /(\bCLAUDE\.md\b|\bAGENTS\.md\b|\.claude\/|\.codex\/|\.agents\/|scripts\/quality\/)/;
+// Mutating git / package-manager invocations (read-only agents), anchored the same way
+// (start | ; & | ( newline | backtick | $( | xargs) so `(git reset)` / `` `npm install` ``
+// are caught in command position too.
+const RO_GIT_PM = new RegExp([
+  "(?:^|[;&|\\n(`]\\s*|\\$\\(\\s*)git\\s+(?:add|commit|restore|reset|clean|checkout|switch|merge|rebase|cherry-pick)\\b",
+  "(?:^|[;&|\\n(`]\\s*|\\$\\(\\s*)(?:npm|pnpm|yarn|bun)\\s+install\\b",
   "-delete\\b",
 ].join("|"));
 
 // Best-effort governance: safe redirects to /dev/null and stderr-to-stdout are stripped
-// before mutation detection. Inspection commands such as `... 2>&1`, `... 2>/dev/null`,
-// or `... &>/dev/null` must not be misread as writes. This is flow governance, NOT a
-// shell parser: redirects to real files (`> out.txt`, `2> err.log`, `>> report.txt`) are
-// deliberately left intact so genuine writes still trip MUTATING_BASH / BASH_WRITE_OP.
+// before mutation detection. Inspection commands such as `... 2>&1`, `... 2>/dev/null;`,
+// or `... &>/dev/null |` must not be misread as writes — the lookahead accepts the
+// separators ; | & ) as terminators, not just whitespace/end. This is flow governance,
+// NOT a shell parser: redirects to real files (`> out.txt`, `2> err.log`) are
+// deliberately left intact so genuine writes still yield redirect targets below.
 function stripSafeReadOnlyRedirects(command) {
   return command
     .replace(/\b2>>?\s*&1\b/g, " ")
-    .replace(/(?:^|\s)(?:1|2)?>>?\s*\/dev\/null(?=\s|$)/g, " ")
-    .replace(/(?:^|\s)&>>?\s*\/dev\/null(?=\s|$)/g, " ");
+    .replace(/(?:^|\s)(?:1|2)?>>?\s*\/dev\/null(?=[\s;|&)]|$)/g, " ")
+    .replace(/(?:^|\s)&>>?\s*\/dev\/null(?=[\s;|&)]|$)/g, " ");
 }
 
-// Best-effort: does any output redirect target escape the project root? Mirrors the
-// Write/Edit out-of-root rule for the main window. Run on the sanitized command so
-// `> /dev/null` and friends (already stripped) are never considered. Not a full shell
-// parser — covers `>`/`>>`/`&>`/`N>` redirect targets, which is what governance needs.
-function redirectTargetsOutsideRoot(command, root) {
-  const re = /(?:^|\s)[0-9]*(?:>>?|&>>?)\s*("[^"]*"|'[^']*'|[^\s|&;<>()]+)/g;
+// Shared redirect-target extraction. The anchor (start / whitespace / ; | & ( or a
+// backtick) before the optional fd digits means `=>`, `->`, `>&2`, and `<` never
+// produce a target, while subshell/command-substitution openers still count as command
+// position. Run on the sanitized command so `> /dev/null` and friends are never considered.
+const REDIRECT_RE = /(?:^|[\s;|&(`])[0-9]*(?:>>?|&>>?)\s*("[^"]*"|'[^']*'|[^\s|&;<>()]+)/g;
+function extractRedirectTargets(scmd) {
+  const targets = [];
   let m;
-  while ((m = re.exec(command)) !== null) {
+  REDIRECT_RE.lastIndex = 0;
+  while ((m = REDIRECT_RE.exec(scmd)) !== null) {
     const target = m[1].replace(/^["']|["']$/g, "");
-    if (!target || target === "/dev/null") continue;
-    if (normalize(target, root).outside) return true;
+    if (target && target !== "/dev/null") targets.push(target);
   }
-  return false;
+  return targets;
 }
 
 // --- Agent roles --------------------------------------------------------------
@@ -97,11 +117,39 @@ const MAIN_SILENT_ROOT = new Set([
   "README.md", "USAGE.md", "NOTICE.md", "THIRD_PARTY_NOTICES.md",
 ]);
 
+// Governance surface for Write/Edit paths (mirrors BASH_GOV_TARGET).
+function isGovPath(rel) {
+  return rel === "CLAUDE.md" || rel === "AGENTS.md" ||
+    rel.startsWith(".claude/") || rel.startsWith(".codex/") ||
+    rel.startsWith(".agents/") || rel.startsWith("scripts/quality/");
+}
+
+// Claude Code harness conventions that legitimately live OUTSIDE the project root:
+// the /tmp and /private/tmp scratchpads, and THIS project's memory dir
+// (~/.claude/projects/<slug>, slug = project root with "/" and spaces as "-").
+// os.tmpdir() is deliberately NOT trusted here: it is derived from the TMPDIR env var,
+// so an attacker-controlled TMPDIR could otherwise widen this allowlist to an arbitrary
+// out-of-root path. Only the two static temp roots and the per-project memory dir pass;
+// everything else out-of-root stays a hard deny.
+function harnessTempPrefixes(root) {
+  const prefixes = ["/tmp", "/private/tmp"];
+  prefixes.push(path.join(os.homedir(), ".claude", "projects", root.replace(/[/ ]/g, "-")));
+  return prefixes;
+}
+function isHarnessTempPath(abs, root) {
+  return harnessTempPrefixes(root).some((p) => {
+    const pre = p.endsWith("/") ? p : p + "/";
+    return abs === p || abs.startsWith(pre);
+  });
+}
+
 // --- Reasons ------------------------------------------------------------------
 // Short, operational codes. Policy is unchanged — only the wording is terser so the
 // orchestrator gets a clear next action instead of a paragraph.
 const REASON_GOV =
   "GOVERNANCE_WRITE_DENIED: use an explicit maintenance session with CLAUDE_ORCHESTRATOR_WRITE_OVERRIDE=1.";
+const REASON_GOV_ASK =
+  "GOVERNANCE_WRITE_ASK: governance/hook file — requires human approval (template-maintenance change).";
 const REASON_APP =
   "ORCHESTRATOR_WRITE_DENIED: delegate implementation to an allowed implementation agent. Do not retry inline.";
 const REASON_OUTSIDE =
@@ -168,34 +216,54 @@ const root = (process.env.CLAUDE_PROJECT_DIR || input.cwd || process.cwd()).toSt
 // --- Bash ---------------------------------------------------------------------
 if (toolName === "Bash") {
   const cmd = (toolInput.command ?? "").toString();
-  // Best-effort governance: safe redirects to /dev/null and stderr-to-stdout are
-  // stripped before mutation detection. The sanitized command is used in every Bash
-  // branch (read-only agents, main-window governance, application code, out-of-root);
-  // the original `cmd` is kept only for potential logging.
+  // Safe redirects to /dev/null and stderr-to-stdout are stripped, then real redirect
+  // TARGETS are extracted once and shared by every Bash branch (read-only agents,
+  // subagent governance, main-window governance/app-code/out-of-root).
   const scmd = stripSafeReadOnlyRedirects(cmd);
-  // Subagents: read-only roles may inspect but not mutate; implementers pass through.
+  const targets = extractRedirectTargets(scmd);
+  // Governance hit = a redirect lands on the governance surface, OR a write verb runs
+  // in a command that mentions the governance surface.
+  const govHit =
+    targets.some((t) => BASH_GOV_TARGET.test(t)) ||
+    (VERB_WRITE.test(scmd) && BASH_GOV_TARGET.test(scmd));
+
+  // Subagents: read-only roles may inspect but not mutate (any real redirect target
+  // counts as a mutation); non-read-only subagents touching the governance surface
+  // get an ASK (human approves); implementers writing app code pass through.
   if (!isMain) {
-    if (BASH_READ_ONLY.has(agentType) && MUTATING_BASH.test(scmd)) deny(REASON_RO_BASH);
+    if (BASH_READ_ONLY.has(agentType) &&
+        (targets.length > 0 || VERB_WRITE.test(scmd) || RO_GIT_PM.test(scmd))) {
+      deny(REASON_RO_BASH);
+    }
+    if (!BASH_READ_ONLY.has(agentType) && govHit) ask(REASON_GOV_ASK);
     pass();
   }
-  // Main window: a write redirect that escapes the project root is ALWAYS denied, even
-  // under the override (mirrors the Write/Edit out-of-root rule). Then governance first
-  // (a path may be both governance and app code), then application code. DENY by default,
+
+  // Main window: redirect targets resolving outside the project root are denied even
+  // under the override — except harness temp/memory locations, which pass. Then
+  // governance first (a path may be both governance and app code), then application
+  // code — each on redirect targets OR write verb + surface match. DENY by default,
   // ASK under the override, never ALLOW.
-  if (redirectTargetsOutsideRoot(scmd, root)) deny(REASON_OUTSIDE);
-  if (BASH_WRITE_OP.test(scmd) && BASH_GOV_TARGET.test(scmd)) mainBlock(REASON_GOV);
-  if (BASH_WRITE_OP.test(scmd) && APP_EXT_RE.test(scmd)) mainBlock(REASON_APP);
+  const realTargets = targets.filter((t) => !isHarnessTempPath(path.resolve(root, t), root));
+  if (realTargets.some((t) => normalize(t, root).outside)) deny(REASON_OUTSIDE);
+  if (realTargets.some((t) => BASH_GOV_TARGET.test(t)) ||
+      (VERB_WRITE.test(scmd) && BASH_GOV_TARGET.test(scmd))) {
+    mainBlock(REASON_GOV);
+  }
+  if (realTargets.some((t) => APP_EXT_RE.test(t)) ||
+      (VERB_WRITE.test(scmd) && APP_EXT_RE.test(scmd))) {
+    mainBlock(REASON_APP);
+  }
   pass();
 }
 
-// --- Write / Edit (+ MultiEdit compatibility) ---------------------------------
-const rawPath = (toolInput.file_path ?? toolInput.path ?? toolInput.filePath ?? "").toString();
+// --- Write / Edit (+ MultiEdit / NotebookEdit compatibility) ------------------
+const rawPath = (toolInput.file_path ?? toolInput.path ?? toolInput.filePath ?? toolInput.notebook_path ?? "").toString();
 if (!rawPath) pass();
 
 const { rel, outside, ext } = normalize(rawPath, root);
 const inDocs = rel.startsWith("docs/");
 const inBmadOut = rel.startsWith("_bmad-output/");
-const inClaude = rel.startsWith(".claude/");
 const isAppCode = APP_EXTS.has(ext);
 
 // Subagent policies (agent_id present).
@@ -211,13 +279,21 @@ if (!isMain) {
     if (inDocs || DOC_WRITER_ROOT.has(rel)) pass();
     deny("documentation-writer may only write docs/**, README.md, USAGE.md, NOTICE.md, or THIRD_PARTY_NOTICES.md.");
   }
-  // Implementers (and any unrecognized subagent) may write.
+  // Governance symmetry: implementers may touch the governance surface only via an
+  // explicit human approval (template-maintenance batches) — ASK, never silent.
+  if (isGovPath(rel)) ask(REASON_GOV_ASK);
+  // Implementers (and any unrecognized subagent) may write application code.
   pass();
 }
 
 // Main / orchestrator window (no agent_id).
-if (outside) deny(REASON_OUTSIDE);                 // unconditional — even under override
+if (outside) {
+  // Harness conventions (scratchpad, per-project memory) are legitimate out-of-root
+  // writes → silent pass. Everything else: unconditional deny, even under override.
+  if (isHarnessTempPath(path.resolve(root, rawPath), root)) pass();
+  deny(REASON_OUTSIDE);
+}
 if (inDocs || inBmadOut || MAIN_SILENT_ROOT.has(rel)) pass();
-if (rel === "CLAUDE.md" || rel === "AGENTS.md" || inClaude) mainBlock(REASON_GOV);
+if (isGovPath(rel)) mainBlock(REASON_GOV);
 if (isAppCode) mainBlock(REASON_APP);
 pass();
