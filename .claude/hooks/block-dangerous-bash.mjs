@@ -102,6 +102,7 @@ if (rmTarget) {
 
 // --- 5) Shell writes (redirection / tee / cp / mv / rsync) to protected files ---
 // Protected: starter contract files + real .env files. Allow .env example/template.
+// keep in sync with .claude/hooks/protect-sensitive-files.mjs and scripts/quality/quick-check.mjs
 const ALLOWED_ENV = /^\.env\.(example|local\.example|template)$/;
 const PROTECTED_STARTER = ["claude.md", "agents.md", "constitution.md"];
 const PROTECTED_MSG =

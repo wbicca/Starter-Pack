@@ -1,0 +1,30 @@
+name: Starter CI
+
+# Guards the starter's own integrity: structural doctor, hook regression smoke,
+# and the shared quick check. All read-only, no dependencies beyond Node.
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Starter doctor (structure & governance)
+        run: node scripts/quality/starter-doctor.mjs
+      - name: Quick check (hygiene & secrets)
+        run: node scripts/quality/quick-check.mjs
+      - name: Hook smoke tests (regression suite)
+        # POSIX-path assertions (e.g. /tmp whitelist) are meaningless on Windows;
+        # the doctor above already validates structure there.
+        if: runner.os != 'Windows'
+        run: node scripts/quality/hook-smoke.mjs

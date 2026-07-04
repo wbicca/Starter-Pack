@@ -193,6 +193,10 @@ const cases = [
     payload: write(".env") },
   { hook: "sensitive", name: "write .env.example template", expect: "pass",
     payload: write(".env.example") },
+  { hook: "sensitive", name: "write .env.staging (any .env.* is protected)", expect: "deny",
+    payload: write(".env.staging") },
+  { hook: "sensitive", name: "write .env.local.example template", expect: "pass",
+    payload: write(".env.local.example") },
 
   // format-after-edit (PostToolUse — must always stay silent / non-blocking)
   { hook: "format", name: "edit payload without file-scoped script", expect: "pass",

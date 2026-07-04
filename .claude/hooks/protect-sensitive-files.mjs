@@ -34,12 +34,12 @@ if (!path) process.exit(0);
 const base = path.split("/").pop();
 
 // Safe templates are always allowed.
+// keep in sync with .claude/hooks/block-dangerous-bash.mjs and scripts/quality/quick-check.mjs
 const ALLOWED = [".env.example", ".env.local.example", ".env.template"];
 if (ALLOWED.includes(base)) process.exit(0);
 
-// Protected real env files: .env, .env.local|production|development|test, .env.*.local
-const PROTECTED =
-  /^\.env$|^\.env\.(local|production|development|test)$|^\.env\..+\.local$/;
+// Protected real env files: .env and ANY .env.* (templates above already passed).
+const PROTECTED = /^\.env$|^\.env\.[^/]+$/;
 if (PROTECTED.test(base)) {
   deny("Real environment files are protected. Use .env.example instead.");
 }

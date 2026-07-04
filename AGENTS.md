@@ -51,7 +51,7 @@ Claude Code loads skills from `.claude/skills/`; Codex loads them from `.agents/
 
 | Task | Canonical | Notes |
 |------|-----------|-------|
-| Project onboarding (new or existing) | `project-onboarding` | classifies the project + writes docs/PROJECT_BRIEF/STACK/ARCHITECTURE/DECISIONS (incl. STACK Capabilities) + conditional docs (API_CONTRACTS/DATABASE/TESTING/DEPLOYMENT/DELIVERY_LOG) where they apply; uses `bmad-document-project` internally for existing repos |
+| Project onboarding (new or existing) | `project-onboarding` | classifies the project + writes docs/PROJECT_BRIEF/STACK/ARCHITECTURE/DECISIONS (incl. STACK Capabilities) + conditional docs (API_CONTRACTS/DATABASE/TESTING/DEPLOYMENT/DELIVERY_LOG) where they apply; existing repos get a minimal detection scan; run `bmad-document-project` explicitly for deep brownfield documentation |
 | Discover / evaluate a new skill | `skill-discovery` | recommends only, never installs (see "External skills are optional") |
 | Feature / impl ideation | Superpowers `brainstorming` | default gate before any coding |
 | Product discovery for a PRD | `bmad-brainstorming` | only inside the BMAD planning track |

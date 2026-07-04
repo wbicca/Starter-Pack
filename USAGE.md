@@ -63,8 +63,9 @@ O onboarding pergunta a stack (linguagem, framework, DB/Auth, hosting). O `STACK
 `UNCONFIGURED` → vira `PARTIAL` (parte conhecida) → `CONFIGURED` (decisões principais fechadas).
 
 ### 2b. Projeto EXISTENTE (brownfield)
-O onboarding roda análise minuciosa via `bmad-document-project`, **detecta** a stack e
-preenche os docs com o que já existe.
+O onboarding faz um **scan mínimo**, **detecta** a stack e preenche os docs com o que já
+existe. Para documentação profunda de brownfield (mapa completo do sistema), peça
+explicitamente o `bmad-document-project` depois do onboarding.
 
 ---
 

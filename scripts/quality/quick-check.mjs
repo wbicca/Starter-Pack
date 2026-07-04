@@ -129,6 +129,7 @@ function fileSets(root) {
 // Name classifiers (shared by blocker + warning logic)
 // ---------------------------------------------------------------------------
 
+// keep in sync with .claude/hooks/protect-sensitive-files.mjs and .claude/hooks/block-dangerous-bash.mjs
 const ENV_ALLOWED = new Set([".env.example", ".env.local.example", ".env.template"]);
 // Matches: .env  .env.local  .env.production  .env.anything  etc.
 const ENV_RE = /^\.env(?:\..+)?$/;
