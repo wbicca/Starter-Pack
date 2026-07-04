@@ -24,6 +24,21 @@ that is genuinely cohesive is fine; never split or pad code only to hit a thresh
 - Error messages should include actionable context and the expected shape when useful.
 - Never expose secrets or PII in errors or logs.
 
+## Reuse ladder — before writing new code
+Climb in order; stop at the first rung that solves the problem. Write new code only when
+every rung above has failed:
+1. **Does this need to exist at all?** Challenge the requirement first.
+2. **Does the codebase already do it?** Search before writing.
+3. **Does the standard library do it?**
+4. **Does the platform/framework do it natively?**
+5. **Does an already-installed dependency do it?**
+6. **Is it a one-liner** instead of a new abstraction?
+7. Only then: **write the minimum code that works.**
+
+Adding a **new** dependency is not a rung — it needs explicit justification (see
+Dependencies). Reviewers apply the same ladder in reverse: flag new code that duplicates
+an existing util, the standard library, or an installed dependency.
+
 ## Comments
 - Preserve useful comments during refactors.
 - Write **why**, not the obvious **what**.

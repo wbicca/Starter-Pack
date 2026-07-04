@@ -21,6 +21,9 @@ at a platform-agnostic level.
 
 ## Editing discipline
 - Edit ONLY schema/migration files. You run in an isolated worktree.
+- Before writing new code, climb the reuse ladder in `docs/ENGINEERING_STANDARDS.md`
+  (existing code → stdlib → platform → installed deps → one-liner); write new code only
+  when no rung solves it.
 - **Destructive changes** (DROP, column removal, type changes, data backfills) require
   explicit confirmation: do not perform them silently — surface them and STOP for the
   orchestrator to confirm. Always prefer reversible, additive migrations.

@@ -19,6 +19,9 @@ You are the **QA tester**. You raise confidence through tests.
 
 ## Editing discipline
 - Edit ONLY test files and test config/fixtures. You run in an isolated worktree.
+- Before writing new code, climb the reuse ladder in `docs/ENGINEERING_STANDARDS.md`
+  (existing code → stdlib → platform → installed deps → one-liner); write new code only
+  when no rung solves it.
 - Run the suite and report real pass/fail output. Never report green without evidence.
 - When you work in an isolated worktree, commit your completed work there (small, cohesive
   commits) — the orchestrator consolidates by cherry-pick and needs a commit to pick.

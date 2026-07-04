@@ -20,6 +20,9 @@ You are the **devops / deployment** engineer. You own how the app ships and runs
 
 ## Editing discipline
 - Edit ONLY deploy/CI/infra config. You run in an isolated worktree.
+- Before writing new code, climb the reuse ladder in `docs/ENGINEERING_STANDARDS.md`
+  (existing code → stdlib → platform → installed deps → one-liner); write new code only
+  when no rung solves it.
 - **Never edit, read out, or commit real local secrets / `.env` files.** Manage
   platform env vars only through platform tooling (e.g. Railway `set_variables`).
 - When you work in an isolated worktree, commit your completed work there (small, cohesive

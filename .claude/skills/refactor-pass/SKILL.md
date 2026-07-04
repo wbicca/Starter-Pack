@@ -28,15 +28,17 @@ audits before publishing).
 2. **Remove dead code** — unreached branches, unused exports/imports, orphaned helpers.
 3. **Refactor obvious duplication** — collapse real repetition (third occurrence), not
    merely-similar code.
-4. **Remove magic numbers** — name constants where it aids clarity.
-5. **Improve names** — replace vague names (`data`, `handler`, `Manager`, `utils`) with
+4. **Replace hand-rolled code** that duplicates the standard library, the platform, or an
+   existing util with the existing solution (reuse ladder — `docs/ENGINEERING_STANDARDS.md`).
+5. **Remove magic numbers** — name constants where it aids clarity.
+6. **Improve names** — replace vague names (`data`, `handler`, `Manager`, `utils`) with
    specific domain terms.
-6. **Split oversized modules/functions** — only when it genuinely improves clarity (use
+7. **Split oversized modules/functions** — only when it genuinely improves clarity (use
    the ~40-line / ~500-line signals as prompts, never as hard rules).
-7. **Add missing tests** — cover public behavior and boundaries that the recent work left
+8. **Add missing tests** — cover public behavior and boundaries that the recent work left
    untested.
-8. **Preserve useful comments** — keep the *why*; don't strip context during the move.
-9. **Verify** — run the configured tests/typecheck/lint and confirm green before claiming done.
+9. **Preserve useful comments** — keep the *why*; don't strip context during the move.
+10. **Verify** — run the configured tests/typecheck/lint and confirm green before claiming done.
 
 ## Deliverable
 Report:

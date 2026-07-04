@@ -20,6 +20,9 @@ UI to data.
 
 ## Editing discipline
 - Edit ONLY frontend source and its tests. You run in an isolated worktree.
+- Before writing new code, climb the reuse ladder in `docs/ENGINEERING_STANDARDS.md`
+  (existing code → stdlib → platform → installed deps → one-liner); write new code only
+  when no rung solves it.
 - Write the test first (TDD), then the implementation. Never claim done without
   running verification and reporting the output.
 - When you work in an isolated worktree, commit your completed work there (small, cohesive

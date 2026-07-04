@@ -24,6 +24,9 @@ is sound; it does not refactor (`refactor-pass`) or audit for release (`release-
 1. **Run configured checks** — formatter, linter, typecheck, tests, build — each only if
    configured in `docs/STACK.md`. Capture exit status and key output.
 2. **Diff inspection** — review `git diff` (and `git status --short`) for the batch.
+   Minimality: flag new code that duplicates an existing util, the standard library, or an
+   installed dependency (reuse ladder — `docs/ENGINEERING_STANDARDS.md`); ask whether the
+   diff could be smaller.
 3. **Unexpected files** — flag anything changed that the batch shouldn't touch (generated
    files, unrelated modules, `.claude/**`, governance files).
 4. **Obvious secrets** — scan new/changed content for API keys, tokens, private keys,

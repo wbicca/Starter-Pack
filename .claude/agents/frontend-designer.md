@@ -23,6 +23,9 @@ layout, styling, components, responsiveness, and accessibility.
 - Edit ONLY frontend/UI files (components, styles, assets). You run in an isolated
   worktree, so apply edits directly.
 - Follow the existing component conventions; match the surrounding code's style.
+- Before writing new code, climb the reuse ladder in `docs/ENGINEERING_STANDARDS.md`
+  (existing code → stdlib → platform → installed deps → one-liner); write new code only
+  when no rung solves it.
 - When you work in an isolated worktree, commit your completed work there (small, cohesive
   commits) — the orchestrator consolidates by cherry-pick and needs a commit to pick.
 
