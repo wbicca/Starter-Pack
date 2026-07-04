@@ -75,7 +75,9 @@ passed.
 
 **Definition of Done (Development Gate):** configured checks pass (or are honestly reported
 as not configured); diff is clean and scoped; no secrets/real `.env`; orchestrator did not
-implement inline; code review done when the batch is non-trivial.
+implement inline; code review done when the batch is non-trivial; an entry appended to
+`docs/DELIVERY_LOG.md` when the project keeps one (what shipped · validation · review/approval
+· commit).
 
 ---
 

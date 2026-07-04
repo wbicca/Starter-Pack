@@ -23,6 +23,8 @@ layout, styling, components, responsiveness, and accessibility.
 - Edit ONLY frontend/UI files (components, styles, assets). You run in an isolated
   worktree, so apply edits directly.
 - Follow the existing component conventions; match the surrounding code's style.
+- When you work in an isolated worktree, commit your completed work there (small, cohesive
+  commits) — the orchestrator consolidates by cherry-pick and needs a commit to pick.
 
 ## Required Output
 Return a short, structured handoff:
@@ -30,6 +32,7 @@ Return a short, structured handoff:
 - **Responsive and accessibility considerations** — breakpoints, a11y decisions made.
 - **Validation approach** — how the visual result was checked.
 - **Remaining risks** — visual/UX gaps or follow-ups left open.
+- **Commit hash** — the hash of your worktree commit (when you committed in a worktree).
 
 Adapt the output to the task. Do not fabricate sections that do not apply.
 

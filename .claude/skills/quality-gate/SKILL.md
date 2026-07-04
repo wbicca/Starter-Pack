@@ -33,6 +33,9 @@ is sound; it does not refactor (`refactor-pass`) or audit for release (`release-
 6. **Orchestrator-inline check** — confirm application code was written by an
    implementation agent, not inline by the orchestrator. Flag if it was.
 7. **Code review** — recommend `requesting-code-review` when the batch is non-trivial.
+8. **Delivery log** — when the project keeps `docs/DELIVERY_LOG.md`, append the batch
+   entry: what shipped · validation · review/approval · commit hash. Skip silently when
+   the project has no delivery log.
 
 ## Deliverable
 A table plus a short verdict:
@@ -42,4 +45,5 @@ A table plus a short verdict:
 | `<from docs/STACK.md>` | pass / fail / output summary | PASS / FAIL / NOT CONFIGURED |
 
 Then: unexpected files, secret/`.env` findings, the orchestrator-inline check, the code
-review recommendation, and an overall **gate PASS / gate FAIL**.
+review recommendation, the `docs/DELIVERY_LOG.md` entry appended (when the project keeps
+one), and an overall **gate PASS / gate FAIL**.

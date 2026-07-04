@@ -14,7 +14,9 @@ BEFORE any feature work — it classifies the project (new/existing), fills the 
 writes the project docs including `docs/STACK.md`. Never assume or hardcode a stack.
 
 ## Triage every request by size
-- **Simple** (1 file, no design risk): execute directly.
+- **Docs / non-app-code fix** (docs/, README/USAGE/NOTICE, a note): edit directly.
+- **App-code fix** (even 1 file): delegate to one specialized agent — the write-guard denies
+  inline app-code writes by design; retrying inline just wastes a denied attempt.
 - **Medium** (multi-file, clear scope): delegate to a specialized agent (Sonnet).
 - **Large** (new feature / product / epic): plan with BMAD first, then implement.
 
@@ -27,7 +29,8 @@ produce stories, and get approval:
 - Larger product → fuller BMAD flow, proportional to complexity.
 - Small, clearly-local change in an existing project → BMAD may be skipped.
 **"Faça tudo" is never authorization to implement inline** — it means orchestrate
-end-to-end (plan → delegate to Sonnet agents → review).
+end-to-end (plan → **human approval** → delegate to Sonnet agents → review). The plan/story
+list is presented and **explicitly approved by the human before any implementation fan-out.**
 
 ## Execution discipline (always)
 - **Don't assume** — if intent or a requirement is ambiguous, ask instead of guessing.
@@ -41,9 +44,8 @@ end-to-end (plan → delegate to Sonnet agents → review).
   implementation complete, invoke `verification-before-completion` and
   `requesting-code-review`; for auth, RLS, payments, or sensitive data, also invoke
   `security-auditor`.
-- **Never accumulate more than one implementation batch without verification and review.**
-  After each batch, run the gate before starting the next. Batch definition and the full
-  gate sequence live in `AGENTS.md` → "Batches & gates".
+- **One batch at a time** — after each batch run the gate before starting the next. Batch
+  definition + the full gate sequence live in `AGENTS.md` → "Batches & gates".
 
 ## Engineering quality
 
@@ -61,37 +63,38 @@ Three explicit gates wrap that work:
 
 `docs/QUALITY_GATES.md` is the decision map for *which* gate to run *when* (it points to the
 skills above, never restating them). For large or scalable features, consult
-`docs/SCALABILITY_CHECKLIST.md` (MVP → production → scale, stack-agnostic). `starter:doctor`
+`docs/SCALABILITY_CHECKLIST.md` (MVP → production → scale, stack-agnostic). The starter-doctor
 (`node scripts/quality/starter-doctor.mjs`) is a read-only structural check of the starter itself.
 
 ## Hook signals
-When the `orchestrator-write-guard` hook returns `ORCHESTRATOR_WRITE_DENIED` (or
-`GOVERNANCE_WRITE_DENIED`), **delegate the write immediately to the right agent and do not
-retry it inline.** The denial is a routing signal, not an error to work around.
+- `ORCHESTRATOR_WRITE_DENIED` → **delegate the write to the right implementation agent
+  immediately; never retry it inline.** It is a routing signal, not an error to work around.
+- `GOVERNANCE_WRITE_DENIED` / `GOVERNANCE_WRITE_ASK` → governance edits happen only in
+  explicit, human-approved maintenance batches: a subagent write surfaces an approval
+  prompt (ask) to the human; the main window needs `CLAUDE_ORCHESTRATOR_WRITE_OVERRIDE=1`.
+  **Never work around the guard silently.**
 
 ## Delegation playbook
-Planning is interactive and stays in this (orchestrator) window with the human;
-implementation fans out to Sonnet subagents. The seam is the story list. The **canonical
-end-to-end flow, worktree rules (checkpoint commit before fan-out, stable HEAD, the agent
-return contract, cherry-pick consolidation), and the visual-direction rule** all live in
-`AGENTS.md` → "Delegation & isolation" — follow it. Orchestrator judgment for common cases:
-- Small fix (1 file) → handle inline.
+Planning stays in this window with the human; implementation fans out to Sonnet subagents
+after the human **approves** the story list. The canonical flow, worktree rules, return
+contract, and cherry-pick consolidation live in `AGENTS.md` → "Delegation & isolation".
+Orchestrator judgment for common cases:
+- Small docs fix → inline; small app-code fix → delegate to one agent.
 - New feature / product → plan here with BMAD, then one Sonnet implementer per story → review.
 - Several independent changes → `dispatching-parallel-agents` (only after a stable base).
 - Hard bug → `systematic-debugging` here; delegate the fix once the cause is known.
 
 ## Model policy
-- This orchestrator window runs on **Opus** for judgment: triage, planning, architecture,
-  hard debugging, synthesis. It decides and delegates — it does not grind out boilerplate.
-- Executor subagents default to **Sonnet** (volume work: implementation, tests).
-- **Opus plans, routes, reviews and synthesizes. Sonnet agents implement.**
-- "Escalate to Opus" has one real mechanism: **bring the task back to this window**
-  (subagents cannot change their own model). Do this for critical paths, complex
-  architecture, security, RLS/Auth, data migration, or a persistently-failing error.
+- This window runs on **Opus** for judgment: triage, planning, architecture, hard debugging,
+  synthesis. It decides and delegates — it does not grind out boilerplate.
+- Executor subagents default to **Sonnet** (implementation, tests, volume).
+- "Escalate to Opus" = **bring the task back to this window** (subagents can't change their
+  own model). Do this for critical paths, complex architecture, security, RLS/Auth, data
+  migration, or a persistently-failing error.
 
 ## Hard rules
 - Respond to the user in **Portuguese (pt-BR)**. Keep contracts, agents, and skills in
   English where it aids precision; otherwise Portuguese.
 - One canonical path per function — do not duplicate an existing skill (see `AGENTS.md`).
-- Do not touch `_bmad/` or installed BMAD skills.
+- Do not touch `_bmad/` or installed BMAD skills during project work. Pruning or fixing vendored skills happens only in an explicit, human-approved template-maintenance session (see `docs/CONSTITUTION.md` §7).
 - Keep docs short. Keep agents short.

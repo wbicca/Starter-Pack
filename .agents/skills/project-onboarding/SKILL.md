@@ -65,7 +65,7 @@ leave a `TODO:` for genuine unknowns, never invent. Write **prose in the convers
 language**, but keep **structural keywords in English** — especially `STACK.md`'s
 `Status: UNCONFIGURED | PARTIAL | CONFIGURED`, which the init gate matches literally.
 - **`PROJECT_BRIEF.md`** — what it is, who it's for, the core problem, scope.
-- **`STACK.md`** — the resolved stack + honest Status + the real commands (leave UNCONFIGURED ones as TBD).
+- **`STACK.md`** — the resolved stack + honest Status + the real commands (leave UNCONFIGURED ones as TBD). Also fill the **Capabilities** section (relevant agents · optional integrations/MCPs · out-of-scope) so agents load only what's relevant; mark unused items `n/a`.
 - **`ARCHITECTURE.md`** — high-level shape: main pieces, boundaries, data flow. Brief.
 - **`DECISIONS.md`** — append-only log (date · decision · why) = the project's memory.
 
@@ -73,9 +73,11 @@ Beyond the four core docs, generate these **conditional** docs only when they ap
 type (same `templates/` directory; fill only what's known, `TBD:` for unknowns, never an
 empty doc): **`API_CONTRACTS.md`** (exposes/consumes an API), **`DATABASE.md`** (owns a
 datastore), **`TESTING.md`** (non-trivial logic to test), **`DEPLOYMENT.md`** (is deployed
-somewhere). A doc N/A for the type is skipped; an in-scope-but-unknown area is created with
-`TBD:`. Static frontend → core docs only; backend/API → + API_CONTRACTS, DATABASE, TESTING;
-SaaS full-stack → all. For an **existing** project, preserve and amend existing docs.
+somewhere), **`DELIVERY_LOG.md`** (append-only delivery record; seed when the project will
+have implementation batches — skip for a docs-only repo). A doc N/A for the type is skipped;
+an in-scope-but-unknown area is created with `TBD:`. Static frontend → core docs only (+ a
+DELIVERY_LOG once it has batches); backend/API → + API_CONTRACTS, DATABASE, TESTING,
+DELIVERY_LOG; SaaS full-stack → all. For an **existing** project, preserve and amend existing docs.
 
 **Project-specific non-negotiables:** if the user named hard rules in Step 0 (Q4), propose
 filling that section of `docs/CONSTITUTION.md` — **only with explicit user approval**, in

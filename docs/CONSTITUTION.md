@@ -10,7 +10,9 @@ When a future decision conflicts with anything here, this file wins.
 4. **Plan before large work.** BMAD for product/architecture; Superpowers for execution.
 5. **Evidence before "done".** `verification-before-completion` is mandatory.
 6. **Cheapest competent model.** Sonnet by default; Opus only when justified.
-7. **Don't modify the engine.** `_bmad/` and installed BMAD skills are read-only.
+7. **Don't modify the engine.** `_bmad/` and installed BMAD skills are read-only during
+   project work. Pruning or fixing vendored skills is allowed only in an explicit,
+   human-approved template-maintenance session.
 8. **Docs stay lean.** Reference contracts, not manuals.
 
 ## Project-specific non-negotiables

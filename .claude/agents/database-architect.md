@@ -24,6 +24,8 @@ at a platform-agnostic level.
 - **Destructive changes** (DROP, column removal, type changes, data backfills) require
   explicit confirmation: do not perform them silently — surface them and STOP for the
   orchestrator to confirm. Always prefer reversible, additive migrations.
+- When you work in an isolated worktree, commit your completed work there (small, cohesive
+  commits) — the orchestrator consolidates by cherry-pick and needs a commit to pick.
 
 ## Required Output
 Return a short, structured handoff:
@@ -32,6 +34,7 @@ Return a short, structured handoff:
 - **Data risks** — destructive or irreversible effects, data-loss exposure.
 - **Validation** — how the change was checked (dry run, query plan, etc.).
 - **Rollback considerations** — how to reverse the change.
+- **Commit hash** — the hash of your worktree commit (when you committed in a worktree).
 
 Adapt the output to the task. Do not fabricate sections that do not apply.
 

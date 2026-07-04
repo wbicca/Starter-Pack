@@ -2,7 +2,9 @@
 
 > **Status: UNCONFIGURED**  (allowed values: UNCONFIGURED · PARTIAL · CONFIGURED)
 > Filled per project by the **`project-onboarding`** skill — don't hand-run the init flow
-> here; that procedure lives in the skill, which sets the Status honestly.
+> here; that procedure lives in the skill, which sets the Status honestly and fills the
+> sections below. The structure is present so the gates have something to read even before
+> onboarding.
 
 ## Resolved stack
 _(empty until configured)_
@@ -12,6 +14,33 @@ _(empty until configured)_
 - DB/Auth:
 - Hosting:
 - Tests:
+
+## Commands
+
+> `quality-gate` runs ONLY the commands configured here. Leave anything unconfigured as TBD /
+> UNCONFIGURED — never invent one. Set a row to CONFIGURED once the command is verified.
+
+| Purpose | Command | Status |
+|---|---|---|
+| Install | TBD | UNCONFIGURED |
+| Development | TBD | UNCONFIGURED |
+| Lint | TBD | UNCONFIGURED |
+| Format | TBD | UNCONFIGURED |
+| Typecheck | TBD | UNCONFIGURED |
+| Test | TBD | UNCONFIGURED |
+| Build | TBD | UNCONFIGURED |
+| E2E | TBD | UNCONFIGURED |
+| Security | TBD | UNCONFIGURED |
+| Release | TBD | UNCONFIGURED |
+
+## Capabilities
+
+> Declared at onboarding so agents load only what's relevant to THIS project and don't
+> consider irrelevant paths. Mark anything unused as `n/a`; never invent capabilities.
+
+- Relevant agents: _(subset actually used, filled at onboarding)_
+- Optional integrations / MCPs in use: _(e.g. Supabase, Railway, codegraph — or `none`)_
+- Explicitly out of scope: _(e.g. no database, no deploy yet, no payments)_
 
 ## Hard stack rules (apply once configured)
 - If Supabase/Postgres is chosen: RLS on by default for every table.

@@ -29,6 +29,15 @@
 | Security | TBD | UNCONFIGURED |
 | Release | TBD | UNCONFIGURED |
 
+## Capabilities
+
+> Declared at onboarding so agents load only what's relevant to THIS project and don't
+> consider irrelevant paths. Mark anything unused as `n/a`; never invent capabilities.
+
+- Relevant agents: <subset actually used, e.g. frontend-engineer, backend-engineer, database-architect>
+- Optional integrations / MCPs in use: <e.g. Supabase, Railway, codegraph — or `none`>
+- Explicitly out of scope: <e.g. no database, no deploy yet, no payments>
+
 ## Hard rules
 - <e.g. If Supabase/Postgres: RLS on by default for every table.>
 - <Auth/RLS or data-migration changes are Opus-escalation work.>

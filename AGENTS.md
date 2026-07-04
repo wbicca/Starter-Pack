@@ -12,8 +12,11 @@ This repository is designed to work with Claude Code and Codex.
 - Codex should follow AGENTS.md directly.
 - Implementation agents must follow `docs/ENGINEERING_STANDARDS.md`.
 - Project-specific commands live in `docs/STACK.md`.
+- Per-project **capabilities** (relevant agents · optional integrations/MCPs · out-of-scope)
+  live in `docs/STACK.md` — consult them to load only what's relevant; don't pursue paths a
+  project marked out of scope.
 - Do not assume project context from the folder name; ask first.
-- Do not implement non-trivial work before planning and approval.
+- Do not implement non-trivial work before planning and **explicit human approval** of the plan.
 - After each implementation batch, run `quality-gate`.
 - After large changes, run `refactor-pass`.
 - Before release, run `release-sanity`.
@@ -29,6 +32,13 @@ Claude Code loads skills from `.claude/skills/`; Codex loads them from `.agents/
 - Use `code-reviewer` after each non-trivial implementation batch.
 - Use `security-auditor` for auth, RLS, payments, webhook, PII, dependencies, permissions, or external assets.
 - Use built-in `explorer` for read-heavy investigation when needed.
+- On the Codex side only `$project-onboarding`, `$quality-gate`, `$refactor-pass`, and
+  `$release-sanity` exist as invocable skills (`.agents/skills/`). Every other routing-table
+  row is a **practice to apply inline** — follow its intent via internal best practices +
+  BMAD/Superpowers principles + project docs; it is not an invocable Codex skill.
+- Roles without a Codex agent (database/schema, visual design, QA, deploy) are handled in the
+  main thread or by the nearest available agent (`backend-engineer`/`frontend-engineer`) with
+  extra care.
 - Keep planning in the main thread.
 - Do not spawn recursive agent trees.
 - After each batch, invoke `$quality-gate`.
@@ -41,7 +51,7 @@ Claude Code loads skills from `.claude/skills/`; Codex loads them from `.agents/
 
 | Task | Canonical | Notes |
 |------|-----------|-------|
-| Project onboarding (new or existing) | `project-onboarding` | classifies the project + writes docs/PROJECT_BRIEF/STACK/ARCHITECTURE/DECISIONS; uses `bmad-document-project` internally for existing repos |
+| Project onboarding (new or existing) | `project-onboarding` | classifies the project + writes docs/PROJECT_BRIEF/STACK/ARCHITECTURE/DECISIONS (incl. STACK Capabilities) + conditional docs (API_CONTRACTS/DATABASE/TESTING/DEPLOYMENT/DELIVERY_LOG) where they apply; uses `bmad-document-project` internally for existing repos |
 | Discover / evaluate a new skill | `skill-discovery` | recommends only, never installs (see "External skills are optional") |
 | Feature / impl ideation | Superpowers `brainstorming` | default gate before any coding |
 | Product discovery for a PRD | `bmad-brainstorming` | only inside the BMAD planning track |
@@ -61,6 +71,8 @@ Claude Code loads skills from `.claude/skills/`; Codex loads them from `.agents/
 | Batch verification gate | `quality-gate` | mandatory after each implementation batch |
 | Pre-release audit | `release-sanity` | before publishing; runs the quality-gate checklist first |
 | Parallel / risky work | Superpowers `using-git-worktrees` | |
+| Deployment / CI / infra config | `devops-deployment` | platform build/deploy/env; never touches real secrets |
+| Docs / artifact persistence | `documentation-writer` | docs & READMEs; persists PRDs/briefs under docs/ |
 
 ## Duplication rulings (do NOT pick the loser)
 - **brainstorming**: Superpowers = default for dev/design; `bmad-brainstorming` = product track only.
@@ -68,7 +80,7 @@ Claude Code loads skills from `.claude/skills/`; Codex loads them from `.agents/
 - **code-review**: Superpowers `requesting-code-review` is THE engine; `receiving-code-review` = protocol for responding. `bmad-code-review` = opt-in deep adversarial audit, never the default.
 - **investigate vs systematic-debugging**: bug to fix → `systematic-debugging`; system/incident to understand → `bmad-investigate`.
 - **E2E vs TDD**: unit → `test-driven-development`; E2E suites → `bmad-qa-generate-e2e-tests`.
-- **DEPRECATED — never use**: `bmad-create-prd`, `bmad-edit-prd`, `bmad-validate-prd` → always `bmad-prd`.
+- **skill vs agent**: `bmad-create-architecture`/`bmad-prd` are the *processes*; `system-architect`/`product-strategist` are the *agents* that run them. Not duplicates.
 
 ## External skills are optional
 Agents route to vendored BMAD/Superpowers skills as their canonical path. Any external
@@ -97,7 +109,11 @@ not configured, fall back to `Glob`/`Grep`. Never required; the project must wor
 **End-to-end flow (new project / non-trivial feature):**
 1. **Onboarding** → `project-onboarding` (main window).
 2. **Planning** → BMAD in the main **Opus** window (PRD → stories), with the human.
-3. **Scaffold** → **one** Sonnet implementer, in an isolated worktree, builds the base scaffold.
+3. **Scaffold** → **one** Sonnet implementer (the orchestrator picks by primary stack —
+   frontend-engineer for a fullstack web app, backend-engineer for an API/service — lane
+   relaxed to the whole scaffold for this step only), in an isolated worktree, builds the base
+   scaffold. Framework generators (create-next-app etc.) run in a temp subdir and are
+   integrated selectively — never onto the repo root (`block-dangerous-bash` enforces this).
 4. **After the scaffold is integrated & stable** → independent stories fan out to Sonnet agents
    in **separate** worktrees (`subagent-driven-development` / `dispatching-parallel-agents`).
 5. **Auth / RLS / schema** → `supabase-specialist` and/or `database-architect`.
@@ -107,6 +123,9 @@ not configured, fall back to `Glob`/`Grep`. Never required; the project must wor
 9. **Synthesis** → Opus receives the results; it does not write boilerplate directly.
 
 **Rules:**
+- **Approval gate:** the human approves the plan/story list **before** any implementation
+  fan-out (plan → approve → execute). "Faça tudo" authorizes orchestration end-to-end, not
+  skipping that approval.
 - No scaffold, multi-file change, or new product is implemented **inline by the orchestrator** —
   the only exception is a small, clearly-local change.
 - Planning never uses a worktree; medium/large implementation does.
@@ -128,7 +147,8 @@ Worktrees isolate **parallel code writes**, not interactive doc work. Planning, 
 and review never use a worktree. `worktree.baseRef` is `head`, so every new worktree starts
 from the current branch HEAD — keep HEAD stable before fanning out.
 
-1. **Planning** happens in the main Opus window with the human.
+1. **Planning** happens in the main Opus window with the human, ending in **explicit human
+   approval** of the plan/story list (plan → approve → execute) before anything is built.
 2. **Scaffold / initial foundation** goes to a **single** Sonnet implementer in a worktree.
 3. Before **any** parallel fan-out, create a **checkpoint commit** of the stable base.
 4. Each parallel agent starts from the **stable HEAD** (never from another agent's worktree).
@@ -141,6 +161,9 @@ from the current branch HEAD — keep HEAD stable before fanning out.
 9. Exploratory visual iteration uses a **single** worktree or preview page until the visual
    direction is approved.
 10. Only **parallelize visual propagation after** the visual language is approved.
+11. **Cherry-pick conflict** → never hand-apply agent code into the main window. Re-dispatch
+    the conflicting story to a fresh implementer rebased on the new HEAD, or ask the human.
+    Stories that must touch the same files are **sequenced, not parallelized**.
 
 ## Batches & gates
 **Never accumulate more than one implementation batch without verification and review.**
@@ -149,12 +172,14 @@ A **batch** is one of: a single story · one structural change · a small, cohes
 components · one approved redesign round.
 
 After **each** batch, before starting the next:
-1. run `verification-before-completion`;
-2. run `requesting-code-review`;
-3. trigger `security-auditor` when the batch touches auth, RLS, payments, webhooks, PII,
+1. run `quality-gate` — runs the `docs/STACK.md` commands + diff/secret inspection, and
+   appends the `docs/DELIVERY_LOG.md` entry (what shipped · validation · review/approval ·
+   commit) when the project keeps one;
+2. run `verification-before-completion` — evidence before any "done" claim;
+3. run `requesting-code-review`;
+4. trigger `security-auditor` when the batch touches auth, RLS, payments, webhooks, PII,
    relevant dependencies, or external assets;
-4. fix blockers;
-5. only then start the next batch.
+5. fix blockers — only then start the next batch.
 
 **Gate decision map:** `docs/QUALITY_GATES.md` says *which* gate to run *when* (Quick Check ·
 Development Gate · Release Gate) and routes to the canonical skill for each — it does not

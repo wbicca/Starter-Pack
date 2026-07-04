@@ -100,6 +100,9 @@ preserve what's still true and amend rather than rewrite.
   the stack isn't validated yet, `PARTIAL` when only some of it is known, `CONFIGURED`
   only once the main stack decisions (language, framework, DB/Auth, hosting) are filled.
   For an existing project, record the detected stack; for a new one, the user's choices.
+  Also fill the **Capabilities** section (relevant agents · optional integrations/MCPs ·
+  out-of-scope) from the classification, so agents load only what's relevant. Mark unused
+  items `n/a`; never invent a capability.
 - **`ARCHITECTURE.md`** — high-level shape: main pieces, boundaries, data flow. Brief.
 - **`DECISIONS.md`** — an append-only log of decisions made during onboarding, each with
   a one-line rationale (date · decision · why). This is the project's memory.
@@ -117,12 +120,16 @@ never produce an empty or useless doc. Start each from its template in this skil
 - **`DEPLOYMENT.md`** — when the project is deployed somewhere (most apps). Skip only when
   deployment is explicitly out of scope; if a target exists but isn't decided, create it
   with `TBD:`.
+- **`DELIVERY_LOG.md`** — seed an append-only delivery log when the project will have
+  implementation batches (almost all real projects). Skip for a docs-only repo. It starts
+  essentially empty (header only) and is appended to after each passing quality-gate.
 
 Rules: a doc that is **N/A for the type** is skipped entirely; a doc whose area is **in
 scope but unknown** is created with `TBD:` so the gap is tracked. Examples — static frontend:
-core docs only (no DATABASE/API_CONTRACTS); backend/API: + API_CONTRACTS, DATABASE, TESTING;
-SaaS full-stack: all four. For an **existing** project, preserve existing docs and amend
-rather than rewrite. Never invent stack, architecture, or contracts.
+core docs only (no DATABASE/API_CONTRACTS) but still a DELIVERY_LOG once it has batches;
+backend/API: + API_CONTRACTS, DATABASE, TESTING, DELIVERY_LOG; SaaS full-stack: all of them.
+For an **existing** project, preserve existing docs and amend rather than rewrite. Never
+invent stack, architecture, or contracts.
 
 **Project-specific non-negotiables:** if the user named project-specific hard rules in
 Step 0 (Q4), propose filling the **"Project-specific non-negotiables"** section of
@@ -165,6 +172,7 @@ Report back, concisely:
 - [ ] Classified: new/existing + type, confirmed with the user.
 - [ ] Proposed Project-specific non-negotiables if any — written only with explicit approval.
 - [ ] PROJECT_BRIEF / STACK / ARCHITECTURE / DECISIONS created or updated and lean.
-- [ ] Conditional docs (API_CONTRACTS / DATABASE / TESTING / DEPLOYMENT) generated only where they apply — no empty docs; unknown-but-in-scope areas marked TBD.
+- [ ] Conditional docs (API_CONTRACTS / DATABASE / TESTING / DEPLOYMENT / DELIVERY_LOG) generated only where they apply — no empty docs; unknown-but-in-scope areas marked TBD.
+- [ ] STACK.md Capabilities section filled (relevant agents · optional integrations · out-of-scope), or marked n/a.
 - [ ] No application code written; no protected file changed without approval.
 - [ ] Delivered the summary + recommended the next mandatory flow.

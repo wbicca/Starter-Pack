@@ -33,6 +33,10 @@ Três formas:
 Depois, abra o **Claude Code** na pasta do projeto. **Não** trabalhe dentro do repo-template
 original — use uma cópia, para o teste/projeto não se misturar com o template.
 
+**Pré-requisitos:** **Node.js 18+** e **git** instalados (todos os hooks de segurança e os
+scripts de qualidade são `.mjs` executados via `node` — sem Node, a rede de segurança do
+starter falha silenciosamente). Claude Code instalado; Codex CLI opcional.
+
 ---
 
 ## 2. Primeiro uso — sempre comece pelo onboarding
@@ -68,9 +72,12 @@ preenche os docs com o que já existe.
 
 > Em todos, você só descreve o objetivo. A tabela diz para onde o orquestrador roteia.
 
-### 3.1 Tarefa pequena (1 arquivo, sem risco de design)
-O orquestrador resolve **inline**, na hora. Ex.: *"corrige o typo no título da home"*,
-*"adiciona um campo opcional `phone` no form de cadastro"*.
+### 3.1 Tarefa pequena
+- **Doc / não-código** (docs, README, uma nota) → o orquestrador resolve **inline**, na hora.
+  Ex.: *"corrige o typo no README"*, *"anota essa decisão em `docs/DECISIONS.md`"*.
+- **Código de aplicação, mesmo 1 arquivo** → vai para **um agente** (o write-guard nega
+  escrita de código inline por design). Ex.: *"adiciona um campo opcional `phone` no form"* →
+  `frontend-engineer`.
 
 ### 3.2 Feature média (multi-arquivo, escopo claro)
 Vai para **um agente especializado** (Sonnet), em worktree. Ex.: *"implementa o endpoint
@@ -80,9 +87,12 @@ de exportar relatório em CSV"* → `backend-engineer`.
 Fluxo completo, **planejamento na janela principal**:
 1. *"Vamos planejar a feature de cobrança recorrente."* → BMAD: `bmad-prd` → épicos/stories
    (`bmad-create-epics-and-stories`) → arquitetura se precisar (`bmad-create-architecture`).
-2. Com as **stories** prontas, a implementação faz **fan-out**: um `frontend-engineer`/
+2. **Gate de aprovação:** você aprova a lista de stories **antes** de qualquer fan-out
+   (plan → approve → execute). Sem aprovação, nada é implementado.
+3. Com as **stories** aprovadas, a implementação faz **fan-out**: um `frontend-engineer`/
    `backend-engineer` (Sonnet) **por story**, em worktree, com TDD (`subagent-driven-development`).
-3. **Review** (`requesting-code-review`) → você revisa os diffs → merge.
+4. **Review** (`requesting-code-review`) → você revisa os diffs → merge → registra no
+   `DELIVERY_LOG.md` (quando o projeto o mantém).
 
 ### 3.4 Corrigir um bug
 - Bug difícil → *"debuga por que o checkout falha quando o cupom expira"* →
@@ -241,14 +251,19 @@ O core permanece **self-contained**: externos são sempre **enhancements opciona
 ## 8. Hooks de segurança — como conviver
 
 Rodam automaticamente (best-effort, não são fronteira absoluta):
-- **Comandos destrutivos** (apagar raiz/home/glob, `git reset --hard`, `git clean -fd`,
-  escrever em `.env` real) são **bloqueados** com uma mensagem e sugestão segura.
+- **Comandos catastróficos** (apagar raiz/home/glob, `sudo rm`, fork bomb, escrever em `.env`
+  real) são **bloqueados**; comandos **destrutivos-mas-recuperáveis** (`git reset --hard`,
+  `git clean -fd`, `docker system prune -a`, `rm -rf` de diretórios críticos) pedem
+  **confirmação humana** (ask) em vez de negar.
 - **Arquivos `.env` reais** são protegidos; use `.env.example` / `.env.template` com **placeholders**
   (ex.: `CHAVE=your_key_here`), nunca chaves reais.
 - **Segredos óbvios** em conteúdo novo (chaves de Stripe, AWS, GitHub, Google, JWT, PEM, URLs
-  de banco com credencial) são **bloqueados** — use placeholders e documente as variáveis no `.env.example`.
-- **Formatação** roda best-effort após editar (se o projeto tiver script `format`/`lint:fix`),
-  nunca bloqueia.
+  de banco com credencial) são **bloqueados** — use placeholders e documente as variáveis no
+  `.env.example`. Expressões de código (`process.env.X` etc.) e chaves públicas **anon** do
+  Supabase são reconhecidas como legítimas.
+- **Formatação** roda best-effort após editar, apenas com scripts **file-scoped**
+  (`format:file` / `lint:fix:file`) sobre o arquivo editado — nunca roda formatador no repo
+  inteiro, nunca bloqueia.
 
 Se um hook bloquear algo legítimo, peça confirmação explícita ou ajuste a abordagem
 (ex.: pré-visualize com `ls`/`git status` antes de deletar).
@@ -256,8 +271,11 @@ Se um hook bloquear algo legítimo, peça confirmação explícita ou ajuste a a
 ### Orchestrator write policy
 
 - Em sessões normais, o **Opus principal não escreve código da aplicação** nem altera
-  arquivos de governança (`CLAUDE.md`, `AGENTS.md`, `.claude/**`). O hook
-  `orchestrator-write-guard` **nega** essas escritas de forma determinística.
+  arquivos de governança (`CLAUDE.md`, `AGENTS.md`, `.claude/**`, `.codex/**`, `.agents/**`,
+  `scripts/quality/**`). O hook `orchestrator-write-guard` **nega** essas escritas de forma
+  determinística.
+- Escritas de **subagentes** em arquivos de governança pedem **aprovação humana** (ask) —
+  nenhum agente altera `CLAUDE.md`, hooks ou `settings.json` silenciosamente.
 - **Implementação deve ser delegada a agentes Sonnet** (em worktree). A janela principal
   decide, planeja, revisa e sintetiza — não digita boilerplate.
 - Para **manutenção intencional do starter** ou uma **correção inline excepcional**, inicie
@@ -269,8 +287,10 @@ Se um hook bloquear algo legítimo, peça confirmação explícita ou ajuste a a
 
 - Mesmo no modo de manutenção, cada escrita **exige aprovação humana** (o override apenas
   rebaixa `DENY` → `ASK`, **nunca** para `ALLOW` automático).
-- Escrita **fora da raiz do projeto** (ex.: `../`) é **sempre negada**, inclusive com o
-  override — faça isso manualmente fora do Claude Code se for realmente necessário.
+- Escrita **fora da raiz do projeto** (ex.: `../`) é **negada**, inclusive com o override —
+  com exceção dos diretórios temporários do sistema e dos dados do harness (`/tmp`,
+  `/private/tmp`, `/var/folders`, `~/.claude/projects/`), que são convenções do próprio
+  Claude Code (scratchpad, memória por projeto).
 - O override **nunca desativa os hooks de segurança** (`.env` real, segredos, comandos
   destrutivos continuam bloqueados). **Não use como modo padrão.**
 
@@ -283,12 +303,18 @@ Code quanto no Codex. Ele executa apenas verificações rápidas e óbvias — n
 `$quality-gate`, `$refactor-pass` ou `$release-sanity`.
 
 **O que ele verifica (best-effort, somente leitura):**
-- Erros de whitespace / marcadores de conflito (`git diff --check`).
+- Erros de whitespace / marcadores de conflito (`git diff --check` + `git diff --cached --check`).
 - Marcadores de conflito (`<<<<<<<`, `=======`, `>>>>>>>`) em arquivos modificados ou não rastreados.
 - Arquivos `.env` reais **versionáveis** — tracked, staged, modificados ou não rastreados e não ignorados.
-- Segredos óbvios em linhas adicionadas do diff (tokens Stripe, AWS, GitHub, Google, JWT, PEM, URLs de banco com credencial).
+- Segredos óbvios em linhas adicionadas do diff **e no conteúdo de arquivos não rastreados**
+  (tokens Stripe, AWS, GitHub, Google, JWT, PEM, URLs de banco com credencial).
 - Temporários residuais **versionáveis** (`.tmp-*`, `*.tmp`, `audit*.log`).
 - Caminhos fora da raiz do repositório (best-effort).
+
+**Baseline de sessão:** o estado pré-existente é capturado no `SessionStart`
+(`scripts/quality/session-baseline.mjs`); problemas que **já existiam antes da sessão**
+viram **aviso**, não bloqueador — o quick-check só bloqueia o que a sessão introduziu.
+Avisos repetidos não são reemitidos a cada turno (deduplicação por sessão).
 
 **O que ele NÃO faz:** install, build, typecheck, testes, E2E, formatter, linter pesado.
 
@@ -347,8 +373,10 @@ O Starter Pack funciona de forma nativa com o Codex usando o mesmo contrato comp
    - `$quality-gate` — após cada batch de implementação;
    - `$refactor-pass` — após uma mudança grande;
    - `$release-sanity` — antes de um release.
-7. **Hooks específicos do Codex ainda serão adicionados** numa rodada separada, após o smoke
-   test desta integração.
+7. O **quick-check** já está configurado para o Codex em `.codex/hooks.json` (evento Stop) —
+   a integração ainda aguarda smoke test numa versão pinada do Codex CLI; se os hooks de
+   projeto não forem suportados, rode `node scripts/quality/quick-check.mjs` manualmente
+   após cada batch.
 8. `.claude/hooks/` continua **exclusivo do Claude Code** — não é lido pelo Codex.
 
 > Nesta etapa o Codex enxerga apenas as skills essenciais em `.agents/skills/` (onboarding +
@@ -375,6 +403,12 @@ E, **condicionalmente por tipo de projeto** (só quando se aplicam — nunca doc
 - **`DATABASE.md`** — quando há datastore próprio (backend/API, SaaS, dashboard/CRM).
 - **`TESTING.md`** — quando há lógica não-trivial a testar.
 - **`DEPLOYMENT.md`** — quando o projeto é publicado em algum lugar.
+- **`DELIVERY_LOG.md`** — log append-only do que cada batch entregou e como foi verificado
+  (audit trail enxuto; distinto do `DECISIONS.md`, que registra o *porquê*).
+
+Além disso, o `STACK.md` ganha uma seção **Capabilities** (agentes relevantes · integrações/MCPs
+opcionais · fora de escopo), preenchida no onboarding, para os agentes carregarem só o que é
+relevante ao projeto.
 
 > Os templates desses docs vivem dentro da skill `project-onboarding` (`templates/`) — fonte
 > única; o onboarding gera cada um só onde faz sentido e marca `TBD:` no que for desconhecido.
@@ -384,7 +418,9 @@ E, **condicionalmente por tipo de projeto** (só quando se aplicam — nunca doc
 ## 10. Fluxo de ponta a ponta (exemplo real)
 
 1. **Use this template** → `git clone` → abrir Claude Code na pasta.
-2. *"Vamos inicializar"* → `project-onboarding` cria os 4 docs (stack: Next.js + Supabase + Vercel).
+2. *"Vamos inicializar"* → `project-onboarding` cria os docs base (PROJECT_BRIEF/STACK/
+   ARCHITECTURE/DECISIONS, incl. a seção Capabilities) + os condicionais que se aplicam
+   (stack: Next.js + Supabase + Vercel).
 3. *"Planeja a feature de convites de equipe"* → BMAD: PRD → stories (janela Opus).
 4. Implementação: um `backend-engineer` por story (Sonnet, worktree, TDD).
 5. *"Revisa o diff"* → `code-reviewer` → você ajusta e faz merge.

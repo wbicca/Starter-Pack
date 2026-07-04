@@ -1,13 +1,12 @@
 ---
 name: code-quality
 description: Path-scoped pointer to the common engineering standards for implementing and reviewing code — stack-agnostic. Applies to source files; thresholds are review signals, not hard limits.
-globs:
+paths:
   - "**/*.{ts,tsx,js,jsx,mjs,cjs}"
   - "**/*.{py,rb,go,rs,java,kt,kts,swift,scala,php,cs}"
   - "**/*.{c,h,cc,cpp,hpp,m,mm}"
   - "**/*.{sql,sh,bash}"
   - "**/*.{vue,svelte}"
-alwaysApply: false
 ---
 
 # Code quality — implementation & review

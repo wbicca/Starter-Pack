@@ -106,7 +106,7 @@ A lista completa está em **`AGENTS.md`** (o contrato de roteamento).
     ├── settings.local.json   # Overrides locais (não compartilhados)
     ├── rules/                # Regras path-scoped (code-quality → ENGINEERING_STANDARDS)
     ├── agents/               # 12 subagentes especializados
-    ├── skills/               # Skills vendorizadas (BMAD, Superpowers, project-onboarding, skill-discovery)
+    ├── skills/               # Skills vendorizadas (BMAD, Superpowers, project-onboarding, skill-discovery + os 3 gates)
     └── hooks/                # Hooks de segurança/qualidade (.mjs) + bootstrap Superpowers
 ```
 
@@ -132,7 +132,9 @@ desses papéis como agentes nativos em `.codex/agents/` (TOML) e os invoca expli
 
 ### As skills do Starter Pack
 - **`project-onboarding`** — inicializa um projeto: classifica, pergunta só o essencial,
-  cria os docs (`PROJECT_BRIEF`, `STACK`, `ARCHITECTURE`, `DECISIONS`). Não implementa código.
+  cria os docs (`PROJECT_BRIEF`, `STACK`, `ARCHITECTURE`, `DECISIONS` + condicionais como
+  `API_CONTRACTS`, `DATABASE`, `TESTING`, `DEPLOYMENT`, `DELIVERY_LOG` quando se aplicam).
+  Não implementa código.
 - **`skill-discovery`** — descobre/avalia/recomenda skills (internas ou externas) **sem
   instalar nada**; toda instalação exige aprovação humana.
 - **Gates** (`quality-gate`, `refactor-pass`, `release-sanity`) — disciplina de verificação;
@@ -144,14 +146,18 @@ Em `.claude/hooks/` (Claude Code):
 - `orchestrator-write-guard` — **governança de fluxo**: impede a janela Opus de escrever código
   de aplicação / arquivos de governança inline e impede agentes read-only de mutar via
   Write/Edit/Bash. Em sessão normal **nega**; com `CLAUDE_ORCHESTRATOR_WRITE_OVERRIDE=1` rebaixa
-  para **ASK** (nunca ALLOW automático). Escrita fora da raiz é sempre negada.
-- `block-dangerous-bash` — bloqueia comandos destrutivos (delete de raiz/home/glob, `git
-  reset --hard`/`clean`, scaffolders na raiz, escrita em `.env` real).
+  para **ASK** (nunca ALLOW automático). Escritas de **governança por subagentes** pedem
+  aprovação (**ASK**) — nada muda contrato/hook silenciosamente. Escrita fora da raiz é negada,
+  exceto temp dirs do sistema/harness.
+- `block-dangerous-bash` — bloqueia comandos catastróficos (delete de raiz/home/glob, `sudo rm`,
+  fork bomb, escrita em `.env` real, scaffolders na raiz) e pede **confirmação** (ask) para os
+  recuperáveis (`git reset --hard`/`clean`, `docker system prune`, `rm -rf` de dirs críticos).
 - `protect-sensitive-files` — barra escrita em `.env` real (permite `.env.example` etc.).
 - `scan-secrets` — barra segredos óbvios em conteúdo novo (AWS, GitHub, Google, Stripe,
-  DB-URL, JWT, PEM…); ignora placeholders.
-- `format-after-edit` — formata best-effort o arquivo editado; nunca instala/builda/testa,
-  nunca bloqueia.
+  DB-URL, JWT, PEM…); ignora placeholders, expressões de código (`process.env.X`) e anon
+  keys públicas do Supabase.
+- `format-after-edit` — formata best-effort o arquivo editado (apenas scripts file-scoped);
+  nunca instala/builda/testa, nunca bloqueia.
 
 Além disso, `.claude/hooks/superpowers/` faz o bootstrap do Superpowers no `SessionStart`
 (não é hook de segurança), e **`scripts/quality/quick-check.mjs`** roda no `Stop` (fim do
@@ -167,7 +173,8 @@ determinístico e somente-leitura, compartilhado pelos dois runtimes.
 - **Subagentes = Sonnet = volume.** Implementação, testes, tarefas paralelas.
 - **Worktree** isola escrita de código paralela/arriscada. **Nunca** use worktree para
   planejamento, onboarding ou review (são interativos/leitura).
-- **Triagem por tamanho:** simples (1 arquivo) → inline; média (multi-arquivo) → 1 agente;
+- **Triagem por tamanho:** doc/não-código → inline; código de aplicação (mesmo 1 arquivo) →
+  1 agente (o write-guard nega escrita de código inline); média (multi-arquivo) → 1 agente;
   grande (feature/produto) → planejar com BMAD primeiro, depois implementar.
 - **No Codex:** sem fan-out automático — peça o subagente explicitamente; planejamento fica na
   thread principal; sem árvores recursivas de agentes (`max_depth=1`).
@@ -194,7 +201,7 @@ determinístico e somente-leitura, compartilhado pelos dois runtimes.
 
 Resumo dos fluxos (detalhe em `USAGE.md`):
 - **Começar / onboard** → rode `project-onboarding` (classifica novo/existente, cria os docs).
-- **Tarefa pequena** → o orquestrador resolve inline.
+- **Tarefa pequena** → doc/não-código: inline; código de aplicação: delega a um agente.
 - **Feature média/grande** → planeja com BMAD na janela Opus → implementa em subagentes Sonnet (worktree, TDD) → review.
 - **Bug** → `systematic-debugging`; **entender sistema/incidente** → `bmad-investigate`.
 - **Review** → `requesting-code-review`; **testes E2E** → `qa-tester`.

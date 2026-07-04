@@ -158,7 +158,7 @@ section("Governance consistency", (api) => {
   // type, so their *template* files must exist even though a given project may skip the doc.
   const tdir = ".claude/skills/project-onboarding/templates";
   const coreTemplates = ["PROJECT_BRIEF", "STACK", "ARCHITECTURE", "DECISIONS"];
-  const conditionalTemplates = ["API_CONTRACTS", "DATABASE", "TESTING", "DEPLOYMENT"];
+  const conditionalTemplates = ["API_CONTRACTS", "DATABASE", "TESTING", "DEPLOYMENT", "DELIVERY_LOG"];
   if (!isDir(tdir)) {
     api.warn(`onboarding templates dir missing (${tdir})`);
   } else {
@@ -241,6 +241,13 @@ section("Project readiness", (api) => {
   for (const d of ["docs/PROJECT_BRIEF.md", "docs/ARCHITECTURE.md", "docs/DECISIONS.md"]) {
     if (exists(d)) api.ok(`${d} present`);
     else api.warn(`${d} not yet created (expected after onboarding)`);
+  }
+
+  // Capabilities section (filled at onboarding) — deterministic header check, meaningful
+  // only once the stack is configured. Not fragile content parsing — just header presence.
+  if (status && status !== "UNCONFIGURED") {
+    if (/^##\s+Capabilities\b/m.test(stack)) api.ok("docs/STACK.md has a Capabilities section");
+    else api.warn("docs/STACK.md is configured but has no Capabilities section (relevant agents / integrations / out-of-scope)");
   }
 
   // Package manager / runtime identification (informational).

@@ -16,4 +16,7 @@ Look for:
 - new or risky dependencies, and external assets without a recorded license.
 
 Report findings with severity and confidence. Do not modify files; your output is the audit.
+
+Return: attack surface · sensitive data involved · findings by severity · recommendations ·
+delivery-blocking verdict. Adapt to the task; do not fabricate sections that do not apply.
 """

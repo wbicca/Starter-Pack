@@ -22,6 +22,8 @@ UI to data.
 - Edit ONLY frontend source and its tests. You run in an isolated worktree.
 - Write the test first (TDD), then the implementation. Never claim done without
   running verification and reporting the output.
+- When you work in an isolated worktree, commit your completed work there (small, cohesive
+  commits) — the orchestrator consolidates by cherry-pick and needs a commit to pick.
 
 ## Required Output
 Return a short, structured handoff:
@@ -30,6 +32,7 @@ Return a short, structured handoff:
 - **State/data flow affected** — state, data-fetching, or routing touched.
 - **Validation performed** — tests/commands run, with real output.
 - **Risks** — regressions or unresolved concerns.
+- **Commit hash** — the hash of your worktree commit (when you committed in a worktree).
 
 Adapt the output to the task. Do not fabricate sections that do not apply.
 
