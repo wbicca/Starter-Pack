@@ -274,8 +274,13 @@ Se um hook bloquear algo legítimo, peça confirmação explícita ou ajuste a a
   arquivos de governança (`CLAUDE.md`, `AGENTS.md`, `.claude/**`, `.codex/**`, `.agents/**`,
   `scripts/quality/**`). O hook `orchestrator-write-guard` **nega** essas escritas de forma
   determinística.
-- Escritas de **subagentes** em arquivos de governança pedem **aprovação humana** (ask) —
-  nenhum agente altera `CLAUDE.md`, hooks ou `settings.json` silenciosamente.
+- Escritas de **subagentes** em arquivos de governança (`CLAUDE.md`, `AGENTS.md`, `.claude/**`,
+  `.codex/**`, `.agents/**`, `scripts/quality/**`) são marcadas como **ask** pelo hook. Num
+  subagente **interativo** isso vira um prompt de aprovação; num subagente de **background**
+  (fan-out via Task) não há humano para aprovar, então o `ask` prossegue — ou seja, edições de
+  governança por subagente só devem acontecer quando o orquestrador **deliberadamente** despacha
+  um lote de manutenção. A fronteira firme é a **janela principal**, que é **negada** (deny, não
+  ask) e exige `CLAUDE_ORCHESTRATOR_WRITE_OVERRIDE=1`.
 - **Implementação deve ser delegada a agentes Sonnet** (em worktree). A janela principal
   decide, planeja, revisa e sintetiza — não digita boilerplate.
 - Para **manutenção intencional do starter** ou uma **correção inline excepcional**, inicie
@@ -382,11 +387,24 @@ O Starter Pack funciona de forma nativa com o Codex usando o mesmo contrato comp
 > Nesta etapa o Codex enxerga apenas as skills essenciais em `.agents/skills/` (onboarding +
 > os três gates). BMAD e Superpowers completos **não** são expostos ao Codex ainda.
 
+### Estado reconhecido pelo Codex 0.139
+
+Conforme o config-reference do Codex CLI 0.139, o Codex reconhece:
+
+- `.codex/config.toml` (escopo de projeto) — a tabela `[agents]` com o guard anti-recursão
+  (`max_threads` / `max_depth`) e os 4 subagentes registrados via `[agents.<nome>]`
+  (`config_file` + `description`);
+- `.codex/hooks.json` — hook de evento `Stop` (exige confiar no repositório na primeira
+  execução, ver abaixo);
+- `AGENTS.md` — lido diretamente como contrato compartilhado.
+
+A confirmação que ainda falta é uma execução real de `codex exec` num clone confiável.
+
 ### Trust the repository
 
 Codex loads project-scoped `.codex/` configuration only for trusted repositories.
 When opening a new clone, review and trust the project before validating custom agents,
-project config, or future local hooks.
+project config, or local hooks.
 
 ---
 

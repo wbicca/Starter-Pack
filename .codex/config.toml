@@ -5,3 +5,19 @@
 [agents]
 max_threads = 4
 max_depth = 1
+
+[agents.backend-engineer]
+config_file = "agents/backend-engineer.toml"
+description = "Implements backend / API logic and services for one well-scoped task, with tests."
+
+[agents.frontend-engineer]
+config_file = "agents/frontend-engineer.toml"
+description = "Implements frontend behavior and UI logic for one well-scoped task, with tests."
+
+[agents.code-reviewer]
+config_file = "agents/code-reviewer.toml"
+description = "Reviews a diff for correctness, regressions, and quality. Read-only — never edits code."
+
+[agents.security-auditor]
+config_file = "agents/security-auditor.toml"
+description = "Audits changes for security issues. Read-only — never edits code."

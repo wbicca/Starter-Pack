@@ -93,6 +93,30 @@ const EXPECTED_HOOKS = [
 const EXPECTED_SHARED_SKILLS = [
   "project-onboarding", "quality-gate", "refactor-pass", "release-sanity",
 ];
+// Read-only agents must NOT be granted a write tool; worktree implementers should carry
+// isolation metadata. Used by the agent-frontmatter section below.
+const READ_ONLY_AGENTS = ["code-reviewer", "security-auditor", "product-strategist"];
+const WORKTREE_AGENTS = [
+  "frontend-designer", "frontend-engineer", "backend-engineer", "database-architect",
+  "supabase-specialist", "devops-deployment", "qa-tester",
+];
+// Canonical starter skills named in AGENTS.md / CLAUDE.md — each must ship a SKILL.md.
+const CANONICAL_SKILLS = [
+  "project-onboarding", "quality-gate", "refactor-pass", "release-sanity", "skill-discovery",
+];
+// Codex agent TOMLs that must be registered in .codex/config.toml.
+const CODEX_AGENTS = ["backend-engineer", "frontend-engineer", "code-reviewer", "security-auditor"];
+
+// Extract the leading YAML-ish frontmatter block from a Markdown agent file.
+function frontmatter(text) {
+  const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  return m ? m[1] : "";
+}
+// Grab the value of a `key: value` line inside a frontmatter block (first match wins).
+function fmField(fm, key) {
+  const m = fm.match(new RegExp(`^${key}\\s*:\\s*(.+)$`, "m"));
+  return m ? m[1].trim() : null;
+}
 
 // ---------------------------------------------------------------------------
 // 1. Structure
@@ -115,6 +139,57 @@ section("Structure", (api) => {
   else api.ok(`all ${EXPECTED_SHARED_SKILLS.length} shared skills exposed in .agents/skills`);
 
   requirePath(api, ".codex/config.toml", { label: ".codex/config.toml (Codex config)" });
+});
+
+// ---------------------------------------------------------------------------
+// 1b. Agent frontmatter, canonical skills, and Codex registration
+// ---------------------------------------------------------------------------
+
+section("Agent frontmatter and skill contract", (api) => {
+  // Model policy: every operational agent must be model: sonnet.
+  const wrongModel = [];
+  for (const a of EXPECTED_AGENTS) {
+    const rel = `.claude/agents/${a}.md`;
+    if (!exists(rel)) continue; // existence already blocked in Structure
+    const fm = frontmatter(readSafe(rel));
+    if (fmField(fm, "model") !== "sonnet") wrongModel.push(a);
+  }
+  if (wrongModel.length) api.block(`agent(s) not model: sonnet: ${wrongModel.join(", ")}`);
+  else api.ok(`all ${EXPECTED_AGENTS.length} agents are model: sonnet`);
+
+  // Read-only agents must not grant Write / Edit / MultiEdit on their tools: line.
+  const leakyWrite = [];
+  for (const a of READ_ONLY_AGENTS) {
+    const rel = `.claude/agents/${a}.md`;
+    if (!exists(rel)) continue;
+    const tools = fmField(frontmatter(readSafe(rel)), "tools") || "";
+    if (/\b(Write|Edit|MultiEdit)\b/.test(tools)) leakyWrite.push(a);
+  }
+  if (leakyWrite.length) api.block(`read-only agent(s) grant a write tool: ${leakyWrite.join(", ")}`);
+  else api.ok(`all ${READ_ONLY_AGENTS.length} read-only agents withhold Write/Edit/MultiEdit`);
+
+  // Worktree implementers should carry isolation: worktree (advisory metadata → warn).
+  const noIsolation = [];
+  for (const a of WORKTREE_AGENTS) {
+    const rel = `.claude/agents/${a}.md`;
+    if (!exists(rel)) continue;
+    if (fmField(frontmatter(readSafe(rel)), "isolation") !== "worktree") noIsolation.push(a);
+  }
+  if (noIsolation.length) api.warn(`worktree implementer(s) missing isolation: worktree: ${noIsolation.join(", ")}`);
+  else api.ok(`all ${WORKTREE_AGENTS.length} worktree implementers declare isolation: worktree`);
+
+  // Canonical starter skills must each ship a SKILL.md.
+  const missingSkills = CANONICAL_SKILLS.filter((s) => !exists(`.claude/skills/${s}/SKILL.md`));
+  if (missingSkills.length) api.block(`canonical starter skill(s) missing SKILL.md: ${missingSkills.join(", ")}`);
+  else api.ok(`all ${CANONICAL_SKILLS.length} canonical starter skills present`);
+
+  // Each Codex agent TOML that exists must be registered in .codex/config.toml (warn).
+  const codexConfig = readSafe(".codex/config.toml");
+  const unregistered = CODEX_AGENTS.filter(
+    (a) => exists(`.codex/agents/${a}.toml`) && !codexConfig.includes(`[agents.${a}]`),
+  );
+  if (unregistered.length) api.warn(`Codex agent toml(s) not registered in .codex/config.toml: ${unregistered.join(", ")}`);
+  else api.ok("all Codex agent tomls are registered in .codex/config.toml");
 });
 
 // ---------------------------------------------------------------------------
