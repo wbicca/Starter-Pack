@@ -1,12 +1,10 @@
 ---
 name: release-sanity
 description: >
-  Pre-release audit before publishing or shipping. Use before a release, tag, deploy, or
-  when the user says "run release sanity", "are we ready to ship", "audit before release",
-  or "pre-release check". Runs the quality-gate checklist first, then audits for leaked
-  secrets, dangerous permissions, destructive commands, path traversal, missing validation,
-  unsafe casts/unwraps, unlicensed external assets, PII/secrets in logs, unjustified new
-  dependencies, and improper hook/permission changes — ending with a go / no-go verdict.
+  Pre-release audit before publishing, tagging, or deploying — or when the user says "run
+  release sanity" / "are we ready to ship". Runs the quality-gate checklist first, then
+  audits secrets, permissions, destructive commands, validation gaps, and asset licenses,
+  ending in a go / no-go verdict.
 ---
 
 # Release sanity

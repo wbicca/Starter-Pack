@@ -24,7 +24,7 @@ activation_steps_append = []
 # Each entry is either a literal sentence, a skill prefixed with `skill:`, or a `file:`-prefixed path/glob
 # whose contents are loaded as facts.
 # Default is empty. Common opt-ins (set in your team/user override TOML):
-#   "file:{project-root}/_bmad-output/planning-artifacts/project-context.md"  # bmad-generate-project-context output
+#   "file:{project-root}/_bmad-output/planning-artifacts/project-context.md"  # project-context artifact, if the project keeps one
 #   "skill:acme-co:terms-and-conditions"                                      # a skill that contains some relevant info to the documents that may be generated
 #   "Elvis has left the building"                                             # generic agent instructions
 persistent_facts = []

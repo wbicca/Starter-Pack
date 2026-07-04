@@ -1,15 +1,11 @@
 ---
 name: project-onboarding
 description: >
-  Initialize a real project bootstrapped from the Starter Pack template. Use this whenever a
-  project is being set up for the first time, when the user says "onboard this
-  project", "set up a new project", "let's start this repo", "initialize the starter",
-  or when docs/STACK.md still reads UNCONFIGURED. Also trigger when you land in an
-  unfamiliar repo cloned from this starter and need to establish project context before
-  any other work. Onboarding classifies the project, fills the gaps, and writes the
-  project docs — it is NOT implementation. Reach for it even if the user doesn't say
-  the word "onboarding" but is clearly standing up a project from scratch or adopting
-  an existing one.
+  Initialize a project bootstrapped from the Starter Pack template. Use on the first
+  session of a new or adopted repo, when docs/STACK.md is UNCONFIGURED, or when the user
+  says "onboard this project" / "set up a new project" / "initialize the starter".
+  Classifies the project, asks only what is missing, writes the project docs — never
+  implements code.
 ---
 
 # Project Onboarding
@@ -50,11 +46,11 @@ Rules:
 - If the user isn't sure whether it's new or existing, do a **minimal inspection** (top-level
   `ls`/Glob only) just to help them decide — nothing more.
 
-## Step 1 — Read the contract (only these three)
-Read `CLAUDE.md`, `AGENTS.md`, and `docs/CONSTITUTION.md`. They define how this repo
-operates, the routing rules, and the non-negotiables. Everything you do must stay
-consistent with them — especially the self-contained principle (external plugins are
-optional, never required).
+## Step 1 — Read the non-negotiables
+The operating contracts (`CLAUDE.md`, `AGENTS.md`) are already fully loaded in every
+session — do **not** re-read them. Read only `docs/CONSTITUTION.md`, which is not
+auto-loaded. Everything you do must stay consistent with all three — especially the
+self-contained principle (external plugins are optional, never required).
 
 ## Step 2 — Minimal repo scan (cheap signals first)
 Do not read the whole repo. Map it with `Glob`/`Grep`, then open only the files that

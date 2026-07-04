@@ -1,14 +1,9 @@
 ---
 name: skill-discovery
 description: >
-  Discover, evaluate, and recommend internal or external skills/plugins that could help
-  with a task — WITHOUT installing anything. Use whenever the user asks "is there a skill
-  for X", "find a skill", "what could help me do Y", wonders whether to add a plugin, or
-  hits a capability gap and you're tempted to reach for an external tool. Always run this
-  before adding any new skill: it checks whether BMAD, Superpowers, or this starter's agents
-  already cover the need, then recommends at most 3 options classified by how (if at all)
-  to adopt them. It only advises — installation, vendoring, and making anything mandatory
-  are human decisions made elsewhere.
+  Discover and evaluate skills for a task without installing anything. Use when the user
+  asks for a new capability, "find a skill for X", or whether a skill exists. Recommends
+  only — installation always requires explicit human approval.
 ---
 
 # Skill Discovery

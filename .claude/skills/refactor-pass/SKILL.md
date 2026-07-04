@@ -1,11 +1,10 @@
 ---
 name: refactor-pass
 description: >
-  Explicit behavior-preserving refactor round. Use after a large feature, a large fix, or
-  a few hours of development — or when the user says "refactor pass", "clean this up",
-  "tidy the code", or "do a refactor round". Removes dead code and duplication, improves
-  names, removes magic numbers, adds missing tests, and splits oversized modules only when
-  it improves clarity. It does NOT add features and does NOT change behavior without tests.
+  Behavior-preserving refactor round after a large feature, large fix, or long session —
+  or when the user says "refactor pass" / "clean this up". Removes dead code and
+  duplication, improves names, replaces hand-rolled code that duplicates existing utils,
+  adds missing tests. Never changes behavior without tests.
 ---
 
 # Refactor pass

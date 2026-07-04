@@ -1,12 +1,10 @@
 ---
 name: quality-gate
 description: >
-  Mandatory verification after each implementation batch (a story, a structural change, a
-  small cohesive set of components, or an approved redesign round). Use after finishing any
-  batch and before starting the next, or when the user says "run the quality gate", "verify
-  this batch", or "is this ready". Runs ONLY the commands configured in docs/STACK.md,
-  inspects the diff for unexpected/unsafe changes, checks for secrets and real .env files,
-  confirms the orchestrator did not implement inline, and reports a command/result/status table.
+  Mandatory verification after each implementation batch. Use after finishing any batch,
+  before starting the next, or when the user says "run the quality gate" / "is this
+  ready". Runs the docs/STACK.md commands, inspects the diff (scope, minimality, secrets,
+  real .env), and reports a command/result table.
 ---
 
 # Quality gate

@@ -4,8 +4,10 @@
 # Adapted from the superpowers plugin v5.1.0 (MIT — github.com/obra/superpowers).
 # Differences vs. upstream, required because this runs as a PROJECT hook
 # (not a plugin hook):
-#   1. Reads using-superpowers from the project's vendored .claude/skills
-#      (resolved via CLAUDE_PROJECT_DIR, with a path fallback), not a plugin root.
+#   1. Injects a condensed using-superpowers brief (session-start-context.md,
+#      kept next to this script) instead of the full SKILL.md — same rules,
+#      far fewer tokens per session start. The full protocol stays available
+#      via the `using-superpowers` skill.
 #   2. Emits Claude Code's hookSpecificOutput.additionalContext by default,
 #      since project hooks do not set CLAUDE_PLUGIN_ROOT.
 
@@ -13,16 +15,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# Locate the vendored skills directory.
-# Vendored layout: <project>/.claude/hooks/superpowers/  ->  <project>/.claude/skills/
-if [ -n "${CLAUDE_PROJECT_DIR:-}" ]; then
-    SKILLS_DIR="${CLAUDE_PROJECT_DIR}/.claude/skills"
-else
-    SKILLS_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)/skills"
-fi
-
-# Read using-superpowers content
-using_superpowers_content=$(cat "${SKILLS_DIR}/using-superpowers/SKILL.md" 2>&1 || echo "Error reading using-superpowers skill")
+# Read the condensed using-superpowers context
+using_superpowers_content=$(cat "${SCRIPT_DIR}/session-start-context.md" 2>&1 || echo "Error reading superpowers session context")
 
 # Escape string for JSON embedding using bash parameter substitution.
 escape_for_json() {
@@ -36,7 +30,7 @@ escape_for_json() {
 }
 
 using_superpowers_escaped=$(escape_for_json "$using_superpowers_content")
-session_context="<EXTREMELY_IMPORTANT>\nYou have superpowers.\n\n**Below is the full content of your 'using-superpowers' skill - your introduction to using skills. For all other skills, use the 'Skill' tool:**\n\n${using_superpowers_escaped}\n</EXTREMELY_IMPORTANT>"
+session_context="<EXTREMELY_IMPORTANT>\nYou have superpowers.\n\n**Below is the condensed core of your 'using-superpowers' skill - your introduction to using skills. For all other skills, use the 'Skill' tool:**\n\n${using_superpowers_escaped}\n</EXTREMELY_IMPORTANT>"
 
 # Output context injection as JSON.
 #   Cursor       -> additional_context (snake_case)
