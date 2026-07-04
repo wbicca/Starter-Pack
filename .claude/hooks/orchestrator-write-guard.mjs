@@ -23,6 +23,9 @@
 //     .codex/, .agents/, scripts/quality/) -> ASK — governance edits happen only in
 //     explicit, human-approved maintenance batches.
 //   * implementers writing app code -> silent pass.
+//   * agent worktrees (.claude/worktrees/<name>/) are normalized first: the inner
+//     relative path is judged by the same rules, so app code inside a worktree passes
+//     while a worktree's copy of CLAUDE.md / .claude/** is still governance.
 //   * ASK surfaces an approval prompt only for INTERACTIVE subagents; a background Task
 //     subagent has no human to prompt, so ASK proceeds — governance edits by subagents
 //     must therefore be a deliberate orchestrator-dispatched maintenance batch. The firm
@@ -128,6 +131,12 @@ function isGovPath(rel) {
     rel.startsWith(".agents/") || rel.startsWith("scripts/quality/");
 }
 
+// Agent worktrees live under .claude/worktrees/<name>/ and contain a full checkout.
+// Strip that prefix and judge the INNER path by the same rules: app code inside a
+// worktree is app code; a worktree's copy of CLAUDE.md or .claude/** is still governance.
+const WORKTREE_PREFIX_RE = /^\.claude\/worktrees\/[^/]+\//;
+function stripWorktreePrefix(rel) { return rel.replace(WORKTREE_PREFIX_RE, ""); }
+
 // Claude Code harness conventions that legitimately live OUTSIDE the project root:
 // the /tmp and /private/tmp scratchpads, and THIS project's memory dir
 // (~/.claude/projects/<slug>, slug = project root with "/" and spaces as "-").
@@ -220,23 +229,27 @@ const root = (process.env.CLAUDE_PROJECT_DIR || input.cwd || process.cwd()).toSt
 // --- Bash ---------------------------------------------------------------------
 if (toolName === "Bash") {
   const cmd = (toolInput.command ?? "").toString();
-  // Safe redirects to /dev/null and stderr-to-stdout are stripped, then real redirect
-  // TARGETS are extracted once and shared by every Bash branch (read-only agents,
+  // Safe redirects to /dev/null and stderr-to-stdout are stripped, then agent-worktree
+  // prefixes (.claude/worktrees/<name>/) are stripped so inner paths are judged by the
+  // same rules (a redirect to .claude/worktrees/x/src/a.ts is judged as src/a.ts, while
+  // .claude/worktrees/x/.claude/settings.json still reads as governance). Real redirect
+  // TARGETS are then extracted once and shared by every Bash branch (read-only agents,
   // subagent governance, main-window governance/app-code/out-of-root).
   const scmd = stripSafeReadOnlyRedirects(cmd);
-  const targets = extractRedirectTargets(scmd);
+  const scmdEff = scmd.replace(/\.claude\/worktrees\/[^/\s"']+\//g, "");
+  const targets = extractRedirectTargets(scmdEff);
   // Governance hit = a redirect lands on the governance surface, OR a write verb runs
   // in a command that mentions the governance surface.
   const govHit =
     targets.some((t) => BASH_GOV_TARGET.test(t)) ||
-    (VERB_WRITE.test(scmd) && BASH_GOV_TARGET.test(scmd));
+    (VERB_WRITE.test(scmdEff) && BASH_GOV_TARGET.test(scmdEff));
 
   // Subagents: read-only roles may inspect but not mutate (any real redirect target
   // counts as a mutation); non-read-only subagents touching the governance surface
   // get an ASK (human approves); implementers writing app code pass through.
   if (!isMain) {
     if (BASH_READ_ONLY.has(agentType) &&
-        (targets.length > 0 || VERB_WRITE.test(scmd) || RO_GIT_PM.test(scmd))) {
+        (targets.length > 0 || VERB_WRITE.test(scmdEff) || RO_GIT_PM.test(scmdEff))) {
       deny(REASON_RO_BASH);
     }
     if (!BASH_READ_ONLY.has(agentType) && govHit) ask(REASON_GOV_ASK);
@@ -251,11 +264,11 @@ if (toolName === "Bash") {
   const realTargets = targets.filter((t) => !isHarnessTempPath(path.resolve(root, t), root));
   if (realTargets.some((t) => normalize(t, root).outside)) deny(REASON_OUTSIDE);
   if (realTargets.some((t) => BASH_GOV_TARGET.test(t)) ||
-      (VERB_WRITE.test(scmd) && BASH_GOV_TARGET.test(scmd))) {
+      (VERB_WRITE.test(scmdEff) && BASH_GOV_TARGET.test(scmdEff))) {
     mainBlock(REASON_GOV);
   }
   if (realTargets.some((t) => APP_EXT_RE.test(t)) ||
-      (VERB_WRITE.test(scmd) && APP_EXT_RE.test(scmd))) {
+      (VERB_WRITE.test(scmdEff) && APP_EXT_RE.test(scmdEff))) {
     mainBlock(REASON_APP);
   }
   pass();
@@ -266,8 +279,12 @@ const rawPath = (toolInput.file_path ?? toolInput.path ?? toolInput.filePath ?? 
 if (!rawPath) pass();
 
 const { rel, outside, ext } = normalize(rawPath, root);
-const inDocs = rel.startsWith("docs/");
-const inBmadOut = rel.startsWith("_bmad-output/");
+// Judge agent-worktree paths by their inner relative path (`outside` and `ext` are
+// unaffected by the strip): src/** inside a worktree is app code; a worktree's copy of
+// CLAUDE.md or .claude/** is still governance.
+const relEff = stripWorktreePrefix(rel);
+const inDocs = relEff.startsWith("docs/");
+const inBmadOut = relEff.startsWith("_bmad-output/");
 const isAppCode = APP_EXTS.has(ext);
 
 // Subagent policies (agent_id present).
@@ -276,16 +293,16 @@ if (!isMain) {
     deny(REASON_RO_BASH);
   }
   if (agentType === "system-architect") {
-    if (ARCHITECT_ALLOW.has(rel)) pass();
+    if (ARCHITECT_ALLOW.has(relEff)) pass();
     deny("system-architect may only write docs/ARCHITECTURE.md or docs/DECISIONS.md.");
   }
   if (agentType === "documentation-writer") {
-    if (inDocs || DOC_WRITER_ROOT.has(rel)) pass();
+    if (inDocs || DOC_WRITER_ROOT.has(relEff)) pass();
     deny("documentation-writer may only write docs/**, README.md, USAGE.md, NOTICE.md, or THIRD_PARTY_NOTICES.md.");
   }
   // Governance symmetry: implementers may touch the governance surface only via an
   // explicit human approval (template-maintenance batches) — ASK, never silent.
-  if (isGovPath(rel)) ask(REASON_GOV_ASK);
+  if (isGovPath(relEff)) ask(REASON_GOV_ASK);
   // Implementers (and any unrecognized subagent) may write application code.
   pass();
 }
@@ -297,7 +314,7 @@ if (outside) {
   if (isHarnessTempPath(path.resolve(root, rawPath), root)) pass();
   deny(REASON_OUTSIDE);
 }
-if (inDocs || inBmadOut || MAIN_SILENT_ROOT.has(rel)) pass();
-if (isGovPath(rel)) mainBlock(REASON_GOV);
+if (inDocs || inBmadOut || MAIN_SILENT_ROOT.has(relEff)) pass();
+if (isGovPath(relEff)) mainBlock(REASON_GOV);
 if (isAppCode) mainBlock(REASON_APP);
 pass();

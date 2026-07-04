@@ -300,6 +300,21 @@ Se um hook bloquear algo legítimo, peça confirmação explícita ou ajuste a a
 - O override **nunca desativa os hooks de segurança** (`.env` real, segredos, comandos
   destrutivos continuam bloqueados). **Não use como modo padrão.**
 
+### Uso headless / CI (`claude -p`)
+
+Em modo não-interativo não há humano para responder prompts de permissão — e o
+`settings.json` do starter **desativa o bypass** (`disableBypassPermissionsMode`), então
+`--dangerously-skip-permissions` **não** funciona. Para rodar headless (CI, scripts,
+smoke tests), use:
+
+```bash
+claude -p --permission-mode acceptEdits "sua instrução"
+```
+
+Notas: decisões **ask** dos hooks (comandos recuperáveis, escritas de governança por
+subagente) resolvem como **negadas** em headless — fluxos que dependem de aprovação humana
+devem rodar em sessão interativa.
+
 ---
 
 ## Automatic quick checks

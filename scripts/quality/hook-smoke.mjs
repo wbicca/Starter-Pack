@@ -142,6 +142,24 @@ const cases = [
   { hook: "write-guard", name: "frontend-eng notebook: notebooks/a.ipynb", expect: "pass",
     payload: notebook("notebooks/a.ipynb", "frontend-engineer") },
 
+  // write-guard: agent-worktree normalization — paths under .claude/worktrees/<name>/
+  // are judged by their INNER relative path (field-test blocker: implementer writes
+  // inside its own worktree must pass; smuggled governance copies stay protected).
+  { hook: "write-guard", name: "frontend-eng write: worktree src/app.ts", expect: "pass",
+    payload: write(".claude/worktrees/agent-1/src/app.ts", "frontend-engineer") },
+  { hook: "write-guard", name: "frontend-eng write: worktree CLAUDE.md", expect: "ask",
+    payload: write(".claude/worktrees/agent-1/CLAUDE.md", "frontend-engineer") },
+  { hook: "write-guard", name: "frontend-eng write: worktree .claude/hooks/x.mjs", expect: "ask",
+    payload: write(".claude/worktrees/agent-1/.claude/hooks/x.mjs", "frontend-engineer") },
+  { hook: "write-guard", name: "main write: worktree src/app.ts (no hand-edits)", expect: "deny",
+    payload: write(".claude/worktrees/agent-1/src/app.ts") },
+  { hook: "write-guard", name: "backend-eng bash: tee worktree src/api.ts", expect: "pass",
+    payload: bash(`tee ".claude/worktrees/agent-1/src/api.ts" < /dev/null`, "backend-engineer") },
+  { hook: "write-guard", name: "main bash: tee worktree src/api.ts", expect: "deny",
+    payload: bash(`tee ".claude/worktrees/agent-1/src/api.ts" < /dev/null`) },
+  { hook: "write-guard", name: "code-reviewer bash: cat worktree src/api.ts", expect: "pass",
+    payload: bash(`cat .claude/worktrees/agent-1/src/api.ts`, "code-reviewer") },
+
   // scan-secrets
   { hook: "scan-secrets", name: "env-var reference is code, not secret", expect: "pass",
     payload: content(`${JWT_KEY}: process.env.${JWT_KEY},`) },

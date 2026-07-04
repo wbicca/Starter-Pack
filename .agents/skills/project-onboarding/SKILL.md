@@ -48,6 +48,8 @@ State back to the user: **new** (empty/scaffold) vs **existing** (real code/hist
 ## Step 3 — Ask only the essential gaps
 Infer everything you can. Then ask, in one short batch, only what you genuinely cannot
 determine and that changes the docs (target users, chosen stack, hosting, data store).
+Never re-ask or re-confirm information the user already stated explicitly (e.g. the
+project name in the brief) — treat it as settled and move on.
 
 ## Step 4 — Write the project docs
 Create or update these under `docs/` (create `docs/` if missing). Start new docs from the
@@ -81,7 +83,10 @@ DELIVERY_LOG; SaaS full-stack → all. For an **existing** project, preserve and
 
 **Project-specific non-negotiables:** if the user named hard rules in Step 0 (Q4), propose
 filling that section of `docs/CONSTITUTION.md` — **only with explicit user approval**, in
-their wording. Never modify `docs/CONSTITUTION.md` otherwise.
+their wording. When the user confirms a hard rule during the onboarding conversation,
+record it in `docs/CONSTITUTION.md` immediately — that in-flow confirmation **is** the
+explicit human approval; do not leave a placeholder or defer it to a second approval
+round. Never modify `docs/CONSTITUTION.md` otherwise.
 
 ## Final deliverable
 Report concisely: (1) project summary + classification, (2) files written/updated,

@@ -79,7 +79,8 @@ Determine two things and state them back to the user:
 Infer everything you can from Steps 1–3. Then ask — in one short batch — only what you
 genuinely cannot determine and that changes the docs (e.g. target users, the chosen
 stack for a new project, hosting, data store). Don't interrogate; a handful of pointed
-questions is the bar.
+questions is the bar. Never re-ask or re-confirm information the user already stated
+explicitly (e.g. the project name in the brief) — treat it as settled and move on.
 
 ## Step 5 — Write the project docs
 Create or update these under `docs/` — **create the `docs/` directory if it doesn't exist.**
@@ -130,7 +131,10 @@ invent stack, architecture, or contracts.
 **Project-specific non-negotiables:** if the user named project-specific hard rules in
 Step 0 (Q4), propose filling the **"Project-specific non-negotiables"** section of
 `docs/CONSTITUTION.md`. Write it **only with explicit user approval**, in their wording —
-never invent rules. If there are none, leave the section's default placeholder.
+never invent rules. When the user confirms a hard rule during the onboarding
+conversation, record it in `docs/CONSTITUTION.md` immediately — that in-flow
+confirmation **is** the explicit human approval; do not leave a placeholder or defer it
+to a second approval round. If there are none, leave the section's default placeholder.
 
 ## Guardrails (ask before crossing these)
 - **Never** modify `docs/CONSTITUTION.md` without explicit user approval — it's the
