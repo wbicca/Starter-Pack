@@ -28,7 +28,7 @@ try {
   process.exit(0);
 }
 
-const path = (input.file_path ?? input.path ?? input.filePath ?? "").toString();
+const path = (input.file_path ?? input.path ?? input.filePath ?? input.notebook_path ?? "").toString();
 if (!path) process.exit(0);
 
 const base = path.split("/").pop();

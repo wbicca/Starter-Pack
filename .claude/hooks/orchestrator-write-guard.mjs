@@ -23,6 +23,10 @@
 //     .codex/, .agents/, scripts/quality/) -> ASK — governance edits happen only in
 //     explicit, human-approved maintenance batches.
 //   * implementers writing app code -> silent pass.
+//   * ASK surfaces an approval prompt only for INTERACTIVE subagents; a background Task
+//     subagent has no human to prompt, so ASK proceeds — governance edits by subagents
+//     must therefore be a deliberate orchestrator-dispatched maintenance batch. The firm
+//     boundary is the main-window DENY (which requires the override), not the subagent ASK.
 //
 // Bash mutation detection is target-based: redirect TARGETS are extracted with an
 // anchored regex (so `=>` / `Promise<T>` in grep patterns never match) and write

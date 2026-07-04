@@ -100,13 +100,9 @@ function looksLikeLiteralCredential(value) {
   const credShaped = CRED_PREFIX.test(v) || (v.length >= 16 && charClasses(v) >= 3);
   if (!credShaped) return false;
 
-  // Identifier / property-chain / call escape — ONLY with an explicit code signal
-  // ("." or "(") and never for credential-shaped values. A purely alphanumeric
-  // high-entropy token, or a dotted/high-entropy token that clears the credential
-  // bar (e.g. `Xk9mZ2p.L8qR4vN1tY7w`), is a credential, never an identifier.
-  if (!credShaped && !CRED_PREFIX.test(v) && (v.includes(".") || v.includes("(")) &&
-      /^[A-Za-z_$][\w.$]*(\(.*\))?$/.test(v)) return false;
-
+  // Everything reaching here is credential-shaped and not an env lookup → flag it.
+  // (A dotted/parenthesized high-entropy token like `Xk9mZ2p.L8qR4vN1tY7w` cleared the
+  // credential bar above, so it is treated as a secret, never as a code identifier.)
   return true;
 }
 
