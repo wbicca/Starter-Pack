@@ -73,6 +73,7 @@ function requirePath(api, rel, { dir = false, level = "block", label } = {}) {
 
 const REQUIRED_FILES = [
   "CLAUDE.md", "AGENTS.md", "README.md", "USAGE.md", "NOTICE.md", ".gitignore",
+  "VERSION", "CHANGELOG.md",
   "docs/CONSTITUTION.md", "docs/ENGINEERING_STANDARDS.md", "docs/STACK.md",
   ".claude/settings.json",
   "scripts/quality/quick-check.mjs",
@@ -93,6 +94,9 @@ const EXPECTED_HOOKS = [
 const EXPECTED_SHARED_SKILLS = [
   "project-onboarding", "quality-gate", "refactor-pass", "release-sanity",
 ];
+// Tiered model policy: judgment roles (read-only reviewers/design) run Opus — low token
+// volume, highest catch-rate leverage; every other operational agent runs Sonnet.
+const OPUS_AGENTS = ["code-reviewer", "security-auditor", "system-architect"];
 // Read-only agents must NOT be granted a write tool; worktree implementers should carry
 // isolation metadata. Used by the agent-frontmatter section below.
 const READ_ONLY_AGENTS = ["code-reviewer", "security-auditor", "product-strategist"];
@@ -105,6 +109,7 @@ const TDD_AGENTS = ["frontend-engineer", "backend-engineer", "qa-tester"];
 // Canonical starter skills named in AGENTS.md / CLAUDE.md — each must ship a SKILL.md.
 const CANONICAL_SKILLS = [
   "project-onboarding", "quality-gate", "refactor-pass", "release-sanity", "skill-discovery",
+  "starter-feedback",
 ];
 // Codex agent TOMLs that must be registered in .codex/config.toml.
 const CODEX_AGENTS = ["backend-engineer", "frontend-engineer", "code-reviewer", "security-auditor"];
@@ -125,6 +130,11 @@ function fmField(fm, key) {
 // ---------------------------------------------------------------------------
 
 section("Structure", (api) => {
+  // Template version (root VERSION file) — reported first for quick identification.
+  const version = readSafe("VERSION").trim();
+  if (version) api.ok(`template version ${stripControl(version)}`);
+  else api.warn("VERSION missing or unreadable — template version unknown");
+
   for (const f of REQUIRED_FILES) requirePath(api, f);
   for (const d of REQUIRED_DIRS) requirePath(api, d, { dir: true });
 
@@ -148,16 +158,18 @@ section("Structure", (api) => {
 // ---------------------------------------------------------------------------
 
 section("Agent frontmatter and skill contract", (api) => {
-  // Model policy: every operational agent must be model: sonnet.
+  // Tiered model policy: judgment roles (OPUS_AGENTS) must be model: opus; every other
+  // operational agent must be model: sonnet.
   const wrongModel = [];
   for (const a of EXPECTED_AGENTS) {
     const rel = `.claude/agents/${a}.md`;
     if (!exists(rel)) continue; // existence already blocked in Structure
     const fm = frontmatter(readSafe(rel));
-    if (fmField(fm, "model") !== "sonnet") wrongModel.push(a);
+    const expected = OPUS_AGENTS.includes(a) ? "opus" : "sonnet";
+    if (fmField(fm, "model") !== expected) wrongModel.push(`${a} (expected ${expected})`);
   }
-  if (wrongModel.length) api.block(`agent(s) not model: sonnet: ${wrongModel.join(", ")}`);
-  else api.ok(`all ${EXPECTED_AGENTS.length} agents are model: sonnet`);
+  if (wrongModel.length) api.block(`agent(s) violating the model policy: ${wrongModel.join(", ")}`);
+  else api.ok(`model policy honored (${EXPECTED_AGENTS.length - OPUS_AGENTS.length} sonnet / ${OPUS_AGENTS.length} opus)`);
 
   // Read-only agents must not grant Write / Edit / MultiEdit on their tools: line.
   const leakyWrite = [];

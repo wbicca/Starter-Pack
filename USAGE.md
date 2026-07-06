@@ -170,7 +170,10 @@ Se quiser forçar, pode dizer *"usa o backend-engineer para isso"*.
 ## 5. Modelos, worktrees e custo
 
 - **Opus** (janela principal): triagem, planejamento, arquitetura, debug difícil, síntese.
-- **Sonnet** (subagentes): implementação, testes, volume.
+- **Sonnet** (implementadores): implementação, testes, volume.
+- **Opus** também nos papéis de julgamento read-only — `code-reviewer`, `security-auditor` e
+  `system-architect` — porque a rede de segurança lê um diff por batch (custo pequeno) e cada
+  bug a mais que ela pega vale muito.
 - **Worktree** isola escrita de código paralela/arriscada. **Nunca** para planejamento,
   onboarding ou review (são interativos/leitura).
 - **"Escalar para Opus"** = trazer a tarefa **de volta à janela principal** (subagentes não
@@ -385,6 +388,27 @@ node scripts/quality/starter-doctor.mjs
 Exit 0 = tudo OK ou só avisos; exit 1 = há bloqueador (arquivo obrigatório/agente/hook
 faltando, `settings.json` inválido, segredo versionável). Reusa o `quick-check.mjs` como
 scanner de segredos — não duplica os padrões.
+
+### Atualizar um projeto a partir do template
+
+Projetos clonados divergem do template com o tempo. A versão do template está em `VERSION`
+(o doctor a reporta) e as mudanças em `CHANGELOG.md`. Para puxar a camada de qualidade
+atualizada (hooks, scripts, contratos, skills) num projeto existente:
+
+```bash
+node scripts/quality/update-from-template.mjs           # dry-run: mostra versões + diff
+node scripts/quality/update-from-template.mjs --apply   # aplica (staged, sem commit) + doctor
+```
+
+O script nunca toca `docs/` (que é do projeto), `README.md`, nem arquivos locais
+(`settings.local.json`). Revise o staged e commite você mesmo.
+
+### Relatório de uso do starter (feedback loop)
+
+Ao fechar um marco/épico num projeto real, rode a skill **`starter-feedback`** — ela audita
+o uso do starter no projeto (roteamento, compliance, fricção de hooks, qualidade dos docs)
+com base em evidência (repo, git, transcripts) e salva `docs/STARTER_FEEDBACK.md`. Esse
+relatório é o combustível das melhorias do template.
 
 ---
 

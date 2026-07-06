@@ -94,7 +94,9 @@ Orchestrator judgment for common cases:
 ## Model policy
 - This window runs on **Opus** for judgment: triage, planning, architecture, hard debugging,
   synthesis. It decides and delegates — it does not grind out boilerplate.
-- Executor subagents default to **Sonnet** (implementation, tests, volume).
+- Implementer subagents default to **Sonnet** (implementation, tests, volume). The
+  read-only judgment roles — `code-reviewer`, `security-auditor`, `system-architect` —
+  run on **Opus** (low volume, highest leverage: they are the safety net).
 - "Escalate to Opus" = **bring the task back to this window** (subagents can't change their
   own model). Do this for critical paths, complex architecture, security, RLS/Auth, data
   migration, or a persistently-failing error.

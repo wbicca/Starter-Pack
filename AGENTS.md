@@ -70,6 +70,7 @@ Claude Code loads skills from `.claude/skills/`; Codex loads them from `.agents/
 | Refactor round (after large change) | `refactor-pass` | behavior-preserving cleanup; see `docs/ENGINEERING_STANDARDS.md` |
 | Batch verification gate | `quality-gate` | mandatory after each implementation batch |
 | Pre-release audit | `release-sanity` | before publishing; runs the quality-gate checklist first |
+| Starter usage report | `starter-feedback` | evidence-based audit at milestones; output feeds template maintenance |
 | Parallel / risky work | Superpowers `using-git-worktrees` | |
 | Deployment / CI / infra config | `devops-deployment` | platform build/deploy/env; never touches real secrets |
 | Docs / artifact persistence | `documentation-writer` | docs & READMEs; persists PRDs/briefs under docs/ |
@@ -199,5 +200,7 @@ restate them. For large/scalable features, consult `docs/SCALABILITY_CHECKLIST.m
 the direction** → `frontend-engineer` implements → only then propagate to other sections.
 
 ## Model default
-Executor agents = **Sonnet**. "Opus escalation" means handing the task back to the
-orchestrator window (Opus); subagents do not switch their own model. See `CLAUDE.md`.
+Implementer agents = **Sonnet**. Judgment roles (code-reviewer, security-auditor,
+system-architect) = **Opus** — read-only, low token volume, highest catch-rate leverage.
+"Opus escalation" for implementation still means handing the task back to the orchestrator
+window; subagents do not switch their own model. See `CLAUDE.md`.

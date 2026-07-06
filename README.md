@@ -126,7 +126,10 @@ A lista completa está em **`AGENTS.md`** (o contrato de roteamento).
 | `security-auditor` | auditoria de segurança/RLS | read-only | não |
 | `documentation-writer` | docs e README | só docs | não |
 
-Todos rodam em **Sonnet** por padrão. "Escalar para Opus" = trazer a tarefa de volta à
+Implementadores rodam em **Sonnet**; os papéis de julgamento read-only (`code-reviewer`,
+`security-auditor`, `system-architect`) rodam em **Opus** — a rede de segurança usa o modelo
+mais forte, pagando pouco (leem um diff por batch, não escrevem volume). "Escalar para Opus"
+para implementação = trazer a tarefa de volta à
 janela orquestradora (subagentes não trocam o próprio modelo). O **Codex** expõe um subconjunto
 desses papéis como agentes nativos em `.codex/agents/` (TOML) e os invoca explicitamente.
 
@@ -170,7 +173,8 @@ determinístico e somente-leitura, compartilhado pelos dois runtimes.
 
 - **Janela principal = Opus = julgamento.** Faz triagem, planejamento, arquitetura, debug
   difícil e síntese. **Decide e delega — não digita boilerplate.**
-- **Subagentes = Sonnet = volume.** Implementação, testes, tarefas paralelas.
+- **Implementadores = Sonnet = volume.** Implementação, testes, tarefas paralelas.
+  **Revisores/arquiteto = Opus = julgamento** (read-only, baixo volume, alta alavancagem).
 - **Worktree** isola escrita de código paralela/arriscada. **Nunca** use worktree para
   planejamento, onboarding ou review (são interativos/leitura).
 - **Triagem por tamanho:** doc/não-código → inline; código de aplicação (mesmo 1 arquivo) →

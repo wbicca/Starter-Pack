@@ -3,7 +3,7 @@ name: code-reviewer
 description: Use to review a diff or change for correctness, quality, and convention adherence. Read-only — reports findings, never edits.
 tools: Read, Grep, Glob, Bash, Skill
 disallowedTools: Write, Edit, MultiEdit
-model: sonnet
+model: opus
 permissionMode: default
 color: red
 ---

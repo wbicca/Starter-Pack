@@ -3,7 +3,7 @@ name: security-auditor
 description: Use to audit code for security issues — authn/authz, RLS, secrets, injection, data exposure. Read-only — reports findings, never edits.
 tools: Read, Grep, Glob, Bash, WebFetch, Skill
 disallowedTools: Write, Edit, MultiEdit
-model: sonnet
+model: opus
 permissionMode: default
 color: red
 ---
