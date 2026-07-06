@@ -9,6 +9,12 @@ orchestrator judgment: triage, gates, discipline. See also `docs/CONSTITUTION.md
 (non-negotiables) and `docs/STACK.md` (stack).
 
 ## Initialization gate
+**Integrity first:** if `.claude/hooks/` or `.claude/settings.json` is missing, every
+guard-rail (write-guard, dangerous-command blocking, secret scanning, quick-check) is
+silently OFF — a `cp *` copy loses dotfiles. STOP before any work: restore the missing
+files from the template, run `node scripts/quality/starter-doctor.mjs` to confirm, and
+restart the session (hooks only load at session start).
+
 If `docs/STACK.md` Status is **UNCONFIGURED**, run the **`project-onboarding`** skill
 BEFORE any feature work — it classifies the project (new/existing), fills the gaps, and
 writes the project docs including `docs/STACK.md`. Never assume or hardcode a stack.
@@ -72,7 +78,8 @@ skills above, never restating them). For large or scalable features, consult
 - `GOVERNANCE_WRITE_DENIED` / `GOVERNANCE_WRITE_ASK` → governance edits happen only in
   explicit, human-approved maintenance batches: a subagent write surfaces an approval
   prompt (ask) to the human; the main window needs `CLAUDE_ORCHESTRATOR_WRITE_OVERRIDE=1`.
-  **Never work around the guard silently.**
+  **Never work around the guard silently.** If the human declines the ask, proceed
+  without the change — never retry it or loop.
 
 ## Delegation playbook
 Planning stays in this window with the human; implementation fans out to Sonnet subagents
@@ -97,4 +104,6 @@ Orchestrator judgment for common cases:
   English where it aids precision; otherwise Portuguese.
 - One canonical path per function — do not duplicate an existing skill (see `AGENTS.md`).
 - Do not touch `_bmad/` or installed BMAD skills during project work. Pruning or fixing vendored skills happens only in an explicit, human-approved template-maintenance session (see `docs/CONSTITUTION.md` §7).
+- Never modify `.claude/**`, hooks, or settings during project work — the starter's
+  governance is not part of the app.
 - Keep docs short. Keep agents short.

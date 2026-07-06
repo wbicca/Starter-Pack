@@ -36,6 +36,7 @@ Return a short, structured handoff:
 - **Validation/deployment procedure** — how the change was checked or deployed.
 - **Rollback** — how to revert safely.
 - **Operational risks** — downtime, cost, or reliability concerns.
+- **Discipline** — skills applied (e.g. TDD) and the verification evidence (test/check output).
 - **Commit hash** — the hash of your worktree commit (when you committed in a worktree).
 
 Adapt the output to the task. Do not fabricate sections that do not apply.

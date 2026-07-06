@@ -146,7 +146,14 @@ function stripWorktreePrefix(rel) { return rel.replace(WORKTREE_PREFIX_RE, ""); 
 // everything else out-of-root stays a hard deny.
 function harnessTempPrefixes(root) {
   const prefixes = ["/tmp", "/private/tmp"];
-  prefixes.push(path.join(os.homedir(), ".claude", "projects", root.replace(/[/ ]/g, "-")));
+  const slug = root.replace(/[/ ]/g, "-");
+  prefixes.push(path.join(os.homedir(), ".claude", "projects", slug));
+  // CLAUDE_CONFIG_DIR is the harness's own config variable — same trust level as
+  // CLAUDE_PROJECT_DIR; users with a custom config dir keep their per-project memory
+  // writable (same <configDir>/projects/<slug> convention as ~/.claude).
+  if (process.env.CLAUDE_CONFIG_DIR) {
+    prefixes.push(path.join(process.env.CLAUDE_CONFIG_DIR, "projects", slug));
+  }
   return prefixes;
 }
 function isHarnessTempPath(abs, root) {

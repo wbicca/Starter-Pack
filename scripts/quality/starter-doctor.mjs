@@ -15,7 +15,7 @@
 // rather than duplicating its turn-level checks.
 
 import { spawnSync } from "node:child_process";
-import { readFileSync, existsSync, statSync } from "node:fs";
+import { readFileSync, existsSync, statSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 
 // ---------------------------------------------------------------------------
@@ -310,6 +310,18 @@ section("Security and repository hygiene", (api) => {
   const gi = readSafe(".gitignore");
   if (gi && /(^|\n)\s*\.env(\b|\n|$)/.test(gi)) api.ok(".gitignore ignores .env");
   else if (gi) api.warn(".gitignore does not obviously ignore .env — confirm secrets can't be committed");
+
+  // Leftover agent worktrees (.claude/worktrees/*) — each must be consolidated
+  // (cherry-pick) or removed before a batch closes; a leftover means unreviewed work.
+  // Warn-level: a process smell, not a broken repo. (.DS_Store is not a worktree.)
+  let worktrees = [];
+  try { worktrees = readdirSync(resolve(ROOT, ".claude/worktrees")); } catch { worktrees = []; }
+  worktrees = worktrees.filter((e) => e !== ".DS_Store");
+  if (worktrees.length) {
+    api.warn(`agent worktree(s) present: ${worktrees.map(stripControl).join(", ")} — consolidate or remove before closing the batch`);
+  } else {
+    api.ok("no leftover agent worktrees");
+  }
 });
 
 // ---------------------------------------------------------------------------

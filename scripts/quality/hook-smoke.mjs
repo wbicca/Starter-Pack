@@ -72,6 +72,9 @@ const varFoldersOutside = ["/var/folders/zz/hook-smoke-not-tmp", "/var/folders/q
   .find((p) => !realTmp.startsWith(p) && !p.startsWith(realTmp) &&
                !tmpdir().startsWith(p) && !p.startsWith(tmpdir())) + "/notes.md";
 const PROJECT_SLUG = root.replace(/[/ ]/g, "-");
+// Fake CLAUDE_CONFIG_DIR (F7): out-of-root and NOT under /tmp, /private/tmp, or
+// ~/.claude — so the same memory path passes ONLY when the env var is honored.
+const FAKE_CONFIG_DIR = join(homedir(), ".claude-smoke-config");
 
 // --- case table ------------------------------------------------------------------
 
@@ -118,6 +121,13 @@ const cases = [
     payload: write(join(homedir(), ".claude", "projects", "-Some-Other-Project", "memory", "x.md")) },
   { hook: "write-guard", name: "main write: this project's memory", expect: "pass",
     payload: write(join(homedir(), ".claude", "projects", PROJECT_SLUG, "memory", "x.md")) },
+  // write-guard: CLAUDE_CONFIG_DIR is honored for this project's memory dir (F7) —
+  // per-case env (c.env) is merged into the spawn env; without it the path is out-of-root.
+  { hook: "write-guard", name: "main write: custom config-dir memory (env set)", expect: "pass",
+    env: { CLAUDE_CONFIG_DIR: FAKE_CONFIG_DIR },
+    payload: write(join(FAKE_CONFIG_DIR, "projects", PROJECT_SLUG, "memory", "x.md")) },
+  { hook: "write-guard", name: "main write: custom config-dir memory (env unset)", expect: "deny",
+    payload: write(join(FAKE_CONFIG_DIR, "projects", PROJECT_SLUG, "memory", "x.md")) },
   { hook: "write-guard", name: "main write: src/app.mjs (new app ext)", expect: "deny",
     payload: write("src/app.mjs") },
   { hook: "write-guard", name: "main write: scripts/quality/ (governance)", expect: "deny",
@@ -225,10 +235,12 @@ const cases = [
 
 const env = { ...process.env, CLAUDE_PROJECT_DIR: root };
 delete env.CLAUDE_ORCHESTRATOR_WRITE_OVERRIDE; // main-window cases assume no override
+delete env.CLAUDE_CONFIG_DIR; // config-dir cases opt in per-case via c.env
 
 function runCase(c) {
   const r = spawnSync(process.execPath, [join(root, HOOKS[c.hook])], {
-    input: JSON.stringify(c.payload), encoding: "utf8", env, cwd: root, timeout: 15_000,
+    input: JSON.stringify(c.payload), encoding: "utf8",
+    env: c.env ? { ...env, ...c.env } : env, cwd: root, timeout: 15_000,
   });
   const out = (r.stdout ?? "").trim();
   if (!out) return r.status === 0 ? "pass" : `exit-${r.status}`;

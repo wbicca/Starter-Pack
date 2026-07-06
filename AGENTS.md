@@ -125,7 +125,11 @@ not configured, fall back to `Glob`/`Grep`. Never required; the project must wor
 **Rules:**
 - **Approval gate:** the human approves the plan/story list **before** any implementation
   fan-out (plan → approve → execute). "Faça tudo" authorizes orchestration end-to-end, not
-  skipping that approval.
+  skipping that approval. At plan approval the human also chooses the cadence: per-batch
+  confirmation (default) or epic-level autonomy — batches then proceed with all gates
+  still running and REPORTING, stopping only at epic completion; batches touching
+  sensitive flows (auth, RLS, payments, fiscal data, PII) always stop for approval
+  regardless.
 - No scaffold, multi-file change, or new product is implemented **inline by the orchestrator** —
   the only exception is a small, clearly-local change.
 - Planning never uses a worktree; medium/large implementation does.
@@ -153,7 +157,8 @@ from the current branch HEAD — keep HEAD stable before fanning out.
 3. Before **any** parallel fan-out, create a **checkpoint commit** of the stable base.
 4. Each parallel agent starts from the **stable HEAD** (never from another agent's worktree).
 5. Each agent works in **its own** worktree.
-6. Each agent returns: **summary · files changed · tests run · risks · commit hash**.
+6. Each agent returns: **summary · files changed · tests run · risks · commit hash ·
+   discipline followed (skills applied + verification evidence)**.
 7. The orchestrator consolidates by **cherry-pick** (or requests human approval) — it does
    not hand-apply agent code into the main window.
 8. **Never** dispatch an isolated agent asking it to edit a worktree that already belongs to
@@ -174,7 +179,9 @@ components · one approved redesign round.
 After **each** batch, before starting the next:
 1. run `quality-gate` — runs the `docs/STACK.md` commands + diff/secret inspection, and
    appends the `docs/DELIVERY_LOG.md` entry (what shipped · validation · review/approval ·
-   commit) when the project keeps one;
+   commit) when the project keeps one (the skill is the canonical vehicle; running the
+   same checklist as explicit practice and recording it in the DELIVERY_LOG entry is
+   equally valid — what matters is that the checks ran and were recorded);
 2. run `verification-before-completion` — evidence before any "done" claim;
 3. run `requesting-code-review`;
 4. trigger `security-auditor` when the batch touches auth, RLS, payments, webhooks, PII,

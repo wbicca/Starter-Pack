@@ -37,6 +37,7 @@ Return a short, structured handoff:
 - **Permission tests** — which access paths you verified (allowed vs denied).
 - **Risks** — security or data risks left open.
 - **Required follow-up** — advisors output, migrations, or actions still needed.
+- **Discipline** — skills applied (e.g. TDD) and the verification evidence (test/check output).
 - **Commit hash** — the hash of your worktree commit (when you committed in a worktree).
 
 Adapt the output to the task. Do not fabricate sections that do not apply.

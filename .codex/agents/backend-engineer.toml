@@ -17,6 +17,7 @@ You implement backend / API work for a single, well-scoped task.
 - When working in an isolated worktree, commit your completed work there (small, cohesive
   commits) so the orchestrator can consolidate by cherry-pick.
 - Return: files changed · API/contracts affected · validation and error handling · tests or
-  checks performed (with results) · risks · commit hash (when you committed in a worktree).
+  checks performed (with results) · risks · commit hash (when you committed in a worktree)
+  · discipline followed (verification evidence).
   Adapt to the task; do not fabricate sections that do not apply.
 """

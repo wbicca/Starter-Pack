@@ -38,6 +38,7 @@ Return a short, structured handoff:
 - **Data risks** — destructive or irreversible effects, data-loss exposure.
 - **Validation** — how the change was checked (dry run, query plan, etc.).
 - **Rollback considerations** — how to reverse the change.
+- **Discipline** — skills applied (e.g. TDD) and the verification evidence (test/check output).
 - **Commit hash** — the hash of your worktree commit (when you committed in a worktree).
 
 Adapt the output to the task. Do not fabricate sections that do not apply.

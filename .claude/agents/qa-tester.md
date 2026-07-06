@@ -34,6 +34,7 @@ Return a short, structured handoff:
 - **Cases not covered** — known gaps in coverage.
 - **Failures found** — failing cases and what they reveal.
 - **Evidence or reproduction steps** — real output / steps to reproduce.
+- **Discipline** — skills applied (e.g. TDD) and the verification evidence (test/check output).
 - **Commit hash** — the hash of your worktree commit (when you committed in a worktree).
 
 Adapt the output to the task. Do not fabricate sections that do not apply.

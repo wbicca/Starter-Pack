@@ -36,6 +36,7 @@ Return a short, structured handoff:
 - **Responsive and accessibility considerations** — breakpoints, a11y decisions made.
 - **Validation approach** — how the visual result was checked.
 - **Remaining risks** — visual/UX gaps or follow-ups left open.
+- **Discipline** — skills applied (e.g. TDD) and the verification evidence (test/check output).
 - **Commit hash** — the hash of your worktree commit (when you committed in a worktree).
 
 Adapt the output to the task. Do not fabricate sections that do not apply.

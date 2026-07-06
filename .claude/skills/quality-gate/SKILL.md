@@ -33,8 +33,12 @@ is sound; it does not refactor (`refactor-pass`) or audit for release (`release-
    with placeholders are allowed).
 6. **Orchestrator-inline check** — confirm application code was written by an
    implementation agent, not inline by the orchestrator. Flag if it was.
-7. **Code review** — recommend `requesting-code-review` when the batch is non-trivial.
-8. **Delivery log** — when the project keeps `docs/DELIVERY_LOG.md`, append the batch
+7. **Agent worktrees** — run `git worktree list`; any agent worktree
+   (`.claude/worktrees/*`) with uncommitted or unconsolidated content requires an
+   explicit decision — consolidate (cherry-pick) or discard (`git worktree remove`) —
+   before the batch closes. Report what was found.
+8. **Code review** — recommend `requesting-code-review` when the batch is non-trivial.
+9. **Delivery log** — when the project keeps `docs/DELIVERY_LOG.md`, append the batch
    entry: what shipped · validation · review/approval · commit hash. Skip silently when
    the project has no delivery log.
 
@@ -45,6 +49,7 @@ A table plus a short verdict:
 |---|---|---|
 | `<from docs/STACK.md>` | pass / fail / output summary | PASS / FAIL / NOT CONFIGURED |
 
-Then: unexpected files, secret/`.env` findings, the orchestrator-inline check, the code
-review recommendation, the `docs/DELIVERY_LOG.md` entry appended (when the project keeps
+Then: unexpected files, secret/`.env` findings, the orchestrator-inline check, the
+agent-worktree status (consolidated · discarded · none found), the code review
+recommendation, the `docs/DELIVERY_LOG.md` entry appended (when the project keeps
 one), and an overall **gate PASS / gate FAIL**.

@@ -28,7 +28,17 @@ Regra mental: **janela principal decide e delega; não digita boilerplate.**
 Três formas:
 1. **GitHub "Use this template"** → cria um repo novo a partir de `wbicca/Starter-Pack`.
 2. **Clonar:** `git clone https://github.com/wbicca/Starter-Pack.git meu-projeto`
-3. **Copiar a pasta** para o diretório do projeto novo.
+3. **Copiar a pasta** — **somente com `cp -a` (ou `rsync -a`)**. Nunca `cp *` ou arrastar
+   arquivos no Finder com filtro: os **dotfiles** (`.claude/`, `.codex/`, `.agents/`,
+   `.github/`, `.gitignore`) ficam para trás e **todos os guard-rails morrem em silêncio** —
+   hooks de segurança, write-guard e quick-check simplesmente não existem na cópia.
+
+**Na primeira sessão de qualquer cópia/clone**, valide a integridade do maquinário:
+```bash
+node scripts/quality/starter-doctor.mjs
+```
+Se `.claude/hooks/` ou `.claude/settings.json` estiverem faltando, restaure-os do template
+**antes de qualquer trabalho** e reinicie a sessão (hooks só carregam no início da sessão).
 
 Depois, abra o **Claude Code** na pasta do projeto. **Não** trabalhe dentro do repo-template
 original — use uma cópia, para o teste/projeto não se misturar com o template.

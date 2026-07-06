@@ -36,6 +36,7 @@ Return a short, structured handoff:
 - **State/data flow affected** — state, data-fetching, or routing touched.
 - **Validation performed** — tests/commands run, with real output.
 - **Risks** — regressions or unresolved concerns.
+- **Discipline** — skills applied (e.g. TDD) and the verification evidence (test/check output).
 - **Commit hash** — the hash of your worktree commit (when you committed in a worktree).
 
 Adapt the output to the task. Do not fabricate sections that do not apply.
