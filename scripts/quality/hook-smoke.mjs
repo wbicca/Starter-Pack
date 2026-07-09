@@ -252,14 +252,22 @@ const cases = [
     payload: bash(`:(){ :|:& };:`) },
 
   // protect-sensitive-files
-  { hook: "sensitive", name: "write real .env", expect: "deny",
+  { hook: "sensitive", name: "write real .env (git-ignored here) — exposure allows", expect: "pass",
     payload: write(".env") },
   { hook: "sensitive", name: "write .env.example template", expect: "pass",
     payload: write(".env.example") },
-  { hook: "sensitive", name: "write .env.staging (any .env.* is protected)", expect: "deny",
+  { hook: "sensitive", name: "write .env.staging (git-ignored here) — exposure allows", expect: "pass",
     payload: write(".env.staging") },
   { hook: "sensitive", name: "write .env.local.example template", expect: "pass",
     payload: write(".env.local.example") },
+
+  // protect-sensitive-files: exposure-based policy (fixture repos)
+  { hook: "sensitive", name: "fixture: .env ignored+untracked → pass", expect: "pass",
+    env: { CLAUDE_PROJECT_DIR: GIT_FIX }, payload: writeAt(GIT_FIX, ".env") },
+  { hook: "sensitive", name: "fixture: .env.production versionable → deny", expect: "deny",
+    env: { CLAUDE_PROJECT_DIR: GIT_FIX }, payload: writeAt(GIT_FIX, ".env.production") },
+  { hook: "sensitive", name: "fixture: no git repo → fail-safe deny", expect: "deny",
+    env: { CLAUDE_PROJECT_DIR: NOGIT_FIX }, payload: writeAt(NOGIT_FIX, ".env") },
 
   // format-after-edit (PostToolUse — must always stay silent / non-blocking)
   { hook: "format", name: "edit payload without file-scoped script", expect: "pass",

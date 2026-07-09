@@ -1,5 +1,9 @@
 #!/usr/bin/env node
-// PreToolUse/Edit·MultiEdit·Write — block writes to real .env files.
+// PreToolUse/Edit·MultiEdit·Write — block writes to VERSIONABLE real .env files.
+// Exposure-based: an ignored-and-untracked .env is local-only and passes; anything
+// tracked or not git-ignored is denied (it could enter the next commit).
+
+import { isVersionable } from "./lib/exposure.mjs";
 
 function deny(reason) {
   process.stdout.write(JSON.stringify({
@@ -21,12 +25,13 @@ function readStdin() {
 }
 
 const raw = await readStdin();
-let input;
+let payload;
 try {
-  input = JSON.parse(raw || "{}").tool_input ?? {};
+  payload = JSON.parse(raw || "{}");
 } catch {
   process.exit(0);
 }
+const input = payload.tool_input ?? {};
 
 const path = (input.file_path ?? input.path ?? input.filePath ?? input.notebook_path ?? "").toString();
 if (!path) process.exit(0);
@@ -41,7 +46,10 @@ if (ALLOWED.includes(base)) process.exit(0);
 // Protected real env files: .env and ANY .env.* (templates above already passed).
 const PROTECTED = /^\.env$|^\.env\.[^/]+$/;
 if (PROTECTED.test(base)) {
-  deny("Real environment files are protected. Use .env.example instead.");
+  const root = (process.env.CLAUDE_PROJECT_DIR || payload.cwd || process.cwd()).toString();
+  // Ignored-and-untracked local .env → allowed (exposure-based policy).
+  if (!isVersionable(path, root)) process.exit(0);
+  deny("Real .env file is versionable (tracked or not git-ignored). Add it to .gitignore first, then retry — or use .env.example for shared placeholders.");
 }
 
 process.exit(0);
