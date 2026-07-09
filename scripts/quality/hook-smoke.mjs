@@ -16,7 +16,7 @@ import { spawnSync } from "node:child_process";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir, tmpdir } from "node:os";
-import { realpathSync } from "node:fs";
+import { realpathSync, mkdtempSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -75,6 +75,41 @@ const PROJECT_SLUG = root.replace(/[/ ]/g, "-");
 // Fake CLAUDE_CONFIG_DIR (F7): out-of-root and NOT under /tmp, /private/tmp, or
 // ~/.claude — so the same memory path passes ONLY when the env var is honored.
 const FAKE_CONFIG_DIR = join(homedir(), ".claude-smoke-config");
+
+// --- exposure / profile fixtures (runtime temp dirs) -----------------------------
+// GIT_FIX: a real git repo whose .gitignore ignores ONLY ".env" and "notes.local.md".
+//   → ".env" is ignored-and-untracked (never committable): exposure policy allows it.
+//   → ".env.production" is NOT ignored (versionable): exposure policy blocks it.
+//   Its docs/STACK.md declares Profile: standard.
+// LIGHT_FIX: same shape, but docs/STACK.md declares Profile: light.
+// NOGIT_FIX: not a git repo and no docs/ — exercises both fail-safes
+//   (isVersionable → true → block; readProfile → standard).
+function makeFixture(name, profile) {
+  const dir = mkdtempSync(join(realTmp, `hook-smoke-${name}-`));
+  if (profile) {
+    spawnSync("git", ["init", "-q"], { cwd: dir, encoding: "utf8" });
+    writeFileSync(join(dir, ".gitignore"), ".env\nnotes.local.md\n");
+    mkdirSync(join(dir, "docs"), { recursive: true });
+    writeFileSync(
+      join(dir, "docs", "STACK.md"),
+      `# Stack\n\n> **Status: CONFIGURED**\n> **Profile: ${profile}**\n`,
+    );
+  }
+  return dir;
+}
+const GIT_FIX = makeFixture("git", "standard");
+const LIGHT_FIX = makeFixture("light", "light");
+const NOGIT_FIX = makeFixture("nogit", null);
+process.on("exit", () => {
+  for (const d of [GIT_FIX, LIGHT_FIX, NOGIT_FIX]) rmSync(d, { recursive: true, force: true });
+});
+
+// Per-root payload builders (fixture cases must set BOTH payload.cwd and the
+// per-case env CLAUDE_PROJECT_DIR to the fixture root).
+const bashAt = (root, command) => ({ tool_name: "Bash", tool_input: { command }, cwd: root });
+const writeAt = (root, file_path, text = "smoke") => ({
+  tool_name: "Write", tool_input: { file_path, content: text }, cwd: root,
+});
 
 // --- case table ------------------------------------------------------------------
 
