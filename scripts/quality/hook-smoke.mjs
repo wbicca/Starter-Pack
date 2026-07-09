@@ -263,6 +263,20 @@ const cases = [
   { hook: "danger-bash", name: "fork bomb", expect: "deny",
     payload: bash(`:(){ :|:& };:`) },
 
+  // block-dangerous-bash: exposure-based env targets + git add -f confirmation
+  { hook: "danger-bash", name: "fixture: echo > ignored .env → pass", expect: "pass",
+    env: { CLAUDE_PROJECT_DIR: GIT_FIX },
+    payload: bashAt(GIT_FIX, `echo "KEY=value" > .env`) },
+  { hook: "danger-bash", name: "fixture: echo > versionable .env.production → deny", expect: "deny",
+    env: { CLAUDE_PROJECT_DIR: GIT_FIX },
+    payload: bashAt(GIT_FIX, `echo "KEY=value" > .env.production`) },
+  { hook: "danger-bash", name: "git add -f (force-add ignored file)", expect: "ask",
+    payload: bash(`git add -f .env`) },
+  { hook: "danger-bash", name: "git add --force", expect: "ask",
+    payload: bash(`git add --force notes.local.md`) },
+  { hook: "danger-bash", name: "plain git add (no force)", expect: "pass",
+    payload: bash(`git add src/app.ts`) },
+
   // protect-sensitive-files
   { hook: "sensitive", name: "write real .env (git-ignored here) — exposure allows", expect: "pass",
     payload: write(".env") },

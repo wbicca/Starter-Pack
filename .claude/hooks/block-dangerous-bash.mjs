@@ -1,12 +1,15 @@
 #!/usr/bin/env node
-// PreToolUse/Bash — best-effort guard for destructive commands and writes to real
-// .env files. Catastrophic/irreversible patterns (rm of root/home/glob, sudo rm,
-// fork bomb) are DENIED; risky-but-legitimate operations (git reset --hard, git
-// clean -fd, chmod -R 777, docker prune -a, find -delete, rm of critical dirs) are
-// downgraded to ASK so a human confirms them. Trailing shell comments are stripped
-// before matching so prose like `true # git reset --hard` never trips a pattern.
-// This is a safety NET, not a security boundary: a determined command can still be
-// obfuscated past it. Keep it as defense-in-depth.
+// PreToolUse/Bash — best-effort guard for destructive commands and shell writes to
+// real .env files (exposure-based: only VERSIONABLE .env targets are blocked;
+// ignored-and-untracked local ones pass). Catastrophic/irreversible patterns (rm of
+// root/home/glob, sudo rm, fork bomb) are DENIED; risky-but-legitimate operations (git
+// reset --hard, git clean -fd, chmod -R 777, docker prune -a, find -delete, rm of
+// critical dirs) are downgraded to ASK so a human confirms them. Trailing shell
+// comments are stripped before matching so prose like `true # git reset --hard`
+// never trips a pattern. This is a safety NET, not a security boundary: a determined
+// command can still be obfuscated past it. Keep it as defense-in-depth.
+
+import { isVersionable } from "./lib/exposure.mjs";
 
 function decide(decision, reason) {
   process.stdout.write(JSON.stringify({
@@ -31,11 +34,15 @@ function readStdin() {
 
 const raw = await readStdin();
 let cmd = "";
+let cwd = "";
 try {
-  cmd = (JSON.parse(raw || "{}").tool_input?.command ?? "").toString();
+  const payload = JSON.parse(raw || "{}");
+  cmd = (payload.tool_input?.command ?? "").toString();
+  cwd = (payload.cwd ?? "").toString();
 } catch {
   process.exit(0); // malformed input: don't block
 }
+const ROOT = (process.env.CLAUDE_PROJECT_DIR || cwd || process.cwd()).toString();
 
 // Strip best-effort trailing shell comments (a `#` at line start or preceded by
 // whitespace, followed by whitespace). This only removes text from CONSIDERATION —
@@ -85,6 +92,7 @@ const CONFIRM = [
   { re: /chmod\s+-r\s+777/, what: "Approving runs chmod -R 777, making the target tree world-writable." },
   { re: /docker\s+system\s+prune\s+-a/, what: "Approving removes ALL unused Docker images, containers, networks, and build cache." },
   { re: /find\s+\.\s+-delete/, what: "Approving recursively deletes every file find matches under the current directory." },
+  { re: /git\s+add\b[^;|&\n]*\s-[a-z]*f\b/, what: "Approving force-adds a git-ignored file to the index — this can expose a local secret (e.g. a real .env) in the next commit." },
 ];
 for (const d of CONFIRM) {
   if (d.re.test(normRm)) ask(d.what);
@@ -108,21 +116,29 @@ const PROTECTED_STARTER = ["claude.md", "agents.md", "constitution.md"];
 const PROTECTED_MSG =
   "Protected starter file or real environment file. Scaffold in a temporary subdirectory or ask the human to perform the approved environment setup manually.";
 
+// Targets are extracted from the ORIGINAL-case command (quotes stripped) so the
+// exposure check hands git a real path; basenames are lowercased for comparison.
+const uqOrig = uncommented.replace(/['"]/g, "");
 const writeTargets = [];
 // redirections (> / >>) and tee
-for (const m of unquoted.matchAll(/(?:>>?|\btee\s+(?:-a\s+)?)\s*([^\s;|&]+)/g)) {
+for (const m of uqOrig.matchAll(/(?:>>?|\btee\s+(?:-a\s+)?)\s*([^\s;|&]+)/g)) {
   writeTargets.push(m[1]);
 }
 // cp / mv / rsync → destination is the last non-flag token of the segment (best-effort)
-for (const m of unquoted.matchAll(/\b(?:cp|mv|rsync)\b([^;|&]*)/g)) {
+for (const m of uqOrig.matchAll(/\b(?:cp|mv|rsync)\b([^;|&]*)/g)) {
   const toks = m[1].split(/\s+/).filter((t) => t && !t.startsWith("-"));
   if (toks.length) writeTargets.push(toks[toks.length - 1]);
 }
+const ENV_VERSIONABLE_MSG =
+  "Real .env file is versionable (tracked or not git-ignored). Add it to .gitignore first, then retry.";
 for (const t of writeTargets) {
-  const base = (t.split("/").pop() || t);
+  const base = (t.split("/").pop() || t).toLowerCase();
   if (PROTECTED_STARTER.includes(base)) deny(PROTECTED_MSG);
   const isEnv = /^\.env$|^\.env\.[^/]+$/.test(base);
-  if (isEnv && !ALLOWED_ENV.test(base)) deny(PROTECTED_MSG);
+  if (isEnv && !ALLOWED_ENV.test(base)) {
+    // Exposure-based: an ignored-and-untracked .env is a legitimate local write.
+    if (isVersionable(t, ROOT)) deny(ENV_VERSIONABLE_MSG);
+  }
 }
 
 // --- 6) Scaffolders aimed at the repo root (would overwrite starter files) ---
