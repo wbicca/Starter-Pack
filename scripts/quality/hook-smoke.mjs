@@ -234,6 +234,18 @@ const cases = [
   { hook: "scan-secrets", name: "anon JWT with ref claim (F5)", expect: "pass",
     payload: content(`const KEY = "${jwtPayload({ role: "anon", ref: "abcdefghijklmnop" })}";`) },
 
+  // scan-secrets: exposure-based — content written to an ignored+untracked file
+  // can never be committed, so literal credentials there are allowed.
+  { hook: "scan-secrets", name: "fixture: live key into ignored .env → pass", expect: "pass",
+    env: { CLAUDE_PROJECT_DIR: GIT_FIX },
+    payload: writeAt(GIT_FIX, ".env", `API_KEY="${LIVE_KEY}"`) },
+  { hook: "scan-secrets", name: "fixture: live key into ignored notes.local.md → pass", expect: "pass",
+    env: { CLAUDE_PROJECT_DIR: GIT_FIX },
+    payload: writeAt(GIT_FIX, "notes.local.md", `API_KEY="${LIVE_KEY}"`) },
+  { hook: "scan-secrets", name: "fixture: live key into versionable src file → deny", expect: "deny",
+    env: { CLAUDE_PROJECT_DIR: GIT_FIX },
+    payload: writeAt(GIT_FIX, "src/config.ts", `API_KEY="${LIVE_KEY}"`) },
+
   // block-dangerous-bash
   { hook: "danger-bash", name: "trailing comment is stripped", expect: "pass",
     payload: bash(`true # git reset --hard`) },

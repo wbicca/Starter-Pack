@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 // PreToolUse/Edit·MultiEdit·Write — best-effort block of obvious hardcoded secrets in
-// new content. Heuristic, not exhaustive: it catches common shapes, not every secret.
+// new content aimed at VERSIONABLE files (exposure-based: ignored-and-untracked
+// targets are skipped — they can never be committed). Heuristic, not exhaustive.
 //
 // Assignment-style keys (JWT_SECRET, STRIPE_SECRET_KEY, …) are flagged ONLY when the
 // value looks like a LITERAL credential — code expressions (process.env.X, ${VAR},
 // identifiers, property chains, function calls) and whole-value placeholders always
 // pass. JWTs whose payload role is "anon" (Supabase public anon key) are allowed;
 // "service_role" or undecodable payloads stay denied.
+
+import { isVersionable } from "./lib/exposure.mjs";
 
 function deny(reason) {
   process.stdout.write(JSON.stringify({
@@ -28,11 +31,22 @@ function readStdin() {
 }
 
 const raw = await readStdin();
-let input;
+let payload;
 try {
-  input = JSON.parse(raw || "{}").tool_input ?? {};
+  payload = JSON.parse(raw || "{}");
 } catch {
   process.exit(0);
+}
+const input = payload.tool_input ?? {};
+
+// Exposure-based short-circuit: content aimed at an ignored-and-untracked file can
+// never be committed — skip the scan. Writes without an identifiable target path
+// (defensive default) are scanned normally. quick-check still guards the diff at
+// end of turn, and versionable targets get the full scan below.
+const targetPath = (input.file_path ?? input.path ?? input.filePath ?? input.notebook_path ?? "").toString();
+if (targetPath) {
+  const root = (process.env.CLAUDE_PROJECT_DIR || payload.cwd || process.cwd()).toString();
+  if (!isVersionable(targetPath, root)) process.exit(0);
 }
 
 // Collect all "new content" across Write / Edit / MultiEdit / NotebookEdit shapes.
