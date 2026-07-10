@@ -100,8 +100,25 @@ function makeFixture(name, profile) {
 const GIT_FIX = makeFixture("git", "standard");
 const LIGHT_FIX = makeFixture("light", "light");
 const NOGIT_FIX = makeFixture("nogit", null);
+// TRACKED_FIX: the dangerous real-world case — a .env COMMITTED by mistake and only
+// then git-ignored. check-ignore says "ignored", but the file is tracked, so it is
+// still versionable (its content is in history and future edits would be committed).
+// Pins the ls-files-before-check-ignore ordering inside isVersionable.
+function makeTrackedEnvFixture() {
+  const dir = mkdtempSync(join(realTmp, "hook-smoke-tracked-"));
+  const g = (args) => spawnSync("git", args, { cwd: dir, encoding: "utf8" });
+  g(["init", "-q"]);
+  g(["config", "user.email", "smoke@example.invalid"]);
+  g(["config", "user.name", "hook-smoke"]);
+  writeFileSync(join(dir, ".env"), "KEY=placeholder\n");
+  g(["add", "-f", ".env"]);
+  g(["commit", "-q", "-m", "fixture: committed .env"]);
+  writeFileSync(join(dir, ".gitignore"), ".env\n");
+  return dir;
+}
+const TRACKED_FIX = makeTrackedEnvFixture();
 process.on("exit", () => {
-  for (const d of [GIT_FIX, LIGHT_FIX, NOGIT_FIX]) rmSync(d, { recursive: true, force: true });
+  for (const d of [GIT_FIX, LIGHT_FIX, NOGIT_FIX, TRACKED_FIX]) rmSync(d, { recursive: true, force: true });
 });
 
 // Per-root payload builders (fixture cases must set BOTH payload.cwd and the
@@ -294,6 +311,17 @@ const cases = [
     env: { CLAUDE_PROJECT_DIR: GIT_FIX }, payload: writeAt(GIT_FIX, ".env.production") },
   { hook: "sensitive", name: "fixture: no git repo → fail-safe deny", expect: "deny",
     env: { CLAUDE_PROJECT_DIR: NOGIT_FIX }, payload: writeAt(NOGIT_FIX, ".env") },
+
+  // exposure policy: tracked-AND-ignored .env stays blocked in every hook (the file
+  // is in history — ls-files must win over check-ignore).
+  { hook: "sensitive", name: "fixture: tracked+ignored .env → deny", expect: "deny",
+    env: { CLAUDE_PROJECT_DIR: TRACKED_FIX }, payload: writeAt(TRACKED_FIX, ".env") },
+  { hook: "scan-secrets", name: "fixture: live key into tracked+ignored .env → deny", expect: "deny",
+    env: { CLAUDE_PROJECT_DIR: TRACKED_FIX },
+    payload: writeAt(TRACKED_FIX, ".env", `API_KEY="${LIVE_KEY}"`) },
+  { hook: "danger-bash", name: "fixture: echo > tracked+ignored .env → deny", expect: "deny",
+    env: { CLAUDE_PROJECT_DIR: TRACKED_FIX },
+    payload: bashAt(TRACKED_FIX, `echo "KEY=value" > .env`) },
 
   // format-after-edit (PostToolUse — must always stay silent / non-blocking)
   { hook: "format", name: "edit payload without file-scoped script", expect: "pass",
