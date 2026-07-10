@@ -3,6 +3,10 @@
 > Status: UNCONFIGURED | PARTIAL | CONFIGURED  ·  set during onboarding (keep one).
 > Record only what is actually chosen/detected.
 
+> Profile: standard | light  ·  set during onboarding (keep one). standard = inline
+> app-code writes ask for approval, full gates. light = simple project: inline writes
+> pass, proportional gates. Sensitive flows keep full discipline in both.
+
 ## Resolved stack
 - Language: <e.g. TypeScript>
 - Framework: <e.g. Next.js>
@@ -37,6 +41,15 @@
 - Relevant agents: <subset actually used, e.g. frontend-engineer, backend-engineer, database-architect>
 - Optional integrations / MCPs in use: <e.g. Supabase, Railway, codegraph — or `none`>
 - Explicitly out of scope: <e.g. no database, no deploy yet, no payments>
+
+## Visual language
+
+> Only for projects with a UI — write `n/a` otherwise. Generic contract:
+> `docs/DESIGN_STANDARDS.md`.
+
+- Design reference / inspiration: <e.g. Linear-like density, shadcn defaults — or n/a>
+- Component library / tokens: <e.g. shadcn/ui + Tailwind tokens — or n/a>
+- Theme: <light/dark/both · brand colors — or n/a>
 
 ## Hard rules
 - <e.g. If Supabase/Postgres: RLS on by default for every table.>

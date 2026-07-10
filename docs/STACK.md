@@ -6,6 +6,12 @@
 > sections below. The structure is present so the gates have something to read even before
 > onboarding.
 
+> **Profile: standard**  (allowed values: standard · light)
+> `standard`: inline app-code writes by the main window ASK for approval; full
+> orchestration/gates for non-trivial work. `light`: inline writes pass; proportional
+> gates (see `AGENTS.md` → "Project profiles"). Sensitive flows (auth, RLS, payments,
+> PII, webhooks) keep full discipline in BOTH profiles.
+
 ## Resolved stack
 _(empty until configured)_
 - Language:
@@ -41,6 +47,15 @@ _(empty until configured)_
 - Relevant agents: _(subset actually used, filled at onboarding)_
 - Optional integrations / MCPs in use: _(e.g. Supabase, Railway, codegraph — or `none`)_
 - Explicitly out of scope: _(e.g. no database, no deploy yet, no payments)_
+
+## Visual language
+
+> Filled at onboarding for projects with a UI (`n/a` otherwise). The generic design
+> contract is `docs/DESIGN_STANDARDS.md`; this section records THIS project's choices.
+
+- Design reference / inspiration: _(e.g. Linear-like density, shadcn defaults — or n/a)_
+- Component library / tokens: _(e.g. shadcn/ui + Tailwind tokens — or n/a)_
+- Theme: _(light/dark/both · brand colors — or n/a)_
 
 ## Hard stack rules (apply once configured)
 - If Supabase/Postgres is chosen: RLS on by default for every table.

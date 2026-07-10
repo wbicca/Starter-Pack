@@ -39,6 +39,8 @@ Before reading or scanning anything, ask the user (one short batch) and **wait f
 3. "Este é um projeto novo, um projeto existente, ou você ainda não tem certeza?"
 4. "Existem regras inegociáveis específicas deste projeto? (ex.: compliance, dados sensíveis,
    stack obrigatória, multi-tenant, white-label, segurança, performance, integrações obrigatórias)"
+5. "Este projeto é algo simples/pequeno (script, landing, protótipo, ferramenta pessoal)
+   ou um produto completo? Isso define o profile de orquestração (light vs standard)."
 
 Rules:
 - The folder name is a **hint only, never the source of truth** — do not classify the product from it.
@@ -70,10 +72,13 @@ project root to enable graph-based navigation — the watcher keeps it synced af
 `.codegraph/` already exists, or codegraph isn't in use, skip this silently.
 
 ## Step 3 — Classify
-Determine two things and state them back to the user:
+Determine three things and state them back to the user:
 1. **New** (empty/scaffold only) or **existing** (has real code/history).
 2. **Type**: SaaS · dashboard · CRM · backend/API · frontend/app · landing/simple app.
    Pick the closest; if it's a blend, say so.
+3. **Size/profile**: `light` (simple project/tool — inline implementation allowed,
+   proportional gates) or `standard` (full orchestration). Propose it from Q5 and the
+   scan; the user confirms. When in doubt, prefer `standard`.
 
 ## Step 4 — Ask only the essential gaps
 Infer everything you can from Steps 1–3. Then ask — in one short batch — only what you
@@ -100,6 +105,9 @@ preserve what's still true and amend rather than rewrite.
   Also fill the **Capabilities** section (relevant agents · optional integrations/MCPs ·
   out-of-scope) from the classification, so agents load only what's relevant. Mark unused
   items `n/a`; never invent a capability.
+  Set the **Profile** honestly (`standard` | `light`) from the size classification the
+  user confirmed. Fill the **Visual language** section for projects with a UI (design
+  reference · component library/tokens · theme) — or mark it `n/a`.
 - **`ARCHITECTURE.md`** — high-level shape: main pieces, boundaries, data flow. Brief.
 - **`DECISIONS.md`** — an append-only log of decisions made during onboarding, each with
   a one-line rationale (date · decision · why). This is the project's memory.
@@ -174,5 +182,7 @@ Report back, concisely:
 - [ ] PROJECT_BRIEF / STACK / ARCHITECTURE / DECISIONS created or updated and lean.
 - [ ] Conditional docs (API_CONTRACTS / DATABASE / TESTING / DEPLOYMENT / DELIVERY_LOG) generated only where they apply — no empty docs; unknown-but-in-scope areas marked TBD.
 - [ ] STACK.md Capabilities section filled (relevant agents · optional integrations · out-of-scope), or marked n/a.
+- [ ] STACK.md Profile set (standard | light) and confirmed with the user.
+- [ ] STACK.md Visual language filled for UI projects (or marked n/a).
 - [ ] No application code written; no protected file changed without approval.
 - [ ] Delivered the summary + recommended the next mandatory flow.

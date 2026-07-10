@@ -350,6 +350,15 @@ section("Project readiness", (api) => {
   else if (status === "UNCONFIGURED") api.warn("docs/STACK.md Status is UNCONFIGURED — run project-onboarding before feature work");
   else api.ok(`docs/STACK.md Status is ${status}`);
 
+  const profMatch = stack.match(/Profile:\s*\**\s*([a-zA-Z]+)/);
+  if (!profMatch) {
+    api.warn("docs/STACK.md has no Profile field (standard|light) — write-guard assumes standard");
+  } else if (!/^(standard|light)$/i.test(profMatch[1])) {
+    api.warn(`docs/STACK.md Profile '${profMatch[1]}' is invalid (standard|light) — write-guard assumes standard`);
+  } else {
+    api.ok(`docs/STACK.md Profile is ${profMatch[1].toLowerCase()}`);
+  }
+
   // Essential project docs (created during onboarding) — warn when absent, since a fresh
   // template repo legitimately has only the seed docs.
   for (const d of ["docs/PROJECT_BRIEF.md", "docs/ARCHITECTURE.md", "docs/DECISIONS.md"]) {
