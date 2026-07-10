@@ -92,7 +92,7 @@ function makeFixture(name, profile) {
     mkdirSync(join(dir, "docs"), { recursive: true });
     writeFileSync(
       join(dir, "docs", "STACK.md"),
-      `# Stack\n\n> **Status: CONFIGURED**\n> **Profile: ${profile}**\n`,
+      `# Stack\n\n> **Status: CONFIGURED**\n> **Profile: ${profile}**  (allowed values: standard · light)\n`,
     );
   }
   return dir;
@@ -100,6 +100,9 @@ function makeFixture(name, profile) {
 const GIT_FIX = makeFixture("git", "standard");
 const LIGHT_FIX = makeFixture("light", "light");
 const NOGIT_FIX = makeFixture("nogit", null);
+// BADPROF_FIX: an unknown profile value ("lightweight") must fall back to standard —
+// pins the \b boundary in readProfile (without it, "lightweight" parses as "light").
+const BADPROF_FIX = makeFixture("badprof", "lightweight");
 // TRACKED_FIX: the dangerous real-world case — a .env COMMITTED by mistake and only
 // then git-ignored. check-ignore says "ignored", but the file is tracked, so it is
 // still versionable (its content is in history and future edits would be committed).
@@ -118,7 +121,7 @@ function makeTrackedEnvFixture() {
 }
 const TRACKED_FIX = makeTrackedEnvFixture();
 process.on("exit", () => {
-  for (const d of [GIT_FIX, LIGHT_FIX, NOGIT_FIX, TRACKED_FIX]) rmSync(d, { recursive: true, force: true });
+  for (const d of [GIT_FIX, LIGHT_FIX, NOGIT_FIX, TRACKED_FIX, BADPROF_FIX]) rmSync(d, { recursive: true, force: true });
 });
 
 // Per-root payload builders (fixture cases must set BOTH payload.cwd and the
@@ -233,6 +236,12 @@ const cases = [
     env: { CLAUDE_PROJECT_DIR: GIT_FIX }, payload: writeAt(GIT_FIX, "src/app.ts") },
   { hook: "write-guard", name: "no STACK.md: profile falls back to standard → ask", expect: "ask",
     env: { CLAUDE_PROJECT_DIR: NOGIT_FIX }, payload: writeAt(NOGIT_FIX, "src/app.ts") },
+  { hook: "write-guard", name: "unknown profile 'lightweight' → standard → ask", expect: "ask",
+    env: { CLAUDE_PROJECT_DIR: BADPROF_FIX }, payload: writeAt(BADPROF_FIX, "src/app.ts") },
+  { hook: "write-guard", name: "light profile: out-of-root write still denied", expect: "deny",
+    env: { CLAUDE_PROJECT_DIR: LIGHT_FIX }, payload: writeAt(LIGHT_FIX, "../escape/x.ts") },
+  { hook: "write-guard", name: "light profile: bash governance write still denied", expect: "deny",
+    env: { CLAUDE_PROJECT_DIR: LIGHT_FIX }, payload: bashAt(LIGHT_FIX, `echo hi > .claude/settings.json`) },
 
   // scan-secrets
   { hook: "scan-secrets", name: "env-var reference is code, not secret", expect: "pass",

@@ -191,7 +191,7 @@ const OVERRIDE = process.env.CLAUDE_ORCHESTRATOR_WRITE_OVERRIDE === "1";
 function readProfile(root) {
   try {
     const stack = fs.readFileSync(path.join(root, "docs", "STACK.md"), "utf8");
-    const m = stack.match(/Profile:\s*\**\s*(standard|light)/i);
+    const m = stack.match(/Profile:\s*\**\s*(standard|light)\b/i);
     return m ? m[1].toLowerCase() : "standard";
   } catch {
     return "standard";
