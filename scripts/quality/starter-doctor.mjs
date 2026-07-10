@@ -78,6 +78,7 @@ const REQUIRED_FILES = [
   "docs/STACK.md",
   ".claude/settings.json",
   "scripts/quality/quick-check.mjs",
+  "scripts/quality/batch-verify.mjs", "scripts/quality/batch-verify-smoke.mjs",
 ];
 const REQUIRED_DIRS = [
   "docs", ".claude", ".claude/agents", ".claude/skills", ".claude/hooks",
