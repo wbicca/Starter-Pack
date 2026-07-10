@@ -84,8 +84,8 @@ const FAKE_CONFIG_DIR = join(homedir(), ".claude-smoke-config");
 // LIGHT_FIX: same shape, but docs/STACK.md declares Profile: light.
 // NOGIT_FIX: not a git repo and no docs/ — exercises both fail-safes
 //   (isVersionable → true → block; readProfile → standard).
-function makeFixture(name, profile) {
-  const dir = mkdtempSync(join(realTmp, `hook-smoke-${name}-`));
+function makeFixture(name, profile, baseDir = realTmp) {
+  const dir = mkdtempSync(join(baseDir, `hook-smoke-${name}-`));
   if (profile) {
     spawnSync("git", ["init", "-q"], { cwd: dir, encoding: "utf8" });
     writeFileSync(join(dir, ".gitignore"), ".env\nnotes.local.md\n");
@@ -103,6 +103,12 @@ const NOGIT_FIX = makeFixture("nogit", null);
 // BADPROF_FIX: an unknown profile value ("lightweight") must fall back to standard —
 // pins the \b boundary in readProfile (without it, "lightweight" parses as "light").
 const BADPROF_FIX = makeFixture("badprof", "lightweight");
+// LIGHT_HOME_FIX: light-profile fixture OUTSIDE any harness-whitelisted temp dir.
+// On Linux, tmpdir() IS /tmp — which the write-guard whitelists as scratchpad — so
+// out-of-root and bash-redirect governance pins would trivially pass there if the
+// fixture lived in tmpdir. homedir() is never whitelisted (only its
+// .claude/projects/<slug> subpath is).
+const LIGHT_HOME_FIX = makeFixture("light-home", "light", homedir());
 // TRACKED_FIX: the dangerous real-world case — a .env COMMITTED by mistake and only
 // then git-ignored. check-ignore says "ignored", but the file is tracked, so it is
 // still versionable (its content is in history and future edits would be committed).
@@ -121,7 +127,7 @@ function makeTrackedEnvFixture() {
 }
 const TRACKED_FIX = makeTrackedEnvFixture();
 process.on("exit", () => {
-  for (const d of [GIT_FIX, LIGHT_FIX, NOGIT_FIX, TRACKED_FIX, BADPROF_FIX]) rmSync(d, { recursive: true, force: true });
+  for (const d of [GIT_FIX, LIGHT_FIX, NOGIT_FIX, TRACKED_FIX, BADPROF_FIX, LIGHT_HOME_FIX]) rmSync(d, { recursive: true, force: true });
 });
 
 // Per-root payload builders (fixture cases must set BOTH payload.cwd and the
@@ -238,10 +244,12 @@ const cases = [
     env: { CLAUDE_PROJECT_DIR: NOGIT_FIX }, payload: writeAt(NOGIT_FIX, "src/app.ts") },
   { hook: "write-guard", name: "unknown profile 'lightweight' → standard → ask", expect: "ask",
     env: { CLAUDE_PROJECT_DIR: BADPROF_FIX }, payload: writeAt(BADPROF_FIX, "src/app.ts") },
+  // These two pins need the HOME-based fixture: with a tmpdir-based root, Linux CI
+  // resolves the targets into the whitelisted /tmp and the guard passes by design.
   { hook: "write-guard", name: "light profile: out-of-root write still denied", expect: "deny",
-    env: { CLAUDE_PROJECT_DIR: LIGHT_FIX }, payload: writeAt(LIGHT_FIX, "../escape/x.ts") },
+    env: { CLAUDE_PROJECT_DIR: LIGHT_HOME_FIX }, payload: writeAt(LIGHT_HOME_FIX, "../hook-smoke-escape/x.ts") },
   { hook: "write-guard", name: "light profile: bash governance write still denied", expect: "deny",
-    env: { CLAUDE_PROJECT_DIR: LIGHT_FIX }, payload: bashAt(LIGHT_FIX, `echo hi > .claude/settings.json`) },
+    env: { CLAUDE_PROJECT_DIR: LIGHT_HOME_FIX }, payload: bashAt(LIGHT_HOME_FIX, `echo hi > .claude/settings.json`) },
 
   // scan-secrets
   { hook: "scan-secrets", name: "env-var reference is code, not secret", expect: "pass",
