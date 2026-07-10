@@ -4,6 +4,29 @@ All notable template changes, one entry per maintenance batch. Projects check th
 template version in `VERSION` (reported by `starter-doctor`) and pull updates with
 `node scripts/quality/update-from-template.mjs`.
 
+## 1.2.0 — 2026-07-10
+
+Deterministic delivery verification, per the approved spec
+(`docs/superpowers/specs/2026-07-10-starter-v1.2-deterministic-verification-design.md`).
+
+- **batch-verify** (`scripts/quality/batch-verify.mjs`): deterministic owner of the
+  Development Gate's step 1 — runs the configured `docs/STACK.md` commands
+  (Lint → Typecheck → Test → Build, fail-fast; Format excluded: verifiers never
+  mutate). Exit 2 blocks an app-code batch whose Test command is still `TBD`
+  (standard profile; `--accept-unconfigured` = recorded human waiver; light profile
+  warns). App-code-without-test-change emits a review-signal warning. Own smoke suite
+  (16 fixture cases, incl. malformed-row/CRLF/--range regressions) wired into the
+  template CI.
+- **quality-gate hardened**: step 1 delegates to batch-verify; the script's execution
+  is the only accepted evidence — a subagent's "tests passed" report never substitutes.
+- **CI seed**: `project-onboarding` gains `templates/project-ci.yml` — derived projects
+  get a GitHub Actions workflow running the SAME verifier plus quick-check.
+- **Docs/doctor**: QUALITY_GATES/AGENTS/CLAUDE/USAGE updated; starter-doctor requires
+  the new scripts.
+- **Review hardening**: bad/shallow `--range` refs fail closed (exit 1); malformed
+  STACK.md Commands rows warn instead of silently dropping a configured command;
+  markdown artifacts (backticks/bold) in command cells are tolerated.
+
 ## 1.1.0 — 2026-07-10
 
 Friction reduction + design quality, per the approved spec
