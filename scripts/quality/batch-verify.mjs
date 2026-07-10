@@ -18,6 +18,11 @@
 //
 // Usage: node scripts/quality/batch-verify.mjs [--accept-unconfigured] [--range <ref>]
 //   --range <ref>  diff <ref>...HEAD instead of the local working state (CI use).
+//
+// Trust model: STACK.md commands run with shell:true BY DESIGN — they are exactly what
+// the gate is supposed to execute (compound commands need shell operators), STACK.md
+// is project-owned, and quality-gate flags STACK diffs. Do not "harden" this into
+// shell:false — it would break `a && b` commands without adding a real boundary.
 
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -44,18 +49,29 @@ function readStack() {
   try { return readFileSync(join(ROOT, "docs", "STACK.md"), "utf8"); } catch { return null; }
 }
 
-function parseCommands(stack) {
+// Strip markdown emphasis/code-span artifacts (`cmd`, **cmd**) that reviewers commonly
+// add around a cell's content, so a well-formed-but-decorated row still parses.
+function stripMdArtifacts(s) {
+  return s.trim().replace(/^`+|`+$/g, "").replace(/^\*+|\*+$/g, "").trim();
+}
+
+function parseCommands(stack, warnings) {
   const rows = new Map();
   if (!stack) return rows;
-  for (const line of stack.split("\n")) {
+  for (const line of stack.split(/\r?\n/)) {
     const m = line.match(/^\|\s*([A-Za-z ]+?)\s*\|\s*(.*?)\s*\|\s*(.*?)\s*\|\s*$/);
     if (!m) continue;
     const purpose = m[1].trim();
     if (!RUNNABLE.includes(purpose)) continue;
-    const command = m[2].trim();
-    const status = m[3].trim();
+    const command = stripMdArtifacts(m[2]);
+    const status = stripMdArtifacts(m[3]);
     // Exact match: "UNCONFIGURED" contains "configured" as a substring — never /i-test loosely.
-    const configured = /^configured$/i.test(status) && command !== "" && !/^tbd$/i.test(command);
+    const isTbd = command === "" || /^tbd$/i.test(command);
+    const configured = /^configured$/i.test(status) && !isTbd;
+    if (!configured && !isTbd && warnings) {
+      warnings.push(`docs/STACK.md row for ${purpose} has a command but its Status was not ` +
+        "recognized as CONFIGURED — check the row's formatting (extra columns / markdown).");
+    }
     rows.set(purpose, { command, configured });
   }
   return rows;
@@ -78,7 +94,12 @@ function git(args) {
 function changedFiles() {
   if (RANGE) {
     const out = git(["diff", "--name-only", `${RANGE}...HEAD`]);
-    return out === null ? null : out.split("\n").filter(Boolean);
+    if (out === null) {
+      err(`batch-verify: --range ref '${RANGE}' could not be diffed — bad ref or shallow ` +
+        "clone (fetch the base branch history, e.g. fetch-depth: 0). Failing closed.");
+      process.exit(1);
+    }
+    return out.split("\n").filter(Boolean);
   }
   const hasHead = git(["rev-parse", "--verify", "HEAD"]) !== null;
   const tracked = hasHead ? git(["diff", "--name-only", "HEAD"]) : git(["diff", "--name-only"]);
@@ -87,15 +108,16 @@ function changedFiles() {
   return [...new Set((tracked + "\n" + untracked).split("\n").filter(Boolean))];
 }
 
-// keep in sync with .claude/hooks/orchestrator-write-guard.mjs (APP_EXTS)
+// derived from .claude/hooks/orchestrator-write-guard.mjs (APP_EXTS) — anchored with $ and
+// /i here on purpose; not byte-identical.
 const APP_EXT_RE = /\.(tsx?|jsx?|mjs|cjs|mts|cts|css|scss|vue|svelte|py|rb|go|java|sql|sh|html?)$/i;
 const TEST_PATH_RE = /(^|\/)(__tests__|tests?|e2e)\/|\.(test|spec)\.[^./]+$/i;
 
 // --- main ---------------------------------------------------------------------------
 const stack = readStack();
-const commands = parseCommands(stack);
-const profile = readProfile(stack);
 const warnings = [];
+const commands = parseCommands(stack, warnings);
+const profile = readProfile(stack);
 if (!stack) warnings.push("docs/STACK.md missing/unreadable — treating every command as not configured.");
 
 const changed = changedFiles();

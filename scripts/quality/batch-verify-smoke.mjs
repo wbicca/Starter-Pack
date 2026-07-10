@@ -21,10 +21,11 @@ const OK = `node -e "process.exit(0)"`;
 const BAD = `node -e "process.exit(1)"`;
 
 // Build a docs/STACK.md with the real Commands-table shape. Purposes left undefined
-// render as `TBD | UNCONFIGURED`.
-function stackMd({ profile = "standard", lint, typecheck, test, build } = {}) {
+// render as `TBD | UNCONFIGURED`. `extraRows` appends raw table rows after Build (for
+// pinning malformed-row handling). `crlf` converts the final string to CRLF line endings.
+function stackMd({ profile = "standard", lint, typecheck, test, build, extraRows = [], crlf = false } = {}) {
   const row = (p, c) => (c ? `| ${p} | ${c} | CONFIGURED |` : `| ${p} | TBD | UNCONFIGURED |`);
-  return [
+  const out = [
     "# Stack", "",
     "> **Status: CONFIGURED**",
     `> **Profile: ${profile}**`, "",
@@ -32,24 +33,35 @@ function stackMd({ profile = "standard", lint, typecheck, test, build } = {}) {
     "| Purpose | Command | Status |",
     "|---|---|---|",
     row("Lint", lint), row("Typecheck", typecheck), row("Test", test), row("Build", build),
+    ...extraRows,
+    "| Install | TBD | UNCONFIGURED |",
+    "| Format | TBD | UNCONFIGURED |",
+    "| E2E | TBD | UNCONFIGURED |",
+    "| Security | TBD | UNCONFIGURED |",
     "",
   ].join("\n");
+  return crlf ? out.replace(/\n/g, "\r\n") : out;
 }
 
-function makeFixture({ stack, appChange = true, testChange = false } = {}) {
+function makeFixture({ stack, appChange = true, testChange = false, commitAppChange = false } = {}) {
   const dir = mkdtempSync(join(realTmp, "batch-verify-smoke-"));
   const g = (args) => spawnSync("git", args, { cwd: dir, encoding: "utf8" });
   g(["init", "-q"]);
   g(["config", "user.email", "smoke@example.invalid"]);
   g(["config", "user.name", "batch-verify-smoke"]);
   writeFileSync(join(dir, "README.md"), "fixture\n");
-  g(["add", "."]);
-  g(["commit", "-q", "-m", "init"]);
   if (stack !== null && stack !== undefined) {
     mkdirSync(join(dir, "docs"), { recursive: true });
     writeFileSync(join(dir, "docs", "STACK.md"), stack);
   }
-  if (appChange) {
+  g(["add", "."]);
+  g(["commit", "-q", "-m", "init"]);
+  if (commitAppChange) {
+    mkdirSync(join(dir, "src"), { recursive: true });
+    writeFileSync(join(dir, "src", "app.ts"), "export const x = 1;\n");
+    g(["add", "."]);
+    g(["commit", "-q", "-m", "app change"]);
+  } else if (appChange) {
     mkdirSync(join(dir, "src"), { recursive: true });
     writeFileSync(join(dir, "src", "app.ts"), "export const x = 1;\n");
   }
@@ -82,6 +94,19 @@ const cases = [
     fx: { stack: null } },
   { name: "no changes + Test TBD → pass (nothing to guard)", exit: 0,
     fx: { stack: stackMd({}), appChange: false } },
+  { name: "malformed row (extra column) → warning, not silent drop", exit: 0,
+    stderrHas: "not recognized as CONFIGURED",
+    fx: { stack: stackMd({ test: OK, extraRows: ['| Build | npm run build | CONFIGURED | note |'] }) } },
+  { name: "backticked command cell runs fine", exit: 0, stderrHas: "Test: ",
+    fx: { stack: stackMd({ test: "`" + OK + "`" }) } },
+  { name: "bold status parses as configured", exit: 1,
+    fx: { stack: stackMd({}).replace("| Test | TBD | UNCONFIGURED |", `| Test | ${BAD} | **CONFIGURED** |`) } },
+  { name: "CRLF STACK.md parses", exit: 1,
+    fx: { stack: stackMd({ test: BAD, crlf: true }) } },
+  { name: "--range with valid base → runs & guards", exit: 2, stderrHas: "BLOCKER",
+    args: ["--range", "HEAD~1"], fx: { stack: stackMd({}), commitAppChange: true } },
+  { name: "--range with bad ref → hard exit 1", exit: 1, stderrHas: "Failing closed",
+    args: ["--range", "no-such-ref"], fx: { stack: stackMd({ test: OK }) } },
 ];
 
 let failed = 0;
