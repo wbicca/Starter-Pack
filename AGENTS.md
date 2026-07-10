@@ -10,7 +10,8 @@ This repository is designed to work with Claude Code and Codex.
 - AGENTS.md is the shared agent contract.
 - CLAUDE.md contains Claude-specific orchestration rules and imports AGENTS.md.
 - Codex should follow AGENTS.md directly.
-- Implementation agents must follow `docs/ENGINEERING_STANDARDS.md`.
+- Implementation agents must follow `docs/ENGINEERING_STANDARDS.md`; UI work also
+  follows `docs/DESIGN_STANDARDS.md` and the project's Visual language in `docs/STACK.md`.
 - Project-specific commands live in `docs/STACK.md`.
 - Per-project **capabilities** (relevant agents · optional integrations/MCPs · out-of-scope)
   live in `docs/STACK.md` — consult them to load only what's relevant; don't pursue paths a
@@ -60,6 +61,7 @@ Claude Code loads skills from `.claude/skills/`; Codex loads them from `.agents/
 | Macro architecture | `bmad-create-architecture` | |
 | Technical impl plan (one story) | Superpowers `writing-plans` | the *how*, below PRD altitude |
 | Implementation | Superpowers `test-driven-development` + `verification-before-completion` | |
+| UI implementation / visual quality | `docs/DESIGN_STANDARDS.md` + STACK "Visual language" | contract applied by frontend-designer/engineer; quality-gate checks UI batches |
 | Unit / integration tests | Superpowers `test-driven-development` | |
 | E2E tests | `bmad-qa-generate-e2e-tests` | for existing features |
 | Hard bug / fix | Superpowers `systematic-debugging` | |
@@ -171,6 +173,27 @@ from the current branch HEAD — keep HEAD stable before fanning out.
     the conflicting story to a fresh implementer rebased on the new HEAD, or ask the human.
     Stories that must touch the same files are **sequenced, not parallelized**.
 
+## Project profiles
+
+`docs/STACK.md` declares `Profile: standard | light` (set at onboarding; editable any
+time — it's a project doc, and the quality-gate flags any `Profile:` change in a diff).
+It scales orchestration friction to project size. It never relaxes: governance
+protection, the security hooks, quick-check, or the sensitive-flow rule below.
+
+| Aspect | standard | light |
+|---|---|---|
+| Main-window inline app-code write | ASK (human approves small tasks) | passes silently |
+| BMAD planning for non-trivial work | required | opt-in (brief in-window planning still expected for multi-file work) |
+| quality-gate per batch | full sequence | proportional (commands + diff/secret inspection; review opt-in) |
+| `requesting-code-review` per batch | required | opt-in |
+| Delegation / worktrees / fan-out | canonical for medium+ | available, optional |
+| Sensitive flows (auth, RLS, payments, webhooks, PII) | full discipline + `security-auditor` | **identical — never relaxed** |
+
+Exposure-based env policy (both profiles): writes to an **ignored-and-untracked** real
+`.env` (and secrets in ignored-and-untracked files) are allowed — the guarded risk is a
+secret entering a commit, not existing locally. Versionable targets stay blocked;
+`git add -f` asks for confirmation; quick-check remains the end-of-turn net.
+
 ## Batches & gates
 **Never accumulate more than one implementation batch without verification and review.**
 
@@ -188,6 +211,10 @@ After **each** batch, before starting the next:
 4. trigger `security-auditor` when the batch touches auth, RLS, payments, webhooks, PII,
    relevant dependencies, or external assets;
 5. fix blockers — only then start the next batch.
+
+In the **light** profile the per-batch sequence is proportional (see "Project
+profiles"): step 1 runs in its reduced form, steps 2–3 are opt-in, step 4 (sensitive
+flows) is **always** mandatory.
 
 **Gate decision map:** `docs/QUALITY_GATES.md` says *which* gate to run *when* (Quick Check ·
 Development Gate · Release Gate) and routes to the canonical skill for each — it does not

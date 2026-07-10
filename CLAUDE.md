@@ -19,12 +19,17 @@ If `docs/STACK.md` Status is **UNCONFIGURED**, run the **`project-onboarding`** 
 BEFORE any feature work — it classifies the project (new/existing), fills the gaps, and
 writes the project docs including `docs/STACK.md`. Never assume or hardcode a stack.
 
-## Triage every request by size
+## Triage every request by size (and profile)
+`docs/STACK.md` declares the project **Profile** (`standard` · `light`) — see
+`AGENTS.md` → "Project profiles".
 - **Docs / non-app-code fix** (docs/, README/USAGE/NOTICE, a note): edit directly.
-- **App-code fix** (even 1 file): delegate to one specialized agent — the write-guard denies
-  inline app-code writes by design; retrying inline just wastes a denied attempt.
+- **App-code fix (small, clearly local)**: in `standard`, writing inline surfaces an
+  **ASK** — approve = implement inline; decline = delegate to one agent. In `light`,
+  implement inline directly. Either way, run the (proportional) gate after.
 - **Medium** (multi-file, clear scope): delegate to a specialized agent (Sonnet).
 - **Large** (new feature / product / epic): plan with BMAD first, then implement.
+- **Sensitive flows** (auth, RLS, payments, webhooks, PII): full discipline in BOTH
+  profiles — planning, review, and `security-auditor` are never skipped.
 
 ## Planning gate (BMAD) — required before non-trivial work
 New projects, new modules, and non-trivial features **must not** jump straight to
@@ -34,6 +39,10 @@ produce stories, and get approval:
   needed) + stories.
 - Larger product → fuller BMAD flow, proportional to complexity.
 - Small, clearly-local change in an existing project → BMAD may be skipped.
+
+In the **light** profile, formal BMAD planning is **opt-in**: skip it for small,
+clearly-local work, but still plan (briefly, in-window) anything multi-file — and
+sensitive flows always get the full planning + review treatment.
 **"Faça tudo" is never authorization to implement inline** — it means orchestrate
 end-to-end (plan → **human approval** → delegate to Sonnet agents → review). The plan/story
 list is presented and **explicitly approved by the human before any implementation fan-out.**
@@ -73,8 +82,10 @@ skills above, never restating them). For large or scalable features, consult
 (`node scripts/quality/starter-doctor.mjs`) is a read-only structural check of the starter itself.
 
 ## Hook signals
-- `ORCHESTRATOR_WRITE_DENIED` → **delegate the write to the right implementation agent
-  immediately; never retry it inline.** It is a routing signal, not an error to work around.
+- `ORCHESTRATOR_WRITE_ASK` → inline app-code write in the standard profile: the human
+  approves (small task, implement inline) or declines (delegate to the right agent —
+  do not retry inline after a decline). In the light profile inline app-code writes
+  pass without a prompt.
 - `GOVERNANCE_WRITE_DENIED` / `GOVERNANCE_WRITE_ASK` → governance edits happen only in
   explicit, human-approved maintenance batches: a subagent write surfaces an approval
   prompt (ask) to the human; the main window needs `CLAUDE_ORCHESTRATOR_WRITE_OVERRIDE=1`.
@@ -86,7 +97,8 @@ Planning stays in this window with the human; implementation fans out to Sonnet 
 after the human **approves** the story list. The canonical flow, worktree rules, return
 contract, and cherry-pick consolidation live in `AGENTS.md` → "Delegation & isolation".
 Orchestrator judgment for common cases:
-- Small docs fix → inline; small app-code fix → delegate to one agent.
+- Small docs fix → inline; small app-code fix → inline via ASK (standard) / direct
+  (light), or delegate to one agent — human's choice at the prompt.
 - New feature / product → plan here with BMAD, then one Sonnet implementer per story → review.
 - Several independent changes → `dispatching-parallel-agents` (only after a stable base).
 - Hard bug → `systematic-debugging` here; delegate the fix once the cause is known.
