@@ -1,0 +1,32 @@
+# Project CI — seeded by the Starter Pack's project-onboarding skill.
+# Runs the SAME deterministic verifier the quality-gate uses locally
+# (scripts/quality/batch-verify.mjs) plus the hygiene quick-check — one rail,
+# local and remote.
+#
+# Adjust to the project's stack:
+#   - setup-node fits Node projects; swap/add setup-python etc. as the stack needs.
+#   - Uncomment the Install step with the Install command from docs/STACK.md — the
+#     quality commands usually need dependencies.
+name: Project CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # batch-verify --range needs history
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # - name: Install dependencies
+      #   run: <Install command from docs/STACK.md, e.g. npm ci>
+      - name: Batch verify (docs/STACK.md quality commands)
+        run: node scripts/quality/batch-verify.mjs --range "origin/${{ github.event.repository.default_branch }}"
+      - name: Quick check (hygiene & secrets)
+        run: node scripts/quality/quick-check.mjs

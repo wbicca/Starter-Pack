@@ -128,6 +128,10 @@ never produce an empty or useless doc. Start each from its template in this skil
 - **`DELIVERY_LOG.md`** — seed an append-only delivery log when the project will have
   implementation batches (almost all real projects). Skip for a docs-only repo. It starts
   essentially empty (header only) and is appended to after each passing quality-gate.
+- **`.github/workflows/ci.yml`** — seed from this skill's `templates/project-ci.yml`
+  when the project has (or will have) a remote repository. Adjust the runtime/install
+  steps to the stack (the template's comments say how). Skip for an explicitly
+  local-only project and record that decision in `DECISIONS.md`.
 
 Rules: a doc that is **N/A for the type** is skipped entirely; a doc whose area is **in
 scope but unknown** is created with `TBD:` so the gap is tracked. Examples — static frontend:
@@ -181,6 +185,7 @@ Report back, concisely:
 - [ ] Proposed Project-specific non-negotiables if any — written only with explicit approval.
 - [ ] PROJECT_BRIEF / STACK / ARCHITECTURE / DECISIONS created or updated and lean.
 - [ ] Conditional docs (API_CONTRACTS / DATABASE / TESTING / DEPLOYMENT / DELIVERY_LOG) generated only where they apply — no empty docs; unknown-but-in-scope areas marked TBD.
+- [ ] CI seeded from templates/project-ci.yml when the project has a remote (or the local-only decision recorded).
 - [ ] STACK.md Capabilities section filled (relevant agents · optional integrations · out-of-scope), or marked n/a.
 - [ ] STACK.md Profile set (standard | light) and confirmed with the user.
 - [ ] STACK.md Visual language filled for UI projects (or marked n/a).
