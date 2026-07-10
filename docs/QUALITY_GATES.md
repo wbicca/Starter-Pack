@@ -7,7 +7,9 @@ it. If a step here ever disagrees with a skill, the skill wins.
 
 Canonical owners:
 - **Quick Check** → `scripts/quality/quick-check.mjs` (a script + Stop hook, *not* a skill).
-- **Development Gate** → `quality-gate` skill (+ `refactor-pass` skill when applicable).
+- **Development Gate** → `quality-gate` skill (step 1 executed by
+  `scripts/quality/batch-verify.mjs` — evidence over claims) + `refactor-pass` skill
+  when applicable.
 - **Release Gate** → `release-sanity` skill (which runs the quality-gate checklist first).
 
 Code standards these gates enforce live in `docs/ENGINEERING_STANDARDS.md`; the concrete
@@ -58,9 +60,11 @@ gates.
 cohesive set of components, or one approved redesign round — and before starting the next
 batch. Owner: `quality-gate` skill.
 
-**What it does** (see the skill for the full procedure): runs **only** the commands
-configured in `docs/STACK.md` (formatter, linter, typecheck, tests, build — each only if
-configured), inspects the diff, flags unexpected/governance files **and any `Profile:`
+**What it does** (see the skill for the full procedure): runs `scripts/quality/batch-verify.mjs` — which executes **only** the commands
+configured in `docs/STACK.md` (Lint → Typecheck → Test → Build, fail-fast; Format is
+excluded because formatters mutate) and blocks (`exit 2`, standard profile) when Test
+is unconfigured on an app-code batch, unless a `--accept-unconfigured` human waiver is
+recorded — inspects the diff, flags unexpected/governance files **and any `Profile:`
 change in `docs/STACK.md`**, scans for obvious secrets and **versionable** real `.env`
 files (an ignored, local-only `.env` is fine), runs the design checklist when the batch
 touches UI files, confirms application code went through a **sanctioned path**

@@ -201,7 +201,9 @@ A **batch** is one of: a single story · one structural change · a small, cohes
 components · one approved redesign round.
 
 After **each** batch, before starting the next:
-1. run `quality-gate` — runs the `docs/STACK.md` commands + diff/secret inspection, and
+1. run `quality-gate` — its step 1 executes `scripts/quality/batch-verify.mjs`
+   (the `docs/STACK.md` commands, fail-fast, evidence over claims) + diff/secret
+   inspection, and
    appends the `docs/DELIVERY_LOG.md` entry (what shipped · validation · review/approval ·
    commit) when the project keeps one (the skill is the canonical vehicle; running the
    same checklist as explicit practice and recording it in the DELIVERY_LOG entry is

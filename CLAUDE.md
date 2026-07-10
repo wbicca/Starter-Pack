@@ -72,8 +72,9 @@ reviewing code.
 Three explicit gates wrap that work:
 - **`refactor-pass`** — after a large change (big feature, large fix, long session):
   behavior-preserving cleanup.
-- **`quality-gate`** — after **each** implementation batch: run configured
-  checks + diff/secret inspection.
+- **`quality-gate`** — after **each** implementation batch: runs
+  `scripts/quality/batch-verify.mjs` (configured checks, evidence over claims)
+  + diff/secret inspection.
 - **`release-sanity`** — before any release: pre-publication security/asset audit.
 
 `docs/QUALITY_GATES.md` is the decision map for *which* gate to run *when* (it points to the

@@ -406,6 +406,26 @@ Exit 0 = tudo OK ou só avisos; exit 1 = há bloqueador (arquivo obrigatório/ag
 faltando, `settings.json` inválido, segredo versionável). Reusa o `quick-check.mjs` como
 scanner de segredos — não duplica os padrões.
 
+### Verificação determinística de batch (`batch-verify`)
+
+O step 1 do `quality-gate` é executado por um script, não improvisado:
+
+```bash
+node scripts/quality/batch-verify.mjs
+```
+
+Ele lê a tabela **Commands** e o **Profile** do `docs/STACK.md`, roda os comandos
+configurados (Lint → Typecheck → Test → Build, parando na primeira falha; Format fica
+de fora — formatador muta arquivos) e imprime a tabela de evidência. Exit codes:
+`0` passou (avisos possíveis) · `1` um comando configurado falhou · `2` o comando de
+Test está `TBD` e o batch toca código de aplicação (profile `standard`) — configure o
+comando ou, por decisão sua, rode com `--accept-unconfigured` e registre o waiver no
+`docs/DELIVERY_LOG.md`. No profile `light`, esse caso vira aviso. Mudança de código
+sem mudança de teste gera aviso (sinal de review, nunca bloqueia). Em CI use
+`--range origin/<branch-default>`. Ref inválida ou clone shallow fazem o script
+**falhar fechado** (exit 1) — o CI precisa de `fetch-depth: 0`. O CI gerado pelo
+onboarding (`templates/project-ci.yml`) chama exatamente o mesmo script.
+
 ### Atualizar um projeto a partir do template
 
 Projetos clonados divergem do template com o tempo. A versão do template está em `VERSION`
