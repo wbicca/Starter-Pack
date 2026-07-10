@@ -3,9 +3,10 @@ name: quality-gate
 description: >
   Mandatory verification after each implementation batch. Use after finishing any batch,
   before starting the next, or when the user says "run the quality gate" / "is this
-  ready". Runs the docs/STACK.md commands, inspects the diff (scope, minimality, secrets,
-  versionable .env), applies the design checklist to UI batches, and adapts depth to the
-  project Profile (standard/light) — sensitive flows always get the full sequence.
+  ready". Runs scripts/quality/batch-verify.mjs (the docs/STACK.md commands, evidence
+  over claims), inspects the diff (scope, minimality, secrets, versionable .env),
+  applies the design checklist to UI batches, and adapts depth to the project Profile
+  (standard/light) — sensitive flows always get the full sequence.
 ---
 
 # Quality gate
@@ -25,8 +26,18 @@ is sound; it does not refactor (`refactor-pass`) or audit for release (`release-
   `security-auditor`.
 
 ## Steps
-1. **Run configured checks** — formatter, linter, typecheck, tests, build — each only if
-   configured in `docs/STACK.md`. Capture exit status and key output.
+1. **Run the batch verifier** — `node scripts/quality/batch-verify.mjs` (the
+   deterministic owner of this step: it reads the configured `docs/STACK.md` commands,
+   runs Lint → Typecheck → Test → Build fail-fast, and prints the evidence table).
+   Report its table and exit code. **Its execution is the only evidence accepted for
+   "checks passed" — a subagent's report never substitutes for running it.** Exit `2`
+   means the Test command is UNCONFIGURED while the batch touches app code (standard
+   profile): the gate FAILS — either configure the command in `docs/STACK.md` or, on
+   an explicit human decision, rerun with `--accept-unconfigured` and record the
+   waiver in `docs/DELIVERY_LOG.md`.
+   On a brand-new project the FIRST app-code batch typically hits exit `2` (Test is
+   still `TBD`) — that is by design: configure the Test command as soon as the scaffold
+   can run one, or record the waiver.
 2. **Diff inspection** — review `git diff` (and `git status --short`) for the batch.
    Minimality: flag new code that duplicates an existing util, the standard library, or an
    installed dependency (reuse ladder — `docs/ENGINEERING_STANDARDS.md`); ask whether the
