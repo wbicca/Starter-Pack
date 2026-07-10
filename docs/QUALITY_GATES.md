@@ -60,9 +60,12 @@ batch. Owner: `quality-gate` skill.
 
 **What it does** (see the skill for the full procedure): runs **only** the commands
 configured in `docs/STACK.md` (formatter, linter, typecheck, tests, build — each only if
-configured), inspects the diff, flags unexpected/governance files, scans for obvious
-secrets and real `.env` files, confirms application code was **not** written inline by the
-orchestrator, and recommends a code review for non-trivial batches.
+configured), inspects the diff, flags unexpected/governance files **and any `Profile:`
+change in `docs/STACK.md`**, scans for obvious secrets and **versionable** real `.env`
+files (an ignored, local-only `.env` is fine), runs the design checklist when the batch
+touches UI files, confirms application code went through a **sanctioned path**
+(implementation agent · ASK-approved inline write in `standard` · inline in `light`),
+and recommends a code review for non-trivial batches.
 
 - **If a command is `UNCONFIGURED`/`TBD` in `docs/STACK.md`**, the gate reports it as *not
   configured* — it never guesses or silently skips.
@@ -70,12 +73,12 @@ orchestrator, and recommends a code review for non-trivial batches.
   cleanup). It is *not* a substitute for the quality-gate; it complements it.
 
 **Expected validations:** the configured `docs/STACK.md` commands, a clean diff with no
-unexpected/governance-file changes, no secrets, no real `.env`, orchestrator-inline check
-passed.
+unexpected/governance-file changes, no secrets, no versionable real `.env`, design
+checklist clean for UI batches, sanctioned-path check passed.
 
 **Definition of Done (Development Gate):** configured checks pass (or are honestly reported
-as not configured); diff is clean and scoped; no secrets/real `.env`; orchestrator did not
-implement inline; code review done when the batch is non-trivial; an entry appended to
+as not configured); diff is clean and scoped; no secrets/real `.env`; app code went through
+a sanctioned path; code review done when the batch is non-trivial; an entry appended to
 `docs/DELIVERY_LOG.md` when the project keeps one (what shipped · validation · review/approval
 · commit).
 
@@ -131,7 +134,9 @@ run and clear when sensitive flows exist.
   the `scan-secrets` PreToolUse hook (blocks writing a secret), Quick Check (blocks a secret
   in added diff lines at end of turn), and the Development/Release gates (broader diff/tree
   scan). They overlap intentionally as defense in depth.
-- **Real `.env` handling is consistent across layers:** the `protect-sensitive-files` hook
-  blocks writing a real `.env`; Quick Check blocks a *versionable* `.env` and only *warns*
-  on an *ignored, local* one. Versionable = blocker, intentionally-local = warning — a
-  deliberate distinction, not a divergence.
+- **Real `.env` handling is consistent across layers:** every layer is exposure-based.
+  The `protect-sensitive-files` hook (and the shell-write guard) block only a
+  **versionable** real `.env` (tracked or not git-ignored); an ignored-and-untracked
+  local `.env` is writable. Quick Check blocks a *versionable* `.env` and only *warns*
+  on an *ignored, local* one. Versionable = blocker, intentionally-local = allowed/warning
+  — the guarded risk is a secret entering a commit.

@@ -86,6 +86,7 @@ A lista completa está em **`AGENTS.md`** (o contrato de roteamento).
 ├── docs/
 │   ├── CONSTITUTION.md       # Inegociáveis (só muda por decisão humana)
 │   ├── ENGINEERING_STANDARDS.md  # Padrões de engenharia comuns a Claude e Codex
+│   ├── DESIGN_STANDARDS.md   # Padrões de design frontend (contrato visual, stack-agnostic)
 │   ├── QUALITY_GATES.md      # Mapa de decisão dos gates (qual nível rodar, quando)
 │   ├── SCALABILITY_CHECKLIST.md  # Checklist prático MVP → produção → escala (stack-agnostic)
 │   └── STACK.md              # Stack do projeto (preenchida no onboarding)
@@ -146,19 +147,18 @@ desses papéis como agentes nativos em `.codex/agents/` (TOML) e os invoca expli
 
 ### Os hooks (rede de segurança — best-effort, não fronteira) + quick-check
 Em `.claude/hooks/` (Claude Code):
-- `orchestrator-write-guard` — **governança de fluxo**: impede a janela Opus de escrever código
-  de aplicação / arquivos de governança inline e impede agentes read-only de mutar via
-  Write/Edit/Bash. Em sessão normal **nega**; com `CLAUDE_ORCHESTRATOR_WRITE_OVERRIDE=1` rebaixa
-  para **ASK** (nunca ALLOW automático). Escritas de **governança por subagentes** pedem
-  aprovação (**ASK**) — nada muda contrato/hook silenciosamente. Escrita fora da raiz é negada,
-  exceto temp dirs do sistema/harness.
+- `orchestrator-write-guard` — **governança de fluxo**: governança é DENY para a janela
+  principal (override → ASK); código de aplicação segue o **Profile** do projeto
+  (`standard` → ASK, `light` → passa) e agentes read-only não mutam nada. Worktrees de
+  agentes são normalizadas; escrita fora da raiz é negada (exceto temp dirs do harness).
 - `block-dangerous-bash` — bloqueia comandos catastróficos (delete de raiz/home/glob, `sudo rm`,
   fork bomb, escrita em `.env` real, scaffolders na raiz) e pede **confirmação** (ask) para os
   recuperáveis (`git reset --hard`/`clean`, `docker system prune`, `rm -rf` de dirs críticos).
-- `protect-sensitive-files` — barra escrita em `.env` real (permite `.env.example` etc.).
+- `protect-sensitive-files` — barra escrita em `.env` real **versionável**; um `.env`
+  git-ignored local passa (política por exposição).
 - `scan-secrets` — barra segredos óbvios em conteúdo novo (AWS, GitHub, Google, Stripe,
   DB-URL, JWT, PEM…); ignora placeholders, expressões de código (`process.env.X`) e anon
-  keys públicas do Supabase.
+  keys públicas do Supabase. Alvos git-ignored e não-rastreados são isentos (nunca entram em commit).
 - `format-after-edit` — formata best-effort o arquivo editado (apenas scripts file-scoped);
   nunca instala/builda/testa, nunca bloqueia.
 
@@ -177,9 +177,9 @@ determinístico e somente-leitura, compartilhado pelos dois runtimes.
   **Revisores/arquiteto = Opus = julgamento** (read-only, baixo volume, alta alavancagem).
 - **Worktree** isola escrita de código paralela/arriscada. **Nunca** use worktree para
   planejamento, onboarding ou review (são interativos/leitura).
-- **Triagem por tamanho:** doc/não-código → inline; código de aplicação (mesmo 1 arquivo) →
-  1 agente (o write-guard nega escrita de código inline); média (multi-arquivo) → 1 agente;
-  grande (feature/produto) → planejar com BMAD primeiro, depois implementar.
+- **Triagem por tamanho e profile:** doc/não-código → inline; código de aplicação →
+  `standard`: inline pequeno com aprovação (ASK) ou delegação · `light`: inline direto;
+  média (multi-arquivo) → 1 agente; grande (feature/produto) → BMAD primeiro.
 - **No Codex:** sem fan-out automático — peça o subagente explicitamente; planejamento fica na
   thread principal; sem árvores recursivas de agentes (`max_depth=1`).
 

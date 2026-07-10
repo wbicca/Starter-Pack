@@ -77,6 +77,17 @@ O onboarding faz um **scan mínimo**, **detecta** a stack e preenche os docs com
 existe. Para documentação profunda de brownfield (mapa completo do sistema), peça
 explicitamente o `bmad-document-project` depois do onboarding.
 
+### 2c. Profile do projeto (standard · light)
+O onboarding também classifica o **porte** e grava `Profile:` no `docs/STACK.md`:
+- **`standard`** — produto completo: orquestração plena; escrita inline de código pede
+  aprovação (ASK).
+- **`light`** — projeto/tarefa simples (script, landing, protótipo): implementação
+  inline direta e gates proporcionais. Hooks de segurança e quick-check continuam
+  integrais; fluxos sensíveis (auth, RLS, pagamentos, PII) mantêm a disciplina completa.
+Para trocar depois: edite a linha `Profile:` no `docs/STACK.md` (o quality-gate sinaliza
+qualquer mudança de `Profile:` num diff — a troca deve ser sua decisão, nunca efeito
+colateral de um batch).
+
 ---
 
 ## 3. As formas de uso (workflows do dia a dia)
@@ -86,9 +97,10 @@ explicitamente o `bmad-document-project` depois do onboarding.
 ### 3.1 Tarefa pequena
 - **Doc / não-código** (docs, README, uma nota) → o orquestrador resolve **inline**, na hora.
   Ex.: *"corrige o typo no README"*, *"anota essa decisão em `docs/DECISIONS.md`"*.
-- **Código de aplicação, mesmo 1 arquivo** → vai para **um agente** (o write-guard nega
-  escrita de código inline por design). Ex.: *"adiciona um campo opcional `phone` no form"* →
-  `frontend-engineer`.
+- **Código de aplicação, tarefa pequena** → no profile `standard`, o Claude pode
+  implementar **inline** — a escrita dispara um pedido de aprovação (ASK): você aprova
+  e ele faz na hora, ou recusa e ele delega. No profile `light`, passa direto, sem
+  prompt. Ex.: *"adiciona um campo opcional `phone` no form"*.
 
 ### 3.2 Feature média (multi-arquivo, escopo claro)
 Vai para **um agente especializado** (Sonnet), em worktree. Ex.: *"implementa o endpoint
@@ -269,12 +281,16 @@ Rodam automaticamente (best-effort, não são fronteira absoluta):
   real) são **bloqueados**; comandos **destrutivos-mas-recuperáveis** (`git reset --hard`,
   `git clean -fd`, `docker system prune -a`, `rm -rf` de diretórios críticos) pedem
   **confirmação humana** (ask) em vez de negar.
-- **Arquivos `.env` reais** são protegidos; use `.env.example` / `.env.template` com **placeholders**
-  (ex.: `CHAVE=your_key_here`), nunca chaves reais.
-- **Segredos óbvios** em conteúdo novo (chaves de Stripe, AWS, GitHub, Google, JWT, PEM, URLs
-  de banco com credencial) são **bloqueados** — use placeholders e documente as variáveis no
-  `.env.example`. Expressões de código (`process.env.X` etc.) e chaves públicas **anon** do
-  Supabase são reconhecidas como legítimas.
+- **Política por exposição:** o risco guardado é um segredo **entrar no commit**, não
+  existir na máquina. Arquivos **git-ignored e não-rastreados** (ex.: seu `.env` local)
+  podem ser lidos e escritos livremente — inclusive com chaves reais. O que é
+  **versionável** (rastreado ou não-ignorado) continua bloqueado: `.env` real
+  versionável, segredo literal em código/docs. `git add -f` (forçar arquivo ignorado
+  para o índice) pede confirmação. O quick-check segue como rede final no fim do turno.
+- **Compartilháveis:** use `.env.example` / `.env.template` com **placeholders**
+  (ex.: `CHAVE=your_key_here`) e documente as variáveis lá. Expressões de código
+  (`process.env.X` etc.) e chaves públicas **anon** do Supabase são reconhecidas como
+  legítimas pelo scanner.
 - **Formatação** roda best-effort após editar, apenas com scripts **file-scoped**
   (`format:file` / `lint:fix:file`) sobre o arquivo editado — nunca roda formatador no repo
   inteiro, nunca bloqueia.
@@ -284,10 +300,11 @@ Se um hook bloquear algo legítimo, peça confirmação explícita ou ajuste a a
 
 ### Orchestrator write policy
 
-- Em sessões normais, o **Opus principal não escreve código da aplicação** nem altera
-  arquivos de governança (`CLAUDE.md`, `AGENTS.md`, `.claude/**`, `.codex/**`, `.agents/**`,
-  `scripts/quality/**`). O hook `orchestrator-write-guard` **nega** essas escritas de forma
-  determinística.
+- O **Opus principal não altera governança** (`CLAUDE.md`, `AGENTS.md`, `.claude/**`,
+  `.codex/**`, `.agents/**`, `scripts/quality/**`) — DENY determinístico (override →
+  ASK). Para **código de aplicação**, a política é por profile: `standard` → cada
+  escrita inline pede sua aprovação (ASK); `light` → passa direto. Implementação
+  média/grande continua sendo delegada a agentes Sonnet em worktree.
 - Escritas de **subagentes** em arquivos de governança (`CLAUDE.md`, `AGENTS.md`, `.claude/**`,
   `.codex/**`, `.agents/**`, `scripts/quality/**`) são marcadas como **ask** pelo hook. Num
   subagente **interativo** isso vira um prompt de aprovação; num subagente de **background**
