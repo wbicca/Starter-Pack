@@ -1,0 +1,107 @@
+#!/usr/bin/env node
+// Smoke test for scripts/quality/batch-verify.mjs — table-driven, node: builtins only.
+// Each case builds a temp git fixture (README committed, optional docs/STACK.md,
+// optional app/test change) and asserts batch-verify's exit code and key stderr
+// markers. Commands in fixtures are `node -e "process.exit(0|1)"` so no real
+// toolchain is needed.
+//
+// Run: node scripts/quality/batch-verify-smoke.mjs → PASS/FAIL table, exit 1 on FAIL.
+
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, writeFileSync, mkdirSync, rmSync, realpathSync } from "node:fs";
+import { join, resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { tmpdir } from "node:os";
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
+const SCRIPT = join(root, "scripts", "quality", "batch-verify.mjs");
+const realTmp = (() => { try { return realpathSync(tmpdir()); } catch { return tmpdir(); } })();
+
+const OK = `node -e "process.exit(0)"`;
+const BAD = `node -e "process.exit(1)"`;
+
+// Build a docs/STACK.md with the real Commands-table shape. Purposes left undefined
+// render as `TBD | UNCONFIGURED`.
+function stackMd({ profile = "standard", lint, typecheck, test, build } = {}) {
+  const row = (p, c) => (c ? `| ${p} | ${c} | CONFIGURED |` : `| ${p} | TBD | UNCONFIGURED |`);
+  return [
+    "# Stack", "",
+    "> **Status: CONFIGURED**",
+    `> **Profile: ${profile}**`, "",
+    "## Commands", "",
+    "| Purpose | Command | Status |",
+    "|---|---|---|",
+    row("Lint", lint), row("Typecheck", typecheck), row("Test", test), row("Build", build),
+    "",
+  ].join("\n");
+}
+
+function makeFixture({ stack, appChange = true, testChange = false } = {}) {
+  const dir = mkdtempSync(join(realTmp, "batch-verify-smoke-"));
+  const g = (args) => spawnSync("git", args, { cwd: dir, encoding: "utf8" });
+  g(["init", "-q"]);
+  g(["config", "user.email", "smoke@example.invalid"]);
+  g(["config", "user.name", "batch-verify-smoke"]);
+  writeFileSync(join(dir, "README.md"), "fixture\n");
+  g(["add", "."]);
+  g(["commit", "-q", "-m", "init"]);
+  if (stack !== null && stack !== undefined) {
+    mkdirSync(join(dir, "docs"), { recursive: true });
+    writeFileSync(join(dir, "docs", "STACK.md"), stack);
+  }
+  if (appChange) {
+    mkdirSync(join(dir, "src"), { recursive: true });
+    writeFileSync(join(dir, "src", "app.ts"), "export const x = 1;\n");
+  }
+  if (testChange) {
+    mkdirSync(join(dir, "src"), { recursive: true });
+    writeFileSync(join(dir, "src", "app.test.ts"), "// test\n");
+  }
+  return dir;
+}
+
+const cases = [
+  { name: "all configured, green → exit 0", exit: 0,
+    fx: { stack: stackMd({ lint: OK, typecheck: OK, test: OK, build: OK }) } },
+  { name: "Test failing → exit 1", exit: 1,
+    fx: { stack: stackMd({ test: BAD }) } },
+  { name: "fail-fast: Lint fails, Test not run", exit: 1, stderrHas: "NOT RUN",
+    fx: { stack: stackMd({ lint: BAD, test: OK }) } },
+  { name: "Test TBD + app diff + standard → exit 2", exit: 2, stderrHas: "BLOCKER",
+    fx: { stack: stackMd({}) } },
+  { name: "Test TBD + app diff + light → warning, exit 0", exit: 0,
+    stderrHas: "light profile", fx: { stack: stackMd({ profile: "light" }) } },
+  { name: "waiver --accept-unconfigured → exit 0", exit: 0, stderrHas: "waived",
+    args: ["--accept-unconfigured"], fx: { stack: stackMd({}) } },
+  { name: "app change without test change → warning", exit: 0,
+    stderrHas: "without any test change", fx: { stack: stackMd({ test: OK }) } },
+  { name: "app + test change → no test-gap warning", exit: 0,
+    stderrNotHas: "without any test change",
+    fx: { stack: stackMd({ test: OK }), testChange: true } },
+  { name: "STACK.md missing + app diff → exit 2 (fail-safe standard)", exit: 2,
+    fx: { stack: null } },
+  { name: "no changes + Test TBD → pass (nothing to guard)", exit: 0,
+    fx: { stack: stackMd({}), appChange: false } },
+];
+
+let failed = 0;
+const dirs = [];
+for (const c of cases) {
+  const dir = makeFixture(c.fx);
+  dirs.push(dir);
+  const r = spawnSync(process.execPath, [SCRIPT, ...(c.args ?? [])], {
+    cwd: dir, encoding: "utf8", timeout: 60_000,
+  });
+  const stderr = r.stderr ?? "";
+  const okExit = r.status === c.exit;
+  const okHas = !c.stderrHas || stderr.includes(c.stderrHas);
+  const okNot = !c.stderrNotHas || !stderr.includes(c.stderrNotHas);
+  const ok = okExit && okHas && okNot;
+  if (!ok) failed++;
+  console.log(`${ok ? "PASS" : "FAIL"}  ${c.name}  (exit ${r.status}, expected ${c.exit})`);
+  if (!ok && c.stderrHas && !okHas) console.log(`      stderr missing marker: "${c.stderrHas}"`);
+  if (!ok && c.stderrNotHas && !okNot) console.log(`      stderr has forbidden marker: "${c.stderrNotHas}"`);
+}
+for (const d of dirs) rmSync(d, { recursive: true, force: true });
+console.log(`\n${cases.length - failed}/${cases.length} passed`);
+process.exit(failed ? 1 : 0);
