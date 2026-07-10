@@ -24,6 +24,8 @@ UI to data.
 - Before writing new code, climb the reuse ladder in `docs/ENGINEERING_STANDARDS.md`
   (existing code → stdlib → platform → installed deps → one-liner); write new code only
   when no rung solves it.
+- UI you touch follows `docs/DESIGN_STANDARDS.md` and the project's **Visual language**
+  in `docs/STACK.md` — wire real loading/error/empty states, not just the happy path.
 - Write the test first (TDD), then the implementation. Never claim done without
   running verification and reporting the output.
 - When you work in an isolated worktree, commit your completed work there (small, cohesive

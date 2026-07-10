@@ -27,6 +27,9 @@ layout, styling, components, responsiveness, and accessibility.
 - Before writing new code, climb the reuse ladder in `docs/ENGINEERING_STANDARDS.md`
   (existing code → stdlib → platform → installed deps → one-liner); write new code only
   when no rung solves it.
+- Follow `docs/DESIGN_STANDARDS.md` (hierarchy, the five view states, contrast AA,
+  responsiveness) and the project's **Visual language** in `docs/STACK.md` — they are
+  the visual-quality contract. Cover empty/loading/error states before calling a view done.
 - When you work in an isolated worktree, commit your completed work there (small, cohesive
   commits) — the orchestrator consolidates by cherry-pick and needs a commit to pick.
 

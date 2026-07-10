@@ -74,7 +74,8 @@ function requirePath(api, rel, { dir = false, level = "block", label } = {}) {
 const REQUIRED_FILES = [
   "CLAUDE.md", "AGENTS.md", "README.md", "USAGE.md", "NOTICE.md", ".gitignore",
   "VERSION", "CHANGELOG.md",
-  "docs/CONSTITUTION.md", "docs/ENGINEERING_STANDARDS.md", "docs/STACK.md",
+  "docs/CONSTITUTION.md", "docs/ENGINEERING_STANDARDS.md", "docs/DESIGN_STANDARDS.md",
+  "docs/STACK.md",
   ".claude/settings.json",
   "scripts/quality/quick-check.mjs",
 ];

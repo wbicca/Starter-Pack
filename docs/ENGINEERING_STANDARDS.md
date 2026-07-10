@@ -8,6 +8,9 @@ path-scoped pointer here. Project-specific commands and stack decisions live in
 The numbers below are **review signals, not hard gates**. Apply judgment: a longer unit
 that is genuinely cohesive is fine; never split or pad code only to hit a threshold.
 
+For UI work, the visual counterpart of this document is `docs/DESIGN_STANDARDS.md`
+(pointed to by `.claude/rules/design-quality.md`).
+
 ## Code style
 - Prefer small, focused functions. Treat functions above ~**40 lines** as a review
   signal, not a violation.
