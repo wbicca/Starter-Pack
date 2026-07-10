@@ -35,7 +35,9 @@ Collect before writing anything:
   and spaces replaced by `-`. **GREP the `*.jsonl` files — never read them whole**:
   - `"name":"Skill"` — which skills were actually invoked;
   - `"name":"Task"` / `"name":"Agent"` + `subagent_type` — delegation and routing;
-  - `ORCHESTRATOR_WRITE_DENIED|GOVERNANCE_WRITE|READ_ONLY_MUTATION|QUICK_CHECK` — hook signals;
+  - `ORCHESTRATOR_WRITE_*|GOVERNANCE_WRITE|READ_ONLY_MUTATION|QUICK_CHECK` — write-guard
+    signals (`ORCHESTRATOR_WRITE_*` matches both the legacy `DENIED` in older transcripts
+    and the current `ASK`) and other hook signals;
   - `worktree` — isolation usage.
 - **Known limit**: subagent-internal tool calls do not appear in the main-window
   transcript — state this limit wherever it caps a finding's confidence.

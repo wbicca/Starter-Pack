@@ -278,7 +278,7 @@ O core permanece **self-contained**: externos são sempre **enhancements opciona
 
 Rodam automaticamente (best-effort, não são fronteira absoluta):
 - **Comandos catastróficos** (apagar raiz/home/glob, `sudo rm`, fork bomb, escrever em `.env`
-  real) são **bloqueados**; comandos **destrutivos-mas-recuperáveis** (`git reset --hard`,
+  real **versionável**) são **bloqueados**; comandos **destrutivos-mas-recuperáveis** (`git reset --hard`,
   `git clean -fd`, `docker system prune -a`, `rm -rf` de diretórios críticos) pedem
   **confirmação humana** (ask) em vez de negar.
 - **Política por exposição:** o risco guardado é um segredo **entrar no commit**, não

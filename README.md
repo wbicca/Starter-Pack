@@ -152,7 +152,7 @@ Em `.claude/hooks/` (Claude Code):
   (`standard` → ASK, `light` → passa) e agentes read-only não mutam nada. Worktrees de
   agentes são normalizadas; escrita fora da raiz é negada (exceto temp dirs do harness).
 - `block-dangerous-bash` — bloqueia comandos catastróficos (delete de raiz/home/glob, `sudo rm`,
-  fork bomb, escrita em `.env` real, scaffolders na raiz) e pede **confirmação** (ask) para os
+  fork bomb, escrita em `.env` real **versionável**, scaffolders na raiz) e pede **confirmação** (ask) para os
   recuperáveis (`git reset --hard`/`clean`, `docker system prune`, `rm -rf` de dirs críticos).
 - `protect-sensitive-files` — barra escrita em `.env` real **versionável**; um `.env`
   git-ignored local passa (política por exposição).
