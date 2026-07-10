@@ -33,3 +33,7 @@ jobs:
         # validates structure on Windows.
         if: runner.os != 'Windows'
         run: node scripts/quality/batch-verify-smoke.mjs
+      - name: Update-from-template smoke tests (remote validation)
+        # POSIX path assumptions (file:// bare fixtures under /tmp).
+        if: runner.os != 'Windows'
+        run: node scripts/quality/update-smoke.mjs

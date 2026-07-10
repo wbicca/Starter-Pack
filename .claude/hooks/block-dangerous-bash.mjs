@@ -91,11 +91,33 @@ const CONFIRM = [
   { re: /git\s+clean\b(?=.*-[a-z]*f)(?=.*-[a-z]*d)/, what: "Approving runs git clean -fd, permanently deleting untracked files and directories." },
   { re: /chmod\s+-r\s+777/, what: "Approving runs chmod -R 777, making the target tree world-writable." },
   { re: /docker\s+system\s+prune\s+-a/, what: "Approving removes ALL unused Docker images, containers, networks, and build cache." },
-  { re: /find\s+\.\s+-delete/, what: "Approving recursively deletes every file find matches under the current directory." },
-  { re: /git\s+add\b[^;|&\n]*\s-[a-z]*f\b/, what: "Approving force-adds a git-ignored file to the index — this can expose a local secret (e.g. a real .env) in the next commit." },
+  { re: /\bfind\s+[^;|&\n]*-delete\b/, what: "Approving recursively deletes every file find matches." },
+  { re: /\bfind\s+[^;|&\n]*-exec\s+rm\b/, what: "Approving deletes every file find matches (find -exec rm)." },
+  { re: /\bxargs\s+[^;|&\n]*\brm\b|\bxargs\s+rm\b/, what: "Approving deletes every file piped into xargs rm." },
+  // `git [-C <dir>] add … -f` — force-add can expose a git-ignored local secret.
+  { re: /git\s+(?:-[a-z]\s+\S+\s+)*add\b[^;|&\n]*\s-[a-z]*f\b/, what: "Approving force-adds a git-ignored file to the index — this can expose a local secret (e.g. a real .env) in the next commit." },
 ];
 for (const d of CONFIRM) {
   if (d.re.test(normRm)) ask(d.what);
+}
+
+// --- 3.5) Recursive rm with a target the deny-regex can't judge → ASK ---
+// `rm -rf .` / `..` wipes the project or its parent; `$VAR` / `$( )` / backtick targets
+// are unresolvable at guard time; absolute paths outside the scratchpad roots are
+// system surface. Relative subdirectory targets stay silent (normal cleanup).
+if (/\brm\b/.test(normRm) && /(?:^|\s)-[a-z]*r/.test(normRm)) {
+  const t = (normRm.match(/\brm\s+(?:-[a-z]*\s+)*([^\s;|&>]+)/) || [])[1];
+  if (t) {
+    if (t === "." || t === "./" || t === ".." || t.startsWith("../")) {
+      ask("Approving recursively deletes the current/parent directory tree — this can wipe the whole project.");
+    }
+    if (t.startsWith("$") || t.startsWith("`")) {
+      ask("Approving runs a recursive rm whose target is a variable/substitution the guard cannot resolve.");
+    }
+    if (t.startsWith("/") && !/^\/(?:tmp|private\/tmp|var\/folders)(?:\/|$)/.test(t)) {
+      ask(`Approving recursively deletes the absolute path '${t}'.`);
+    }
+  }
 }
 
 // --- 4) rm -rf of a critical directory → ASK (quotes already stripped) ---

@@ -30,8 +30,10 @@
 //     while a worktree's copy of CLAUDE.md / .claude/** is still governance.
 //   * ASK surfaces an approval prompt only for INTERACTIVE subagents; a background Task
 //     subagent has no human to prompt, so ASK proceeds — governance edits by subagents
-//     must therefore be a deliberate orchestrator-dispatched maintenance batch. The firm
-//     boundary is the main-window DENY (which requires the override), not the subagent ASK.
+//     must therefore be a deliberate orchestrator-dispatched maintenance batch. The
+//     strongest rail is the main-window DENY (which requires the override), not the
+//     subagent ASK — but like every regex-based guard here it is best-effort flow
+//     governance, not a sandbox a determined actor cannot walk past.
 //
 // Bash mutation detection is target-based: redirect TARGETS are extracted with an
 // anchored regex (so `=>` / `Promise<T>` in grep patterns never match) and write
@@ -58,7 +60,17 @@ const APP_EXT_RE = /\.(tsx?|jsx?|mjs|cjs|mts|cts|css|scss|vue|svelte|py|rb|go|ja
 // newline, after a backtick, inside $( ), or as the command run by xargs) so the same
 // words inside grep patterns or prose never match. The bare `(` and backtick openers
 // catch subshell/command-substitution forms like `(cp a b)` and `` `cp a b` ``.
-const VERB_WRITE = /(?:^|[;&|\n(`]\s*|\$\(\s*|\bxargs\s+(?:-\S+\s+)*)(?:sudo\s+)?(?:tee|cp|mv|rm|touch|mkdir|rmdir|ln)\b|\bsed\s+-i|\bperl\s+-[a-z]*i/;
+const VERB_WRITE = /(?:^|[;&|\n(`]\s*|\$\(\s*|\bxargs\s+(?:-\S+\s+)*)(?:sudo\s+)?(?:tee|cp|mv|rm|touch|mkdir|rmdir|ln)\b|\bsed\s+(?:-i|--in-place)|\bperl\s+-[a-z]*i|\bdd\s+[^;|&\n]*\bof=/;
+// Interpreter one-liners and patch tools mutate files OPAQUELY — no redirect target and
+// no write verb the regexes above can see. Detection is two-step for interpreters: an
+// exec flag (-e/-c, `deno eval`, or a heredoc feeding the interpreter) in command
+// position PLUS a write-API signal in the command text (stdout/stderr writes are
+// stripped first — printing is not a file write). `git apply` / `patch` are opaque by
+// themselves: their targets live inside the patch content.
+const INTERP_EXEC = /(?:^|[;&|\n(`]\s*|\$\(\s*)(?:sudo\s+)?(?:node|python3?|ruby|perl|deno|bun)\s+(?:-\S+\s+)*(?:-[ec]\b|--eval\b|--command\b)|\bdeno\s+eval\b|\b(?:node|python3?|ruby|perl|bun)\b[^;|&\n]*<</;
+const WRITE_API_PRINT = /\b(?:process\.(?:stdout|stderr)|sys\.(?:stdout|stderr))\.write\b/g;
+const WRITE_API = /\bwriteFile(?:Sync)?\b|\bappendFile(?:Sync)?\b|\bcreateWriteStream\b|\bwrite_text\b|\bcopyFile(?:Sync)?\b|\brename(?:Sync)?\b|\bunlink(?:Sync)?\b|\brmSync\b|\bmkdir(?:Sync)?\b|\bopen\s*\([^()]*["'][wax][b+]*["']|\.write\s*\(/;
+const PATCH_TOOLS = /(?:^|[;&|\n(`]\s*|\$\(\s*)(?:sudo\s+)?(?:git\s+apply\b|patch\b)/;
 // Governance surface reachable from a Bash command string.
 const BASH_GOV_TARGET = /(\bCLAUDE\.md\b|\bAGENTS\.md\b|\.claude\/|\.codex\/|\.agents\/|scripts\/quality\/)/;
 // Mutating git / package-manager invocations (read-only agents), anchored the same way
@@ -178,6 +190,8 @@ const REASON_OUTSIDE =
   "OUT_OF_PROJECT_WRITE_DENIED: writing outside the project root is not allowed.";
 const REASON_RO_BASH =
   "READ_ONLY_MUTATION_DENIED: inspect only or delegate changes to an implementation agent.";
+const REASON_OPAQUE =
+  "OPAQUE_WRITE_ASK: interpreter/patch command writes files the guard cannot resolve — approve if intended, or use the Write/Edit tools so the target is visible.";
 
 // --- Override -----------------------------------------------------------------
 // Explicit maintenance switch: downgrades main-window DENY -> ASK, never to ALLOW.
@@ -269,18 +283,24 @@ if (toolName === "Bash") {
   const scmd = stripSafeReadOnlyRedirects(cmd);
   const scmdEff = scmd.replace(/\.claude\/worktrees\/[^/\s"']+\//g, "");
   const targets = extractRedirectTargets(scmdEff);
-  // Governance hit = a redirect lands on the governance surface, OR a write verb runs
-  // in a command that mentions the governance surface.
+  // Opaque write: interpreter exec + write-API signal (printing stripped first), or a
+  // patch tool. The guard cannot resolve WHICH file such a command writes.
+  const interpWrite =
+    INTERP_EXEC.test(scmdEff) && WRITE_API.test(scmdEff.replace(WRITE_API_PRINT, " "));
+  const opaqueWrite = interpWrite || PATCH_TOOLS.test(scmdEff);
+  // Governance hit = a redirect lands on the governance surface, OR a write verb /
+  // opaque write runs in a command that mentions the governance surface.
   const govHit =
     targets.some((t) => BASH_GOV_TARGET.test(t)) ||
-    (VERB_WRITE.test(scmdEff) && BASH_GOV_TARGET.test(scmdEff));
+    ((VERB_WRITE.test(scmdEff) || opaqueWrite) && BASH_GOV_TARGET.test(scmdEff));
 
   // Subagents: read-only roles may inspect but not mutate (any real redirect target
   // counts as a mutation); non-read-only subagents touching the governance surface
   // get an ASK (human approves); implementers writing app code pass through.
   if (!isMain) {
     if (BASH_READ_ONLY.has(agentType) &&
-        (targets.length > 0 || VERB_WRITE.test(scmdEff) || RO_GIT_PM.test(scmdEff))) {
+        (targets.length > 0 || VERB_WRITE.test(scmdEff) || RO_GIT_PM.test(scmdEff) ||
+         opaqueWrite)) {
       deny(REASON_RO_BASH);
     }
     if (!BASH_READ_ONLY.has(agentType) && govHit) ask(REASON_GOV_ASK);
@@ -295,13 +315,16 @@ if (toolName === "Bash") {
   const realTargets = targets.filter((t) => !isHarnessTempPath(path.resolve(root, t), root));
   if (realTargets.some((t) => normalize(t, root).outside)) deny(REASON_OUTSIDE);
   if (realTargets.some((t) => BASH_GOV_TARGET.test(t)) ||
-      (VERB_WRITE.test(scmdEff) && BASH_GOV_TARGET.test(scmdEff))) {
+      ((VERB_WRITE.test(scmdEff) || opaqueWrite) && BASH_GOV_TARGET.test(scmdEff))) {
     mainBlock(REASON_GOV);
   }
   if (realTargets.some((t) => APP_EXT_RE.test(t)) ||
-      (VERB_WRITE.test(scmdEff) && APP_EXT_RE.test(scmdEff))) {
+      ((VERB_WRITE.test(scmdEff) || opaqueWrite) && APP_EXT_RE.test(scmdEff))) {
     appBlock();
   }
+  // Opaque write with no resolvable surface (e.g. `git apply x.diff`, a variable path
+  // inside `node -e`): ASK in every profile — an unknown target is not "app code".
+  if (opaqueWrite) ask(REASON_OPAQUE);
   pass();
 }
 
