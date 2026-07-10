@@ -138,7 +138,7 @@ const cases = [
     payload: bash(`ls .claude/hooks 2>/dev/null; echo done`) },
   { hook: "write-guard", name: "main bash: redirect into .claude/", expect: "deny",
     payload: bash(`echo hi > .claude/settings.json`) },
-  { hook: "write-guard", name: "main bash: redirect into app code", expect: "deny",
+  { hook: "write-guard", name: "main bash: redirect into app code (standard → ask)", expect: "ask",
     payload: bash(`echo hi > src/app.ts`) },
 
   // write-guard: read-only subagent — Bash
@@ -180,7 +180,7 @@ const cases = [
     payload: write(join(FAKE_CONFIG_DIR, "projects", PROJECT_SLUG, "memory", "x.md")) },
   { hook: "write-guard", name: "main write: custom config-dir memory (env unset)", expect: "deny",
     payload: write(join(FAKE_CONFIG_DIR, "projects", PROJECT_SLUG, "memory", "x.md")) },
-  { hook: "write-guard", name: "main write: src/app.mjs (new app ext)", expect: "deny",
+  { hook: "write-guard", name: "main write: src/app.mjs (standard → ask)", expect: "ask",
     payload: write("src/app.mjs") },
   { hook: "write-guard", name: "main write: scripts/quality/ (governance)", expect: "deny",
     payload: write("scripts/quality/quick-check.mjs") },
@@ -213,14 +213,26 @@ const cases = [
     payload: write(".claude/worktrees/agent-1/CLAUDE.md", "frontend-engineer") },
   { hook: "write-guard", name: "frontend-eng write: worktree .claude/hooks/x.mjs", expect: "ask",
     payload: write(".claude/worktrees/agent-1/.claude/hooks/x.mjs", "frontend-engineer") },
-  { hook: "write-guard", name: "main write: worktree src/app.ts (no hand-edits)", expect: "deny",
+  { hook: "write-guard", name: "main write: worktree src/app.ts (standard → ask)", expect: "ask",
     payload: write(".claude/worktrees/agent-1/src/app.ts") },
   { hook: "write-guard", name: "backend-eng bash: tee worktree src/api.ts", expect: "pass",
     payload: bash(`tee ".claude/worktrees/agent-1/src/api.ts" < /dev/null`, "backend-engineer") },
-  { hook: "write-guard", name: "main bash: tee worktree src/api.ts", expect: "deny",
+  { hook: "write-guard", name: "main bash: tee worktree src/api.ts (standard → ask)", expect: "ask",
     payload: bash(`tee ".claude/worktrees/agent-1/src/api.ts" < /dev/null`) },
   { hook: "write-guard", name: "code-reviewer bash: cat worktree src/api.ts", expect: "pass",
     payload: bash(`cat .claude/worktrees/agent-1/src/api.ts`, "code-reviewer") },
+
+  // write-guard: profiles — standard asks, light passes, governance never relaxes
+  { hook: "write-guard", name: "light profile: main write app code → pass", expect: "pass",
+    env: { CLAUDE_PROJECT_DIR: LIGHT_FIX }, payload: writeAt(LIGHT_FIX, "src/app.ts") },
+  { hook: "write-guard", name: "light profile: main bash redirect app code → pass", expect: "pass",
+    env: { CLAUDE_PROJECT_DIR: LIGHT_FIX }, payload: bashAt(LIGHT_FIX, `echo hi > src/app.ts`) },
+  { hook: "write-guard", name: "light profile: governance still denied", expect: "deny",
+    env: { CLAUDE_PROJECT_DIR: LIGHT_FIX }, payload: writeAt(LIGHT_FIX, ".claude/settings.json") },
+  { hook: "write-guard", name: "standard fixture: main write app code → ask", expect: "ask",
+    env: { CLAUDE_PROJECT_DIR: GIT_FIX }, payload: writeAt(GIT_FIX, "src/app.ts") },
+  { hook: "write-guard", name: "no STACK.md: profile falls back to standard → ask", expect: "ask",
+    env: { CLAUDE_PROJECT_DIR: NOGIT_FIX }, payload: writeAt(NOGIT_FIX, "src/app.ts") },
 
   // scan-secrets
   { hook: "scan-secrets", name: "env-var reference is code, not secret", expect: "pass",

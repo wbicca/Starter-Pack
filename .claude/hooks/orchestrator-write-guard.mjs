@@ -7,10 +7,12 @@
 // Write/Edit OR Bash.
 //
 // Orchestrator (main window) write policy:
-//   * default mode          -> DENY direct writes to application code & governance files.
-//   * explicit maintenance  -> CLAUDE_ORCHESTRATOR_WRITE_OVERRIDE=1 DOWNGRADES those
-//                              denials to ASK (a human approves each individual write).
-//   * never ALLOW automatically for the main window.
+//   * governance files       -> DENY (CLAUDE_ORCHESTRATOR_WRITE_OVERRIDE=1 downgrades
+//                               to ASK). Identical in every profile.
+//   * application code       -> profile-based (docs/STACK.md `Profile:` field):
+//                               standard → ASK (human approves small-task inline work);
+//                               light → silent pass. Never a hard DENY anymore.
+//   * out-of-root writes     -> DENY (harness temp/memory conventions excepted).
 //   * writing OUTSIDE the project root (or any traversal that escapes the cwd) is
 //     DENY — even under the override — EXCEPT the Claude Code harness conventions
 //     (/tmp, /private/tmp, and THIS project's own ~/.claude/projects/<slug> memory
@@ -170,8 +172,8 @@ const REASON_GOV =
   "GOVERNANCE_WRITE_DENIED: use an explicit maintenance session with CLAUDE_ORCHESTRATOR_WRITE_OVERRIDE=1.";
 const REASON_GOV_ASK =
   "GOVERNANCE_WRITE_ASK: governance/hook file — requires human approval (template-maintenance change).";
-const REASON_APP =
-  "ORCHESTRATOR_WRITE_DENIED: delegate implementation to an allowed implementation agent. Do not retry inline.";
+const REASON_APP_ASK =
+  "ORCHESTRATOR_WRITE_ASK: inline app-code write — approve for a small task, or decline and delegate to an implementation agent. Medium/large work should still be delegated.";
 const REASON_OUTSIDE =
   "OUT_OF_PROJECT_WRITE_DENIED: writing outside the project root is not allowed.";
 const REASON_RO_BASH =
@@ -180,6 +182,21 @@ const REASON_RO_BASH =
 // --- Override -----------------------------------------------------------------
 // Explicit maintenance switch: downgrades main-window DENY -> ASK, never to ALLOW.
 const OVERRIDE = process.env.CLAUDE_ORCHESTRATOR_WRITE_OVERRIDE === "1";
+
+// --- Project profile ------------------------------------------------------------
+// docs/STACK.md may declare `Profile: standard | light` (set by project-onboarding).
+// standard → main-window app-code writes ASK (human approves small-task inline work).
+// light    → main-window app-code writes pass silently (simple projects).
+// Governance protection is identical in both profiles. Missing/invalid → standard.
+function readProfile(root) {
+  try {
+    const stack = fs.readFileSync(path.join(root, "docs", "STACK.md"), "utf8");
+    const m = stack.match(/Profile:\s*\**\s*(standard|light)/i);
+    return m ? m[1].toLowerCase() : "standard";
+  } catch {
+    return "standard";
+  }
+}
 
 // --- Output helpers -----------------------------------------------------------
 function decide(decision, reason) {
@@ -233,6 +250,13 @@ const agentType = (input.agent_type ?? input.agentType ?? "").toString();
 const isMain = !agentId; // no agent_id => main / orchestrator window
 const root = (process.env.CLAUDE_PROJECT_DIR || input.cwd || process.cwd()).toString();
 
+// Main-window app-code block: light profile passes, otherwise ASK (never DENY, never
+// silent ALLOW in standard). Governance keeps mainBlock (deny; override → ask).
+const appBlock = () => {
+  if (readProfile(root) === "light") pass();
+  ask(REASON_APP_ASK);
+};
+
 // --- Bash ---------------------------------------------------------------------
 if (toolName === "Bash") {
   const cmd = (toolInput.command ?? "").toString();
@@ -276,7 +300,7 @@ if (toolName === "Bash") {
   }
   if (realTargets.some((t) => APP_EXT_RE.test(t)) ||
       (VERB_WRITE.test(scmdEff) && APP_EXT_RE.test(scmdEff))) {
-    mainBlock(REASON_APP);
+    appBlock();
   }
   pass();
 }
@@ -323,5 +347,5 @@ if (outside) {
 }
 if (inDocs || inBmadOut || MAIN_SILENT_ROOT.has(relEff)) pass();
 if (isGovPath(relEff)) mainBlock(REASON_GOV);
-if (isAppCode) mainBlock(REASON_APP);
+if (isAppCode) appBlock();
 pass();
