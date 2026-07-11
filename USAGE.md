@@ -83,7 +83,7 @@ O onboarding também classifica o **porte** e grava `Profile:` no `docs/STACK.md
   aprovação (ASK).
 - **`light`** — projeto/tarefa simples (script, landing, protótipo): implementação
   inline direta e gates proporcionais. Hooks de segurança e quick-check continuam
-  integrais; fluxos sensíveis (auth, RLS, pagamentos, PII) mantêm a disciplina completa.
+  integrais; fluxos sensíveis (ver `docs/CONSTITUTION.md`) mantêm a disciplina completa.
 Para trocar depois: edite a linha `Profile:` no `docs/STACK.md` (o quality-gate sinaliza
 qualquer mudança de `Profile:` num diff — a troca deve ser sua decisão, nunca efeito
 colateral de um batch).
@@ -202,7 +202,7 @@ A regra completa vive em `AGENTS.md` → "Delegation & isolation". Na prática:
 3. Antes de qualquer paralelização, faça um **checkpoint commit** da base estável.
 4. Como `worktree.baseRef = head`, cada agente paralelo **parte do HEAD estável** — nunca do
    worktree de outro agente. Cada um tem **sua própria** worktree.
-5. Cada agente **devolve**: resumo · arquivos alterados · testes executados · riscos · **hash do commit**.
+5. Cada agente **devolve**: resumo · arquivos alterados · testes executados · riscos · **hash do commit** · **disciplina seguida** (skills aplicadas + evidência de verificação).
 6. O orquestrador **consolida por cherry-pick** dos commits dos agentes (ou pede sua aprovação);
    ele **não** cola código de agente à mão na janela principal.
 7. **Redesign:** itere a direção visual em **uma única worktree ou página de preview**; só
@@ -212,9 +212,10 @@ A regra completa vive em `AGENTS.md` → "Delegation & isolation". Na prática:
 
 **Nunca acumule mais de um batch de implementação sem verificação e review.** Um *batch* é
 uma story, uma mudança estrutural, um conjunto pequeno e coeso de componentes, ou uma rodada
-de redesign aprovada. Depois de cada batch: `verification-before-completion` →
-`requesting-code-review` → `security-auditor` (quando houver auth, RLS, pagamentos, webhook,
-PII, dependências relevantes ou assets externos) → corrigir bloqueadores → só então o próximo
+de redesign aprovada. Depois de cada batch, nesta ordem: `quality-gate` (passo 1 =
+`scripts/quality/batch-verify.mjs`, evidência determinística) → `verification-before-completion`
+→ `requesting-code-review` → `security-auditor` (fluxos sensíveis — ver `docs/CONSTITUTION.md` —
+mais dependências relevantes ou assets externos) → corrigir bloqueadores → só então o próximo
 batch. Assets externos: registre origem e licença em `NOTICE.md` antes de publicar.
 
 > **Mapa dos gates:** `docs/QUALITY_GATES.md` diz *qual* nível rodar *quando* (Quick Check ·
@@ -257,8 +258,10 @@ resolvem (geralmente sim → não instala nada), e se não, recomenda ≤3 opç�
 your own) — **sem instalar**. Instalar exige sua aprovação.
 
 ### 6.3 Criar uma skill própria → `skill-creator`
-Ferramenta oficial de autoria (instalada globalmente). *"Cria uma skill para X."* BMAD
-Builder fica para módulos/workflows do BMAD, não para skills operacionais simples.
+Ferramenta oficial de autoria, **quando disponível** (global, opcional); se não estiver,
+siga o formato oficial de skill manualmente (pasta com `SKILL.md` + frontmatter válido).
+*"Cria uma skill para X."* BMAD Builder fica para módulos/workflows do BMAD, não para
+skills operacionais simples.
 
 ---
 

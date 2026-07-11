@@ -193,7 +193,8 @@ determinístico e somente-leitura, compartilhado pelos dois runtimes.
 - **`CONSTITUTION` é humano-only:** não muda automaticamente; só por decisão sua.
 - **Descobrir ≠ instalar:** `skill-discovery` recomenda; instalar/vendorizar/plugin global
   exige aprovação.
-- **Autoria de skills:** prefira `skill-creator`; BMAD Builder só para módulos/workflows BMAD.
+- **Autoria de skills:** prefira `skill-creator` quando disponível (senão, o formato oficial
+  de skill manual); BMAD Builder só para módulos/workflows BMAD.
 
 ---
 
@@ -211,7 +212,7 @@ Resumo dos fluxos (detalhe em `USAGE.md`):
 - **Review** → `requesting-code-review`; **testes E2E** → `qa-tester`.
 - **Banco/Supabase, deploy** → `database-architect` / `supabase-specialist` / `devops-deployment`.
 - **Verificação** → `quality-gate` após cada batch; `refactor-pass` após mudança grande; `release-sanity` antes de publicar.
-- **Nova capacidade** → `skill-discovery` (recomenda, não instala) · **criar skill** → `skill-creator`.
+- **Nova capacidade** → `skill-discovery` (recomenda, não instala) · **criar skill** → `skill-creator` (quando disponível).
 
 ---
 

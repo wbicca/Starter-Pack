@@ -31,7 +31,7 @@ Claude Code loads skills from `.claude/skills/`; Codex loads them from `.agents/
 - Use `frontend-engineer` for frontend implementation.
 - Use `backend-engineer` for backend/API implementation.
 - Use `code-reviewer` after each non-trivial implementation batch.
-- Use `security-auditor` for auth, RLS, payments, webhook, PII, dependencies, permissions, or external assets.
+- Use `security-auditor` for any sensitive flow (see `docs/CONSTITUTION.md`), dependencies, permissions, or external assets.
 - Use built-in `explorer` for read-heavy investigation when needed.
 - On the Codex side only `$project-onboarding`, `$quality-gate`, `$refactor-pass`, and
   `$release-sanity` exist as invocable skills (`.agents/skills/`). Every other routing-table
@@ -74,8 +74,11 @@ Claude Code loads skills from `.claude/skills/`; Codex loads them from `.agents/
 | Pre-release audit | `release-sanity` | before publishing; runs the quality-gate checklist first |
 | Starter usage report | `starter-feedback` | evidence-based audit at milestones; output feeds template maintenance |
 | Parallel / risky work | Superpowers `using-git-worktrees` | |
-| Deployment / CI / infra config | `devops-deployment` | platform build/deploy/env; never touches real secrets |
-| Docs / artifact persistence | `documentation-writer` | docs & READMEs; persists PRDs/briefs under docs/ |
+| Deployment / CI / infra config | agent `devops-deployment` | platform build/deploy/env; never touches real secrets |
+| Docs / artifact persistence | agent `documentation-writer` | docs & READMEs; persists PRDs/briefs under docs/ |
+
+> The two rows above route to **agents** (`.claude/agents/`), not invocable skills — every
+> other Canonical value is a skill in `.claude/skills/`. Spawn them via the Agent tool.
 
 ## Duplication rulings (do NOT pick the loser)
 - **brainstorming**: Superpowers = default for dev/design; `bmad-brainstorming` = product track only.
@@ -131,7 +134,7 @@ not configured, fall back to `Glob`/`Grep`. Never required; the project must wor
   skipping that approval. At plan approval the human also chooses the cadence: per-batch
   confirmation (default) or epic-level autonomy — batches then proceed with all gates
   still running and REPORTING, stopping only at epic completion; batches touching
-  sensitive flows (auth, RLS, payments, fiscal data, PII) always stop for approval
+  sensitive flows (see `docs/CONSTITUTION.md`) always stop for approval
   regardless.
 - No scaffold, multi-file change, or new product is implemented **inline by the orchestrator** —
   the only exception is a small, clearly-local change.
@@ -163,7 +166,9 @@ from the current branch HEAD — keep HEAD stable before fanning out.
 6. Each agent returns: **summary · files changed · tests run · risks · commit hash ·
    discipline followed (skills applied + verification evidence)**.
 7. The orchestrator consolidates by **cherry-pick** (or requests human approval) — it does
-   not hand-apply agent code into the main window.
+   not hand-apply agent code into the main window. (Convention, not a guarded invariant:
+   no hook verifies cherry-pick vs hand-paste; the orchestrator upholds it. `quality-gate`
+   step 8 only flags *unconsolidated* worktrees.)
 8. **Never** dispatch an isolated agent asking it to edit a worktree that already belongs to
    another agent.
 9. Exploratory visual iteration uses a **single** worktree or preview page until the visual
@@ -176,7 +181,9 @@ from the current branch HEAD — keep HEAD stable before fanning out.
 ## Project profiles
 
 `docs/STACK.md` declares `Profile: standard | light` (set at onboarding; editable any
-time — it's a project doc, and the quality-gate flags any `Profile:` change in a diff).
+time — it's a project doc. A `Profile:` flip is surfaced two ways: the Stop-hook
+quick-check warns whenever a diff changes the line, and quality-gate step 3 flags it —
+so a `standard → light` downgrade of the inline-write ASK can't pass unnoticed).
 It scales orchestration friction to project size. It never relaxes: governance
 protection, the security hooks, quick-check, or the sensitive-flow rule below.
 
@@ -187,7 +194,7 @@ protection, the security hooks, quick-check, or the sensitive-flow rule below.
 | quality-gate per batch | full sequence | proportional (commands + diff/secret inspection; review opt-in) |
 | `requesting-code-review` per batch | required | opt-in |
 | Delegation / worktrees / fan-out | canonical for medium+ | available, optional |
-| Sensitive flows (auth, RLS, payments, webhooks, PII) | full discipline + `security-auditor` | **identical — never relaxed** |
+| Sensitive flows (see `docs/CONSTITUTION.md`) | full discipline + `security-auditor` | **identical — never relaxed** |
 
 Exposure-based env policy (both profiles): writes to an **ignored-and-untracked** real
 `.env` (and secrets in ignored-and-untracked files) are allowed — the guarded risk is a
@@ -196,6 +203,8 @@ secret entering a commit, not existing locally. Versionable targets stay blocked
 
 ## Batches & gates
 **Never accumulate more than one implementation batch without verification and review.**
+(A discipline rule the orchestrator upholds — no hook counts batches; the Stop-hook
+quick-check is read-only and does not track batch boundaries.)
 
 A **batch** is one of: a single story · one structural change · a small, cohesive set of
 components · one approved redesign round.
@@ -207,11 +216,13 @@ After **each** batch, before starting the next:
    appends the `docs/DELIVERY_LOG.md` entry (what shipped · validation · review/approval ·
    commit) when the project keeps one (the skill is the canonical vehicle; running the
    same checklist as explicit practice and recording it in the DELIVERY_LOG entry is
-   equally valid — what matters is that the checks ran and were recorded);
+   equally valid — what matters is that the checks ran and were recorded). The entry is
+   recorded *by the skill/practice*, not verified at write time by any hook — `starter-feedback`
+   audits its presence after the fact;
 2. run `verification-before-completion` — evidence before any "done" claim;
 3. run `requesting-code-review`;
-4. trigger `security-auditor` when the batch touches auth, RLS, payments, webhooks, PII,
-   relevant dependencies, or external assets;
+4. trigger `security-auditor` when the batch touches a sensitive flow (see
+   `docs/CONSTITUTION.md`), relevant dependencies, or external assets;
 5. fix blockers — only then start the next batch.
 
 In the **light** profile the per-batch sequence is proportional (see "Project

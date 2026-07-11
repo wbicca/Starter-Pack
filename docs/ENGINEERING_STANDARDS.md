@@ -106,4 +106,4 @@ Before publishing — see the `release-sanity` skill:
 - check for missing validation at trust boundaries;
 - check for unnecessary unwraps / unsafe casts (where applicable);
 - check external assets and their licenses;
-- run `security-auditor` when sensitive flows (auth, RLS, payments, PII) exist.
+- run `security-auditor` when sensitive flows (see `docs/CONSTITUTION.md`) exist.
