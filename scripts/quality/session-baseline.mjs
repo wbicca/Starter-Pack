@@ -18,6 +18,11 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync, statSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
+// Shared secret patterns — same source quick-check consumes. The baseline applies no
+// placeholder exemption, so it records a SUPERSET of what quick-check flags — the safe
+// direction (a drifted narrower copy here produced false completion-blockers:
+// un-baselined findings the session did not create).
+import { INTRINSIC_SECRETS } from "../../.claude/hooks/lib/secret-patterns.mjs";
 
 // ---------------------------------------------------------------------------
 // Utilities (mirrors scripts/quality/quick-check.mjs)
@@ -48,20 +53,8 @@ const SKIP_DIRS = [".git/", "node_modules/", ".next/", "dist/", "build/", "vendo
 const inSkippedDir = (f) =>
   f.endsWith("/") || SKIP_DIRS.some((d) => f.startsWith(d) || f.includes("/" + d));
 
-// Intrinsic secret shapes (same as quick-check; char-classes keep this SOURCE FILE
-// from matching its own patterns).
-const INTRINSIC = [
-  /\bsk_live_[A-Za-z0-9]{4,}/,
-  /\bsk_test_[A-Za-z0-9]{4,}/,
-  /\bAKIA[0-9A-Z]{12,}/,
-  /\bASIA[0-9A-Z]{12,}/,
-  /\bghp_[A-Za-z0-9]{20,}/,
-  /\bgithub_pat_[A-Za-z0-9_]{20,}/,
-  /\bAIza[0-9A-Za-z_\-]{20,}/,
-  /-----BEGIN [A-Z ]*PRIVATE KEY-----/,
-  /\beyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/,
-  /\b(?:postgres|postgresql):\/\/[^:\s/@]+:[^@\s/]+@/,
-];
+// Intrinsic secret shapes — from the shared lib (one source with quick-check).
+const INTRINSIC = INTRINSIC_SECRETS.map((s) => s.re);
 
 // ---------------------------------------------------------------------------
 // Capped text read — null for missing, oversized (>512KB), or binary files

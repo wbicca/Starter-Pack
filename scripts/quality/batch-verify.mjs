@@ -14,7 +14,13 @@
 //
 // Exit codes: 0 = PASS (possibly with warnings) · 1 = a configured command failed ·
 // 2 = unconfigured-Test blocker (standard). Timeout per command via
-// BATCH_VERIFY_TIMEOUT_MS (default 600000).
+// BATCH_VERIFY_TIMEOUT_MS (default 600000); a timed-out command's whole process
+// group is killed (no orphaned test/build workers).
+//
+// Diff-availability asymmetry (deliberate): --range mode (CI) FAILS CLOSED on a bad
+// ref — CI must never silently skip the guard. Local mode FAILS OPEN when git is
+// unavailable (warning, heuristics skipped) — a broken local git must not brick the
+// gate the human is standing next to.
 //
 // Usage: node scripts/quality/batch-verify.mjs [--accept-unconfigured] [--range <ref>]
 //   --range <ref>  diff <ref>...HEAD instead of the local working state (CI use).
@@ -24,7 +30,7 @@
 // is project-owned, and quality-gate flags STACK diffs. Do not "harden" this into
 // shell:false — it would break `a && b` commands without adding a real boundary.
 
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -59,12 +65,17 @@ function parseCommands(stack, warnings) {
   const rows = new Map();
   if (!stack) return rows;
   for (const line of stack.split(/\r?\n/)) {
-    const m = line.match(/^\|\s*([A-Za-z ]+?)\s*\|\s*(.*?)\s*\|\s*(.*?)\s*\|\s*$/);
-    if (!m) continue;
-    const purpose = m[1].trim();
+    // Cell-split parse: first cell = Purpose, LAST cell = Status, everything between
+    // joins back as the Command — so a literal `|` inside the command (pipes) never
+    // spills into the Status column. A trailing extra cell (a note) lands in Status
+    // and surfaces the not-CONFIGURED warning below instead of silently dropping.
+    if (!/^\|.*\|\s*$/.test(line)) continue;
+    const cells = line.split("|");
+    if (cells.length < 4) continue; // needs at least | Purpose | Command | Status |
+    const purpose = cells[1].trim();
     if (!RUNNABLE.includes(purpose)) continue;
-    const command = stripMdArtifacts(m[2]);
-    const status = stripMdArtifacts(m[3]);
+    const command = stripMdArtifacts(cells.slice(2, -2).join("|"));
+    const status = stripMdArtifacts(cells[cells.length - 2]);
     // Exact match: "UNCONFIGURED" contains "configured" as a substring — never /i-test loosely.
     const isTbd = command === "" || /^tbd$/i.test(command);
     const configured = /^configured$/i.test(status) && !isTbd;
@@ -130,6 +141,33 @@ if (changed === null) {
   testChanged = changed.some((f) => TEST_PATH_RE.test(f));
 }
 
+// Run one STACK command. `detached` puts the shell in its own process group on POSIX
+// so a timeout can kill the WHOLE group — spawnSync's timeout only reached the shell,
+// leaving test/build grandchildren running as orphans. Windows has no process groups:
+// best-effort child.kill there (batch-verify remains usable, reaping is POSIX-only).
+function runCommand(command) {
+  return new Promise((res) => {
+    let timedOut = false;
+    const child = spawn(command, {
+      cwd: ROOT, shell: true, stdio: "inherit", detached: process.platform !== "win32",
+    });
+    const timer = setTimeout(() => {
+      timedOut = true;
+      try {
+        if (process.platform !== "win32") process.kill(-child.pid, "SIGKILL");
+        else child.kill("SIGKILL");
+      } catch { try { child.kill("SIGKILL"); } catch { /* already gone */ } }
+    }, TIMEOUT);
+    child.on("error", (e) => { clearTimeout(timer); res({ ok: false, why: `ERROR (${e.code ?? "spawn"})` }); });
+    child.on("exit", (status, signal) => {
+      clearTimeout(timer);
+      if (timedOut) res({ ok: false, why: `TIMEOUT (${TIMEOUT}ms — process group killed)` });
+      else if (status === null) res({ ok: false, why: `FAIL (killed by ${signal ?? "signal"})` });
+      else res({ ok: status === 0, why: status === 0 ? "PASS" : `FAIL (exit ${status})` });
+    });
+  });
+}
+
 const results = [];
 let commandFailed = false;
 for (const purpose of RUNNABLE) {
@@ -143,14 +181,9 @@ for (const purpose of RUNNABLE) {
     continue;
   }
   err(`batch-verify: running ${purpose}: ${row.command}`);
-  const r = spawnSync(row.command, { cwd: ROOT, shell: true, stdio: "inherit", timeout: TIMEOUT });
-  if (r.status === 0) {
-    results.push({ purpose, command: row.command, result: "PASS" });
-  } else {
-    commandFailed = true;
-    const why = r.error ? `ERROR (${r.error.code ?? "spawn"})` : `FAIL (exit ${r.status})`;
-    results.push({ purpose, command: row.command, result: why });
-  }
+  const r = await runCommand(row.command);
+  if (!r.ok) commandFailed = true;
+  results.push({ purpose, command: row.command, result: r.why });
 }
 
 // Unconfigured-Test policy (only when the batch touches app code).

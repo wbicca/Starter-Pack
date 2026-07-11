@@ -42,7 +42,10 @@ export const ASSIGNMENT_KEYS = [
   { re: /RESEND_API_KEY/i, why: "Resend API key" },
   { re: /JWT_SECRET/i, why: "JWT secret" },
   { re: /PRIVATE_KEY/i, why: "private key" },
-  { re: /[A-Z0-9_]*(?:API_KEY|ACCESS_KEY|SECRET|TOKEN|PASSWORD)[A-Z0-9_]*/i, why: "credential-named variable", generic: true },
+  // CASE-SENSITIVE on purpose: env-style UPPER_SNAKE names only. With /i the suffix
+  // class would swallow camelCase code identifiers (secretFilesList = …) and flag
+  // ordinary code lines as credentials.
+  { re: /[A-Z0-9_]*(?:API_KEY|ACCESS_KEY|SECRET|TOKEN|PASSWORD)[A-Z0-9_]*/, why: "credential-named variable", generic: true },
 ];
 
 // Client-exposed-by-design env prefixes: exempt from the GENERIC assignment rule only

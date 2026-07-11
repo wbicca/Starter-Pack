@@ -153,7 +153,8 @@ function jwtIsPublicAnon(token) {
 const lines = text.split("\n");
 
 for (const s of ASSIGNMENTS) {
-  const assignRe = new RegExp(s.re.source + "\\s*[:=]", "i");
+  // Preserve each pattern's own flags — the generic rule is case-sensitive by design.
+  const assignRe = new RegExp(s.re.source + "\\s*[:=]", s.re.flags);
   for (const line of lines) {
     if (!assignRe.test(line)) continue;
     // Client-exposed-by-design prefixes (NEXT_PUBLIC_ etc.) are exempt from the
@@ -162,7 +163,9 @@ for (const s of ASSIGNMENTS) {
       const key = (line.match(/([A-Za-z0-9_]+)\s*[:=]/) || [])[1] || "";
       if (PUBLIC_KEY_PREFIX.test(key)) continue;
     }
-    const value = line.split(/[:=]/).slice(1).join("=");
+    // Split ONCE on the first : or = — re-joining with "=" corrupted values that
+    // legitimately contain separators (JWT_SECRET=a:b=c became a=b=c).
+    const value = line.replace(/^[^:=]*[:=]/, "");
     if (isPlaceholder(value)) continue;               // whole-value placeholder → allow
     if (!looksLikeLiteralCredential(value)) continue; // code expression / low entropy → allow
     deny(`Possible secret detected (${s.why}). Use placeholders and document required variables in .env.example.`);

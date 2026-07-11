@@ -260,6 +260,41 @@ const cases = [
   { hook: "write-guard", name: "light profile: bash governance write still denied", expect: "deny",
     env: { CLAUDE_PROJECT_DIR: LIGHT_HOME_FIX }, payload: bashAt(LIGHT_HOME_FIX, `echo hi > .claude/settings.json`) },
 
+  // write-guard: CLAUDE_ORCHESTRATOR_WRITE_OVERRIDE — the single most security-relevant
+  // branch: governance DENY downgrades to ASK (never to silent allow); out-of-root
+  // stays DENY even under the override.
+  { hook: "write-guard", name: "override: main write .claude/settings.json → ask", expect: "ask",
+    env: { CLAUDE_ORCHESTRATOR_WRITE_OVERRIDE: "1" }, payload: write(".claude/settings.json") },
+  { hook: "write-guard", name: "override: main write scripts/quality → ask", expect: "ask",
+    env: { CLAUDE_ORCHESTRATOR_WRITE_OVERRIDE: "1" }, payload: write("scripts/quality/quick-check.mjs") },
+  { hook: "write-guard", name: "override: main bash redirect .claude/ → ask", expect: "ask",
+    env: { CLAUDE_ORCHESTRATOR_WRITE_OVERRIDE: "1" }, payload: bash(`echo hi > .claude/settings.json`) },
+  { hook: "write-guard", name: "override: out-of-root write still deny", expect: "deny",
+    env: { CLAUDE_ORCHESTRATOR_WRITE_OVERRIDE: "1" },
+    payload: write(join(homedir(), "elsewhere", "x.md")) },
+  { hook: "write-guard", name: "override=0 stays deny", expect: "deny",
+    env: { CLAUDE_ORCHESTRATOR_WRITE_OVERRIDE: "0" }, payload: write(".claude/settings.json") },
+
+  // write-guard: role allow-lists (documentation-writer / system-architect / strategist)
+  { hook: "write-guard", name: "doc-writer write docs/guide.md → pass", expect: "pass",
+    payload: write("docs/guide.md", "documentation-writer") },
+  { hook: "write-guard", name: "doc-writer write README.md → pass", expect: "pass",
+    payload: write("README.md", "documentation-writer") },
+  { hook: "write-guard", name: "doc-writer write src/app.ts → deny", expect: "deny",
+    payload: write("src/app.ts", "documentation-writer") },
+  { hook: "write-guard", name: "architect write docs/ARCHITECTURE.md → pass", expect: "pass",
+    payload: write("docs/ARCHITECTURE.md", "system-architect") },
+  { hook: "write-guard", name: "architect write docs/OTHER.md → deny", expect: "deny",
+    payload: write("docs/OTHER.md", "system-architect") },
+  { hook: "write-guard", name: "architect bash tee its own doc → deny (bash read-only)", expect: "deny",
+    payload: bash(`tee docs/ARCHITECTURE.md < /dev/null`, "system-architect") },
+  { hook: "write-guard", name: "product-strategist write docs/x.md → deny", expect: "deny",
+    payload: write("docs/x.md", "product-strategist") },
+  { hook: "write-guard", name: "main write README.md → silent pass", expect: "pass",
+    payload: write("README.md") },
+  { hook: "write-guard", name: "main write docs/STACK.md → silent pass", expect: "pass",
+    payload: write("docs/STACK.md") },
+
   // scan-secrets
   { hook: "scan-secrets", name: "env-var reference is code, not secret", expect: "pass",
     payload: content(`${JWT_KEY}: process.env.${JWT_KEY},`) },
@@ -444,6 +479,11 @@ const cases = [
     payload: content(`MY_SERVICE_TOKEN="${ENTROPIC}"`) },
   { hook: "scan-secrets", name: "generic key with suffix (MY_SECRET_KEY) → deny", expect: "deny",
     payload: content(`MY_SECRET_KEY="${ENTROPIC}"`) },
+  // The generic rule is CASE-SENSITIVE (env-style UPPER_SNAKE only): camelCase code
+  // identifiers like secretFilesList followed by ordinary code must never trip it.
+  // Key built at runtime so this source line can't trip the write-time scanner itself.
+  { hook: "scan-secrets", name: "camelCase code identifier stays code", expect: "pass",
+    payload: content(`const ${["secret", "Files", "List"].join("")} = collectPaths(baselineDir, extraOptions);`) },
   { hook: "scan-secrets", name: "NEXT_PUBLIC_* exempt from generic key rule", expect: "pass",
     payload: content(`NEXT_PUBLIC_ANALYTICS_KEY="${ENTROPIC}"`) },
   { hook: "scan-secrets", name: "generic key ${VAR} expression stays code", expect: "pass",
