@@ -4,6 +4,46 @@ All notable template changes, one entry per maintenance batch. Projects check th
 template version in `VERSION` (reported by `starter-doctor`) and pull updates with
 `node scripts/quality/update-from-template.mjs`.
 
+## 1.3.0 — 2026-07-11
+
+Security-hook hardening, single-source consolidation, contract honesty, and a token
+diet — from a full adversarial audit of the template (security · code quality ·
+contracts · token economy).
+
+- **Hooks hardened** (`.claude/hooks/`): the orchestrator-write-guard now treats
+  interpreter one-liners (`node -e`/`python -c`/`--eval`, heredocs) that call a write
+  API, and patch tools (`git apply`, `patch`), as **opaque writes** — ASK in the main
+  window, DENY for read-only agents (closes the bypass where `node -e` wrote app code
+  or governance files silently). `sed --in-place` and `dd of=` join the write verbs.
+  block-dangerous-bash now ASKs on recursive `rm` of `.`/`..`/variables/command-
+  substitutions/absolute paths (scratchpad roots exempt), `xargs rm`, `find -exec rm`,
+  and `git -C <dir> add -f`.
+- **Secret patterns unified** (`.claude/hooks/lib/secret-patterns.mjs`): one source now
+  feeds scan-secrets, quick-check, and session-baseline (the three copies had already
+  drifted on the PEM pattern). Adds Anthropic `sk-ant-`, OpenAI `sk-`, Slack `xox`,
+  a wide PEM matcher (EC/OPENSSH/DSA), and a generic credential-named-variable rule
+  (case-sensitive; `NEXT_PUBLIC_`/`VITE_` exempt).
+- **quick-check**: baselined-secret findings now re-emit every turn (never silenced by
+  the warning-set dedup — a credential is never "acceptable because pre-existing");
+  warns when a diff changes the `Profile:` line of `docs/STACK.md`.
+- **batch-verify**: Commands-table parser splits on cells (a literal `|` inside a
+  command no longer corrupts the Status column → silent skip); per-command timeout now
+  kills the whole process group (no orphaned test/build workers) and reports TIMEOUT.
+- **update-from-template**: refuses a non-official template remote (flag, env var, or a
+  pre-existing remote) without `--allow-remote` — an update overwrites the local hooks.
+- **Tests**: hook-smoke 82→136 cases (opaque writes, rm forms, provider keys, the
+  governance override, role allow-lists); new quick-check-smoke (12) and update-smoke
+  (4); batch-verify-smoke 16→20. All wired into CI.
+- **Docs — one canonical statement per rule**: the sensitive-flows list lives once in
+  `docs/CONSTITUTION.md` (auth · RLS · payments · webhooks · fiscal/tax data · PII);
+  every other file references it (this fixed a real drift). Unenforced MUSTs relabeled
+  as conventions; hooks framed as best-effort flow governance, not a sandbox; USAGE
+  batch sequence and agent return contract corrected.
+- **Token diet**: Codex-only routing moved to `CODEX.md` (no longer loaded in every
+  Claude session); the 5 starter skill descriptions trimmed to trigger-only; 7
+  previously-unrouted BMAD skills added to the routing table. (The planned prune of 9
+  unrouted BMAD skills was dropped — they are load-bearing in the BMAD engine.)
+
 ## 1.2.0 — 2026-07-10
 
 Deterministic delivery verification, per the approved spec
