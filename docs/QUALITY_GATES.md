@@ -40,8 +40,9 @@ gates.
 **Current blockers** (fail completion; manual exit code `2`):
 - Whitespace/conflict errors (`git diff --check`).
 - Unresolved conflict markers in modified/staged/untracked files.
-- Obvious secrets in **added** diff lines (Stripe/AWS/GitHub/Google keys, PEM, JWT,
-  credential-bearing DB URLs); placeholders are ignored.
+- Obvious secrets in **added** diff lines **and in untracked-file content** (Stripe/AWS/
+  GitHub/Google/OpenAI/Anthropic/Slack keys, PEM, JWT, credential-bearing DB URLs);
+  placeholders are ignored.
 - A real `.env` file that is **versionable** (tracked/staged/modified/untracked-not-ignored).
 - Versionable residual temporary files (`*.tmp`, `.tmp-*`, `audit*.log`).
 - Files resolving outside the repo root.
@@ -112,9 +113,9 @@ run and clear when sensitive flows exist.
   before merging a significant change. Canonical engine: `requesting-code-review`.
 - **`qa-tester`** — when a feature needs test coverage, especially E2E for existing
   features, or when the batch changed observable behavior without tests.
-- **`security-auditor`** — whenever the batch or release touches auth, RLS, payments,
-  webhooks, PII, permissions, dependencies, or external assets. Mandatory at the Release
-  Gate for sensitive flows.
+- **`security-auditor`** — whenever the batch or release touches a sensitive flow (see
+  `docs/CONSTITUTION.md`), permissions, dependencies, or external assets. Mandatory at
+  the Release Gate for sensitive flows.
 - **Consult `docs/SCALABILITY_CHECKLIST.md`** — when planning a large feature or a release
   that changes data model, tenancy, external/AI API usage, or load characteristics.
 - **Ask the human** — when a check is `UNCONFIGURED` and you're unsure whether to proceed;

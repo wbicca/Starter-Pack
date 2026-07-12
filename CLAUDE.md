@@ -15,6 +15,11 @@ silently OFF — a `cp *` copy loses dotfiles. STOP before any work: restore the
 files from the template, run `node scripts/quality/starter-doctor.mjs` to confirm, and
 restart the session (hooks only load at session start).
 
+> The hooks are **best-effort flow governance, not a security sandbox** — regex-based
+> guards a determined or merely idiomatic command (`node -e`, an obfuscated `rm`) can
+> still walk past. They raise the floor (catch the common mistake, force an ASK on the
+> risky path); they are not a boundary to rely on for untrusted input.
+
 If `docs/STACK.md` Status is **UNCONFIGURED**, run the **`project-onboarding`** skill
 BEFORE any feature work — it classifies the project (new/existing), fills the gaps, and
 writes the project docs including `docs/STACK.md`. Never assume or hardcode a stack.
@@ -28,8 +33,8 @@ writes the project docs including `docs/STACK.md`. Never assume or hardcode a st
   implement inline directly. Either way, run the (proportional) gate after.
 - **Medium** (multi-file, clear scope): delegate to a specialized agent (Sonnet).
 - **Large** (new feature / product / epic): plan with BMAD first, then implement.
-- **Sensitive flows** (auth, RLS, payments, webhooks, PII): full discipline in BOTH
-  profiles — planning, review, and `security-auditor` are never skipped.
+- **Sensitive flows** (see `docs/CONSTITUTION.md` for the canonical list): full discipline
+  in BOTH profiles — planning, review, and `security-auditor` are never skipped.
 
 ## Planning gate (BMAD) — required before non-trivial work
 New projects, new modules, and non-trivial features **must not** jump straight to
@@ -57,10 +62,14 @@ list is presented and **explicitly approved by the human before any implementati
 - Parallel / risky work → `using-git-worktrees`.
 - Never claim done without running verification. Before marking a **non-trivial**
   implementation complete, invoke `verification-before-completion` and
-  `requesting-code-review`; for auth, RLS, payments, or sensitive data, also invoke
-  `security-auditor`.
-- **One batch at a time** — after each batch run the gate before starting the next. Batch
-  definition + the full gate sequence live in `AGENTS.md` → "Batches & gates".
+  `requesting-code-review`; for sensitive flows (see `docs/CONSTITUTION.md`), also invoke
+  `security-auditor`. Relationship: `quality-gate` *produces* the deterministic evidence
+  (batch-verify output); `verification-before-completion` is the claim-gate that *consumes*
+  it — run the gate first, then make the "done" claim against its evidence.
+- **One batch at a time** — after each batch run the gate before starting the next. This is
+  a discipline rule the orchestrator upholds, **not** a hook-enforced invariant (no hook
+  counts batches; the Stop-hook quick-check is read-only). Batch definition + the full gate
+  sequence live in `AGENTS.md` → "Batches & gates".
 
 ## Engineering quality
 
@@ -69,18 +78,11 @@ Common engineering standards for Claude and Codex live in `docs/ENGINEERING_STAN
 commands and stack decisions live in `docs/STACK.md`. Apply both when implementing or
 reviewing code.
 
-Three explicit gates wrap that work:
-- **`refactor-pass`** — after a large change (big feature, large fix, long session):
-  behavior-preserving cleanup.
-- **`quality-gate`** — after **each** implementation batch: runs
-  `scripts/quality/batch-verify.mjs` (configured checks, evidence over claims)
-  + diff/secret inspection.
-- **`release-sanity`** — before any release: pre-publication security/asset audit.
-
-`docs/QUALITY_GATES.md` is the decision map for *which* gate to run *when* (it points to the
-skills above, never restating them). For large or scalable features, consult
-`docs/SCALABILITY_CHECKLIST.md` (MVP → production → scale, stack-agnostic). The starter-doctor
-(`node scripts/quality/starter-doctor.mjs`) is a read-only structural check of the starter itself.
+Three explicit gates wrap that work — `refactor-pass` (after a large change),
+`quality-gate` (after each batch), `release-sanity` (before a release). `docs/QUALITY_GATES.md`
+is the decision map for *which* to run *when*; for large/scalable features consult
+`docs/SCALABILITY_CHECKLIST.md`. The starter-doctor (`node scripts/quality/starter-doctor.mjs`)
+is a read-only structural check of the starter itself.
 
 ## Hook signals
 - `ORCHESTRATOR_WRITE_ASK` → inline app-code write in the standard profile: the human
@@ -98,8 +100,9 @@ Planning stays in this window with the human; implementation fans out to Sonnet 
 after the human **approves** the story list. The canonical flow, worktree rules, return
 contract, and cherry-pick consolidation live in `AGENTS.md` → "Delegation & isolation".
 Orchestrator judgment for common cases:
-- Small docs fix → inline; small app-code fix → inline via ASK (standard) / direct
-  (light), or delegate to one agent — human's choice at the prompt.
+- Small docs fix → inline. Small app-code fix → **standard**: the ASK prompt decides
+  (approve = inline; decline = delegate to one agent); **light**: inline directly (no
+  prompt fires) or delegate to one agent by judgment.
 - New feature / product → plan here with BMAD, then one Sonnet implementer per story → review.
 - Several independent changes → `dispatching-parallel-agents` (only after a stable base).
 - Hard bug → `systematic-debugging` here; delegate the fix once the cause is known.

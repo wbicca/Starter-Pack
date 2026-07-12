@@ -9,8 +9,8 @@
 > **Profile: standard**  (allowed values: standard · light)
 > `standard`: inline app-code writes by the main window ASK for approval; full
 > orchestration/gates for non-trivial work. `light`: inline writes pass; proportional
-> gates (see `AGENTS.md` → "Project profiles"). Sensitive flows (auth, RLS, payments,
-> PII, webhooks) keep full discipline in BOTH profiles.
+> gates (see `AGENTS.md` → "Project profiles"). Sensitive flows (see
+> `docs/CONSTITUTION.md`) keep full discipline in BOTH profiles.
 
 ## Resolved stack
 _(empty until configured)_

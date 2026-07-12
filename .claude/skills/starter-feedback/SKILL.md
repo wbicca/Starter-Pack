@@ -1,6 +1,6 @@
 ---
 name: starter-feedback
-description: Generate an evidence-based usage report of the Starter Pack in the current project — routing audit, contract compliance, hook friction, doc honesty, top frictions. Use at the end of an epic or milestone, or when the user says "starter feedback" or "como está o uso do starter".
+description: Generate an evidence-based usage report of the Starter Pack in the current project. Use at the end of an epic or milestone, or when the user says "starter feedback" or "como está o uso do starter".
 ---
 
 # Starter Feedback — evidence-based usage audit

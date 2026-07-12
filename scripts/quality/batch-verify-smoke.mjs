@@ -43,9 +43,9 @@ function stackMd({ profile = "standard", lint, typecheck, test, build, extraRows
   return crlf ? out.replace(/\n/g, "\r\n") : out;
 }
 
-function makeFixture({ stack, appChange = true, testChange = false, commitAppChange = false } = {}) {
+function makeFixture({ stack, appChange = true, testChange = false, commitAppChange = false, nogit = false } = {}) {
   const dir = mkdtempSync(join(realTmp, "batch-verify-smoke-"));
-  const g = (args) => spawnSync("git", args, { cwd: dir, encoding: "utf8" });
+  const g = (args) => (nogit ? { status: 0 } : spawnSync("git", args, { cwd: dir, encoding: "utf8" }));
   g(["init", "-q"]);
   g(["config", "user.email", "smoke@example.invalid"]);
   g(["config", "user.name", "batch-verify-smoke"]);
@@ -107,6 +107,21 @@ const cases = [
     args: ["--range", "HEAD~1"], fx: { stack: stackMd({}), commitAppChange: true } },
   { name: "--range with bad ref → hard exit 1", exit: 1, stderrHas: "Failing closed",
     args: ["--range", "no-such-ref"], fx: { stack: stackMd({ test: OK }) } },
+  // v1.3: a literal `|` inside the command cell must not corrupt the row (the old
+  // regex spilled `| tee …` into the Status column → silent NOT CONFIGURED).
+  { name: "pipe inside command cell parses & runs", exit: 0, stderrHas: "Test: ",
+    fx: { stack: stackMd({ test: `${OK} | ${OK}` }) } },
+  { name: "pipe inside command cell — failing tail propagates", exit: 1,
+    fx: { stack: stackMd({ test: `${OK} | ${BAD}` }) } },
+  // v1.3: per-command timeout is reported as TIMEOUT (and the process group is
+  // reaped — no orphaned grandchildren keeping CI busy).
+  { name: "command timeout → TIMEOUT result, exit 1", exit: 1, stderrHas: "TIMEOUT",
+    env: { BATCH_VERIFY_TIMEOUT_MS: "500" },
+    fx: { stack: stackMd({ test: `node -e "setTimeout(()=>{},10000)"` }) } },
+  // v1.3: pins the documented asymmetry — local mode FAILS OPEN when git is
+  // unavailable (CI --range mode fails closed, pinned above).
+  { name: "no git repo → fail-open warning, exit 0", exit: 0, stderrHas: "git unavailable",
+    fx: { stack: stackMd({}), nogit: true } },
 ];
 
 let failed = 0;
@@ -116,6 +131,7 @@ for (const c of cases) {
   dirs.push(dir);
   const r = spawnSync(process.execPath, [SCRIPT, ...(c.args ?? [])], {
     cwd: dir, encoding: "utf8", timeout: 60_000,
+    env: c.env ? { ...process.env, ...c.env } : process.env,
   });
   const stderr = r.stderr ?? "";
   const okExit = r.status === c.exit;

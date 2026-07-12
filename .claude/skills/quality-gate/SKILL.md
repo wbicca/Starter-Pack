@@ -3,10 +3,7 @@ name: quality-gate
 description: >
   Mandatory verification after each implementation batch. Use after finishing any batch,
   before starting the next, or when the user says "run the quality gate" / "is this
-  ready". Runs scripts/quality/batch-verify.mjs (the docs/STACK.md commands, evidence
-  over claims), inspects the diff (scope, minimality, secrets, versionable .env),
-  applies the design checklist to UI batches, and adapts depth to the project Profile
-  (standard/light) — sensitive flows always get the full sequence.
+  ready".
 ---
 
 # Quality gate
@@ -21,8 +18,8 @@ is sound; it does not refactor (`refactor-pass`) or audit for release (`release-
   substitute a guess or skip silently.
 - **Read the `Profile` in `docs/STACK.md`.** In the **light** profile the gate is
   proportional: run steps 1–5 and 7–8 always; step 6 verifies the sanctioned path (see
-  below); steps 9–10 are opt-in. **Exception (both profiles):** a batch touching auth,
-  RLS, payments, webhooks, or PII always runs the FULL sequence and triggers
+  below); steps 9–10 are opt-in. **Exception (both profiles):** a batch touching a
+  sensitive flow (see `docs/CONSTITUTION.md`) always runs the FULL sequence and triggers
   `security-auditor`.
 
 ## Steps

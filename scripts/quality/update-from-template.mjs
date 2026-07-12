@@ -14,8 +14,13 @@
 // committed — then runs starter-doctor and surfaces its exit code. The human reviews
 // `git diff --cached` and commits.
 //
-// Usage: node scripts/quality/update-from-template.mjs [--apply] [--remote <url>]
+// Usage: node scripts/quality/update-from-template.mjs [--apply] [--remote <url>] [--allow-remote]
 // The template URL can also be overridden via the STARTER_TEMPLATE_URL env var.
+//
+// REMOTE VALIDATION: an update overwrites the security hooks on disk, so the effective
+// remote (flag, env var, or a pre-existing `starter-template` remote) must match the
+// official template URL. Any other remote is refused unless --allow-remote is passed
+// deliberately — a once-poisoned remote or exported env var must never be used silently.
 //
 // Exit codes: 0 = ok / already up to date · 1 = error (or doctor blockers after apply).
 
@@ -28,7 +33,7 @@ const REMOTE_NAME = "starter-template";
 // Starter-owned paths — the ONLY paths an update may read from the template or write.
 const UPDATE_PATHS = [
   ".claude", ".codex", ".agents", "scripts/quality",
-  "CLAUDE.md", "AGENTS.md", "USAGE.md", "VERSION", "CHANGELOG.md",
+  "CLAUDE.md", "AGENTS.md", "CODEX.md", "USAGE.md", "VERSION", "CHANGELOG.md",
   ".github/workflows/ci.yml",
 ];
 
@@ -52,12 +57,25 @@ function fail(msg) {
 
 const argv = process.argv.slice(2);
 const apply = argv.includes("--apply");
+const allowRemote = argv.includes("--allow-remote");
 const remoteFlagIdx = argv.indexOf("--remote");
 const remoteUrl =
   (remoteFlagIdx !== -1 && argv[remoteFlagIdx + 1]) ||
   process.env.STARTER_TEMPLATE_URL ||
   TEMPLATE_URL;
 if (remoteFlagIdx !== -1 && !argv[remoteFlagIdx + 1]) fail("--remote requires a <url> argument");
+
+// Official template remote (https or ssh, optional .git / trailing slash).
+const OFFICIAL_RE = /^(?:https:\/\/github\.com\/|git@github\.com:)wbicca\/Starter-Pack(?:\.git)?\/?$/i;
+function requireOfficial(url, source) {
+  if (OFFICIAL_RE.test(url) || allowRemote) return;
+  fail(
+    `'${url}' (${source}) is not the official template remote (${TEMPLATE_URL}).\n` +
+      "An update overwrites the local security hooks — refusing. " +
+      "Pass --allow-remote to use a different template deliberately.",
+  );
+}
+requireOfficial(remoteUrl, remoteFlagIdx !== -1 ? "--remote" : process.env.STARTER_TEMPLATE_URL ? "STARTER_TEMPLATE_URL" : "default");
 
 // ---------------------------------------------------------------------------
 // 1. Ensure we are inside a git repo
@@ -76,8 +94,12 @@ if (existing.status !== 0) {
   const add = run("git", ["remote", "add", REMOTE_NAME, remoteUrl], { cwd: ROOT });
   if (add.status !== 0) fail(`could not add remote ${REMOTE_NAME}: ${add.stderr}`);
   console.log(`Added remote ${REMOTE_NAME} -> ${remoteUrl}`);
-} else if (existing.stdout !== remoteUrl) {
-  console.log(`NOTE: remote ${REMOTE_NAME} already exists (${existing.stdout}) — using it as-is.`);
+} else {
+  // A pre-existing remote is the URL git will actually fetch — validate THAT one.
+  requireOfficial(existing.stdout, `pre-existing remote ${REMOTE_NAME}`);
+  if (existing.stdout !== remoteUrl) {
+    console.log(`NOTE: remote ${REMOTE_NAME} already exists (${existing.stdout}) — using it as-is.`);
+  }
 }
 
 // ---------------------------------------------------------------------------

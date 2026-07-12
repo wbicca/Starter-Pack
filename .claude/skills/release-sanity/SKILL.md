@@ -2,9 +2,7 @@
 name: release-sanity
 description: >
   Pre-release audit before publishing, tagging, or deploying — or when the user says "run
-  release sanity" / "are we ready to ship". Runs the quality-gate checklist first, then
-  audits secrets, permissions, destructive commands, validation gaps, and asset licenses,
-  ending in a go / no-go verdict.
+  release sanity" / "are we ready to ship".
 ---
 
 # Release sanity
@@ -33,8 +31,7 @@ the code works and asks whether it is **safe to ship**.
 10. **New dependencies** — each new dependency justified; flag unexplained additions.
 11. **Hooks / permissions** — `.claude/hooks/**` and settings/permissions not weakened or
     changed improperly.
-12. **security-auditor** — run it when sensitive flows exist (auth, RLS, payments,
-    webhooks, PII).
+12. **security-auditor** — run it when sensitive flows exist (see `docs/CONSTITUTION.md`).
 
 ## Deliverable
 - **Blockers** — must fix before release.

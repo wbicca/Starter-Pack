@@ -15,6 +15,15 @@ When a future decision conflicts with anything here, this file wins.
    human-approved template-maintenance session.
 8. **Docs stay lean.** Reference contracts, not manuals.
 
+## Sensitive flows (canonical list)
+
+These flows always get full discipline — planning, review, and `security-auditor` —
+in **both** profiles; the light profile never relaxes them. This is the single source;
+every other document references "sensitive flows (see CONSTITUTION.md)" rather than
+re-listing them.
+
+**auth · RLS · payments · webhooks · fiscal/tax data · PII.**
+
 ## Project-specific non-negotiables
 
 Filled during `project-onboarding`, only with explicit user approval. Do not invent rules.

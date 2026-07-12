@@ -72,13 +72,15 @@ function requirePath(api, rel, { dir = false, level = "block", label } = {}) {
 // ---------------------------------------------------------------------------
 
 const REQUIRED_FILES = [
-  "CLAUDE.md", "AGENTS.md", "README.md", "USAGE.md", "NOTICE.md", ".gitignore",
+  "CLAUDE.md", "AGENTS.md", "CODEX.md", "README.md", "USAGE.md", "NOTICE.md", ".gitignore",
   "VERSION", "CHANGELOG.md",
   "docs/CONSTITUTION.md", "docs/ENGINEERING_STANDARDS.md", "docs/DESIGN_STANDARDS.md",
   "docs/STACK.md",
   ".claude/settings.json",
-  "scripts/quality/quick-check.mjs",
+  "scripts/quality/quick-check.mjs", "scripts/quality/quick-check-smoke.mjs",
   "scripts/quality/batch-verify.mjs", "scripts/quality/batch-verify-smoke.mjs",
+  "scripts/quality/update-smoke.mjs",
+  ".claude/hooks/lib/secret-patterns.mjs", ".claude/hooks/lib/exposure.mjs",
 ];
 const REQUIRED_DIRS = [
   "docs", ".claude", ".claude/agents", ".claude/skills", ".claude/hooks",
@@ -320,9 +322,10 @@ section("Security and repository hygiene", (api) => {
     api.ok(".env.example / .env.template present");
   }
 
-  // .gitignore should ignore .env (best-effort, deterministic substring check).
+  // .gitignore should ignore .env itself — line-anchored so a `.env.local`-only
+  // ignore doesn't false-positive (`\b` accepted the "." in `.env.local` as a boundary).
   const gi = readSafe(".gitignore");
-  if (gi && /(^|\n)\s*\.env(\b|\n|$)/.test(gi)) api.ok(".gitignore ignores .env");
+  if (gi && /(^|\n)\s*\.env\s*(\n|$)/.test(gi)) api.ok(".gitignore ignores .env");
   else if (gi) api.warn(".gitignore does not obviously ignore .env — confirm secrets can't be committed");
 
   // Leftover agent worktrees (.claude/worktrees/*) — each must be consolidated

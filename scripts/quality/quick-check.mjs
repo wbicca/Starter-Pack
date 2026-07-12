@@ -24,6 +24,9 @@ import { spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync, existsSync, statSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { resolve, normalize, relative } from "node:path";
+// Shared secret patterns — one source with scan-secrets and session-baseline
+// (module-relative path: works from any cwd).
+import { INTRINSIC_SECRETS } from "../../.claude/hooks/lib/secret-patterns.mjs";
 
 // ---------------------------------------------------------------------------
 // Utilities
@@ -188,24 +191,11 @@ function conflictMarkerFiles(root, sets) {
 // ---------------------------------------------------------------------------
 
 // --- secret patterns ---
-// Regex char-classes prevent this SOURCE FILE from matching the scanner's
-// literal-prefix patterns (e.g. sk_live_ is safe as a prefix + char-class).
-// The PEM header uses [A-Z ]* so the source never contains the exact literal.
-const INTRINSIC = [
-  { re: /\bsk_live_[A-Za-z0-9]{4,}/, cat: "Stripe live secret token" },
-  { re: /\bsk_test_[A-Za-z0-9]{4,}/, cat: "Stripe test secret token" },
-  { re: /\bAKIA[0-9A-Z]{12,}/, cat: "AWS access key (AKIA)" },
-  { re: /\bASIA[0-9A-Z]{12,}/, cat: "AWS temp access key (ASIA)" },
-  { re: /\bghp_[A-Za-z0-9]{20,}/, cat: "GitHub PAT (ghp_)" },
-  { re: /\bgithub_pat_[A-Za-z0-9_]{20,}/, cat: "GitHub fine-grained PAT" },
-  { re: /\bAIza[0-9A-Za-z_\-]{20,}/, cat: "Google API key (AIza)" },
-  // PEM private key — char-class on the type segment avoids the exact literal.
-  { re: /-----BEGIN [A-Z ]*PRIVATE KEY-----/, cat: "PEM private key block" },
-  // JWT: eyJ<20+> . <10+> . <10+>
-  { re: /\beyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/, cat: "JWT token" },
-  // Database URL with inline credentials
-  { re: /\b(?:postgres|postgresql):\/\/[^:\s/@]+:([^@\s/]+)@/, cat: "database URL with inline credentials", group: 1 },
-];
+// Single source: .claude/hooks/lib/secret-patterns.mjs (shared with scan-secrets and
+// session-baseline). The lib's char-classes keep source files from self-matching.
+// The `jwt` metadata (Supabase anon exemption) is a scan-secrets concern — this
+// end-of-turn net flags every JWT-shaped token.
+const INTRINSIC = INTRINSIC_SECRETS;
 
 const PLACEHOLDERS = new Set(["your_key_here", "changeme", "change_me", "placeholder", "example_value"]);
 function isPlaceholder(v) {
@@ -295,6 +285,10 @@ function runChecks() {
   const baseline = loadBaseline(root);
   const blockers = [];
   const warnings = [];
+  // Persistent warnings are NEVER deduped by lastWarningsHash — they re-emit every
+  // turn. Reserved for baselined secrets: a credential is never "acceptable because
+  // pre-existing"; silence would normalize it.
+  const persistent = [];
 
   // Split a file list against a baseline set: fresh files block, baselined ones warn.
   const split = (files, baseSet) => ({
@@ -329,7 +323,7 @@ function runChecks() {
     blockers.push(`possible secret in ${listOf(files)} (${secFresh[0].cat}) — remove credential, use placeholder, document in .env.example`);
   }
   if (secPre.length) {
-    warnings.push(`possible secret pre-existing (before this session) in ${listOf(uniq(secPre.map((f) => f.file)))} — remove it; never commit.`);
+    persistent.push(`possible secret pre-existing (before this session) in ${listOf(uniq(secPre.map((f) => f.file)))} — remove it; never commit.`);
   }
 
   // --- paths outside the repo root ---
@@ -361,7 +355,16 @@ function runChecks() {
     warnings.push(`ignored local temporary file detected: ${listOf(tmpWarn)}. Remove it if no longer needed.`);
   }
 
-  return { root, baseline, blockers, warnings };
+  // --- Profile: change in docs/STACK.md → WARN (a flip alters gate depth) ---
+  for (const args of [["diff", "--", "docs/STACK.md"], ["diff", "--cached", "--", "docs/STACK.md"]]) {
+    const d = run("git", args, { cwd: root }).stdout;
+    if (d && d.split("\n").some((l) => /^[+-](?![+-]).*\bProfile:/.test(l))) {
+      warnings.push("Profile: line changed in docs/STACK.md — a profile flip changes gate depth; confirm it was a deliberate, human-approved change.");
+      break;
+    }
+  }
+
+  return { root, baseline, blockers, warnings, persistent };
 }
 
 // ---------------------------------------------------------------------------
@@ -388,7 +391,7 @@ if (isHookMode) {
     process.exit(0);
   }
 
-  const { root, baseline, blockers, warnings } = runChecks();
+  const { root, baseline, blockers, warnings, persistent } = runChecks();
 
   // Blockers take precedence — block completion, never print raw credential values.
   if (blockers.length > 0) {
@@ -402,17 +405,20 @@ if (isHookMode) {
     process.exit(0);
   }
 
-  // Warnings only → surface a non-blocking systemMessage, but only once per distinct
-  // warning set: an unchanged set (same hash as lastWarningsHash) stays silent.
-  if (warnings.length > 0) {
+  // Warnings only → surface a non-blocking systemMessage. Dedup applies to ordinary
+  // warnings (an unchanged set — same hash as lastWarningsHash — stays silent), but
+  // PERSISTENT warnings (baselined secrets) re-emit every turn regardless.
+  if (warnings.length > 0 || persistent.length > 0) {
     const hash = createHash("sha256").update([...warnings].sort().join("\n")).digest("hex");
-    if (hash === baseline.lastWarningsHash) {
+    const unchanged = hash === baseline.lastWarningsHash;
+    if (unchanged && persistent.length === 0) {
       process.stdout.write("{}");
       process.exit(0);
     }
-    storeWarningsHash(root, hash);
+    if (!unchanged) storeWarningsHash(root, hash);
+    const parts = [...persistent, ...(unchanged ? [] : warnings)];
     process.stdout.write(JSON.stringify({
-      systemMessage: `QUICK_CHECK_WARNING: ${warnings.join(" ")}`,
+      systemMessage: `QUICK_CHECK_WARNING: ${parts.join(" ")}`,
     }));
     process.exit(0);
   }
@@ -422,12 +428,12 @@ if (isHookMode) {
 
 } else {
   // ---- MANUAL MODE (CLI invocation, no piped JSON) ----
-  const { blockers, warnings } = runChecks();
+  const { blockers, warnings, persistent } = runChecks();
 
   for (const b of blockers) process.stderr.write(`BLOCKER: ${b}\n`);
-  for (const w of warnings) process.stderr.write(`WARNING: ${w}\n`);
+  for (const w of [...persistent, ...warnings]) process.stderr.write(`WARNING: ${w}\n`);
 
   if (blockers.length > 0) process.exit(2);     // blockers fail
-  if (warnings.length === 0) process.stderr.write("quick-check: clean\n");
+  if (warnings.length === 0 && persistent.length === 0) process.stderr.write("quick-check: clean\n");
   process.exit(0);                              // warnings-only or clean → pass
 }

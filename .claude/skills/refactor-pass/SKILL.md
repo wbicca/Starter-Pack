@@ -2,9 +2,7 @@
 name: refactor-pass
 description: >
   Behavior-preserving refactor round after a large feature, large fix, or long session —
-  or when the user says "refactor pass" / "clean this up". Removes dead code and
-  duplication, improves names, replaces hand-rolled code that duplicates existing utils,
-  adds missing tests. Never changes behavior without tests.
+  or when the user says "refactor pass" / "clean this up".
 ---
 
 # Refactor pass

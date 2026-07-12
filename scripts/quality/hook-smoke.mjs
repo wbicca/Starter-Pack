@@ -64,6 +64,15 @@ const ENTROPIC = "aB3" + randAlnum(17);               // 20 chars, >= 3 classes 
 // Dotted high-entropy literal: two alnum runs joined by a dot, >= 16 chars, >= 3 classes.
 // Clears the credential bar, so the identifier/property-chain escape must NOT fire (F4).
 const DOTTED_SECRET = "aB3" + randAlnum(6) + "." + randAlnum(12);
+// v1.3 provider-key fixtures — prefix + guaranteed-entropy tail ("aB3" forces 3 char
+// classes), built at runtime so this source never contains a full key shape.
+const ANT_KEY = "sk-ant-aB3" + randAlnum(16);
+const OPENAI_KEY = "sk-aB3" + randAlnum(22);
+const SLACK_TOK = "xoxb-aB3" + randAlnum(12);
+// PEM headers assembled at runtime (the scanners' [A-Z ]* pattern must not match this
+// source file); EC/OPENSSH pin the wide pattern the narrow (?:RSA )? form missed.
+const PEM_EC = ["-----BEGIN EC", "PRIVATE KEY-----"].join(" ");
+const PEM_OPENSSH = ["-----BEGIN OPENSSH", "PRIVATE KEY-----"].join(" ");
 
 // The write-guard whitelists the EXACT os.tmpdir() (real path) — pick a /var/folders
 // sibling guaranteed to live outside it, and the current project's memory slug.
@@ -251,6 +260,41 @@ const cases = [
   { hook: "write-guard", name: "light profile: bash governance write still denied", expect: "deny",
     env: { CLAUDE_PROJECT_DIR: LIGHT_HOME_FIX }, payload: bashAt(LIGHT_HOME_FIX, `echo hi > .claude/settings.json`) },
 
+  // write-guard: CLAUDE_ORCHESTRATOR_WRITE_OVERRIDE — the single most security-relevant
+  // branch: governance DENY downgrades to ASK (never to silent allow); out-of-root
+  // stays DENY even under the override.
+  { hook: "write-guard", name: "override: main write .claude/settings.json → ask", expect: "ask",
+    env: { CLAUDE_ORCHESTRATOR_WRITE_OVERRIDE: "1" }, payload: write(".claude/settings.json") },
+  { hook: "write-guard", name: "override: main write scripts/quality → ask", expect: "ask",
+    env: { CLAUDE_ORCHESTRATOR_WRITE_OVERRIDE: "1" }, payload: write("scripts/quality/quick-check.mjs") },
+  { hook: "write-guard", name: "override: main bash redirect .claude/ → ask", expect: "ask",
+    env: { CLAUDE_ORCHESTRATOR_WRITE_OVERRIDE: "1" }, payload: bash(`echo hi > .claude/settings.json`) },
+  { hook: "write-guard", name: "override: out-of-root write still deny", expect: "deny",
+    env: { CLAUDE_ORCHESTRATOR_WRITE_OVERRIDE: "1" },
+    payload: write(join(homedir(), "elsewhere", "x.md")) },
+  { hook: "write-guard", name: "override=0 stays deny", expect: "deny",
+    env: { CLAUDE_ORCHESTRATOR_WRITE_OVERRIDE: "0" }, payload: write(".claude/settings.json") },
+
+  // write-guard: role allow-lists (documentation-writer / system-architect / strategist)
+  { hook: "write-guard", name: "doc-writer write docs/guide.md → pass", expect: "pass",
+    payload: write("docs/guide.md", "documentation-writer") },
+  { hook: "write-guard", name: "doc-writer write README.md → pass", expect: "pass",
+    payload: write("README.md", "documentation-writer") },
+  { hook: "write-guard", name: "doc-writer write src/app.ts → deny", expect: "deny",
+    payload: write("src/app.ts", "documentation-writer") },
+  { hook: "write-guard", name: "architect write docs/ARCHITECTURE.md → pass", expect: "pass",
+    payload: write("docs/ARCHITECTURE.md", "system-architect") },
+  { hook: "write-guard", name: "architect write docs/OTHER.md → deny", expect: "deny",
+    payload: write("docs/OTHER.md", "system-architect") },
+  { hook: "write-guard", name: "architect bash tee its own doc → deny (bash read-only)", expect: "deny",
+    payload: bash(`tee docs/ARCHITECTURE.md < /dev/null`, "system-architect") },
+  { hook: "write-guard", name: "product-strategist write docs/x.md → deny", expect: "deny",
+    payload: write("docs/x.md", "product-strategist") },
+  { hook: "write-guard", name: "main write README.md → silent pass", expect: "pass",
+    payload: write("README.md") },
+  { hook: "write-guard", name: "main write docs/STACK.md → silent pass", expect: "pass",
+    payload: write("docs/STACK.md") },
+
   // scan-secrets
   { hook: "scan-secrets", name: "env-var reference is code, not secret", expect: "pass",
     payload: content(`${JWT_KEY}: process.env.${JWT_KEY},`) },
@@ -351,6 +395,99 @@ const cases = [
   { hook: "danger-bash", name: "fixture: echo > tracked+ignored .env → deny", expect: "deny",
     env: { CLAUDE_PROJECT_DIR: TRACKED_FIX },
     payload: bashAt(TRACKED_FIX, `echo "KEY=value" > .env`) },
+
+  // --- v1.3: interpreter/patch writes are opaque mutations (audit C1) ---
+  // The guard cannot resolve the target of `node -e 'fs.writeFileSync(...)'` or
+  // `git apply`, so they must never pass silently in the main window.
+  { hook: "write-guard", name: "main bash: node -e writeFileSync app ext → ask", expect: "ask",
+    payload: bash(`node -e 'require("fs").writeFileSync("src/app.ts","x")'`) },
+  { hook: "write-guard", name: "main bash: node -e writeFileSync governance → deny", expect: "deny",
+    payload: bash(`node -e 'require("fs").writeFileSync(".claude/settings.json","{}")'`) },
+  { hook: "write-guard", name: "main bash: python3 -c open(w) app ext → ask", expect: "ask",
+    payload: bash(`python3 -c "open('src/app.py','w').write('x')"`) },
+  { hook: "write-guard", name: "main bash: git apply (opaque target) → ask", expect: "ask",
+    payload: bash(`git apply changes.diff`) },
+  { hook: "write-guard", name: "main bash: patch -p1 (opaque target) → ask", expect: "ask",
+    payload: bash(`patch -p1 < changes.diff`) },
+  { hook: "write-guard", name: "main bash: node -e console.log stays read-only", expect: "pass",
+    payload: bash(`node -e 'console.log(2+2)'`) },
+  { hook: "write-guard", name: "main bash: node -e stdout.write stays read-only", expect: "pass",
+    payload: bash(`node -e 'process.stdout.write("hi")'`) },
+  { hook: "write-guard", name: "main bash: sed --in-place app ext → ask", expect: "ask",
+    payload: bash(`sed --in-place 's/a/b/' src/x.ts`) },
+  { hook: "write-guard", name: "code-reviewer bash: node -e writeFileSync → deny", expect: "deny",
+    payload: bash(`node -e 'require("fs").writeFileSync("/tmp/x","y")'`, "code-reviewer") },
+  { hook: "write-guard", name: "code-reviewer bash: git apply → deny", expect: "deny",
+    payload: bash(`git apply x.diff`, "code-reviewer") },
+  { hook: "write-guard", name: "frontend-eng bash: node -e write app ext → pass", expect: "pass",
+    payload: bash(`node -e 'require("fs").writeFileSync("src/app.ts","x")'`, "frontend-engineer") },
+  { hook: "write-guard", name: "frontend-eng bash: node -e write governance → ask", expect: "ask",
+    payload: bash(`node -e 'require("fs").writeFileSync(".claude/settings.json","x")'`, "frontend-engineer") },
+  { hook: "write-guard", name: "light profile: node -e write app ext → pass", expect: "pass",
+    env: { CLAUDE_PROJECT_DIR: LIGHT_FIX },
+    payload: bashAt(LIGHT_FIX, `node -e 'require("fs").writeFileSync("src/app.ts","x")'`) },
+  { hook: "write-guard", name: "light profile: git apply (opaque) → ask", expect: "ask",
+    env: { CLAUDE_PROJECT_DIR: LIGHT_FIX }, payload: bashAt(LIGHT_FIX, `git apply x.diff`) },
+  // review findings: async fs API, long-form --eval, binary open mode
+  { hook: "write-guard", name: "main bash: node -e async writeFile → ask", expect: "ask",
+    payload: bash(`node -e 'require("fs").writeFile("src/app.ts","x",()=>{})'`) },
+  { hook: "write-guard", name: "main bash: node --eval writeFileSync → ask", expect: "ask",
+    payload: bash(`node --eval 'require("fs").writeFileSync("src/app.ts","x")'`) },
+  { hook: "write-guard", name: "main bash: python3 -c open(wb) → ask", expect: "ask",
+    payload: bash(`python3 -c "open('src/app.py','wb').write(b'x')"`) },
+
+  // --- v1.3: destructive rm forms the target regex missed (audit H1) ---
+  { hook: "danger-bash", name: "rm -rf . (project wipe) → ask", expect: "ask",
+    payload: bash(`rm -rf .`) },
+  { hook: "danger-bash", name: "rm -rf ./ → ask", expect: "ask",
+    payload: bash(`rm -rf ./`) },
+  { hook: "danger-bash", name: "rm -rf .. (parent dir) → ask", expect: "ask",
+    payload: bash(`rm -rf ..`) },
+  { hook: "danger-bash", name: "rm -rf $TARGET (variable) → ask", expect: "ask",
+    payload: bash(`rm -rf $TARGET`) },
+  { hook: "danger-bash", name: "rm -rf $(cat list) (substitution) → ask", expect: "ask",
+    payload: bash(`rm -rf $(cat list.txt)`) },
+  { hook: "danger-bash", name: "rm -rf /etc/nginx (absolute) → ask", expect: "ask",
+    payload: bash(`rm -rf /etc/nginx`) },
+  { hook: "danger-bash", name: "rm -rf /tmp/scratch (temp path) → pass", expect: "pass",
+    payload: bash(`rm -rf /tmp/scratch-dir`) },
+  { hook: "danger-bash", name: "xargs rm -rf → ask", expect: "ask",
+    payload: bash(`find . -name '*.log' | xargs rm -rf`) },
+  { hook: "danger-bash", name: "find -exec rm → ask", expect: "ask",
+    payload: bash(`find . -name '*.tmp' -exec rm -rf {} +`) },
+  { hook: "danger-bash", name: "find <dir> -delete (non-dot form) → ask", expect: "ask",
+    payload: bash(`find src -name '*.bak' -delete`) },
+  { hook: "danger-bash", name: "git -C . add -f → ask", expect: "ask",
+    payload: bash(`git -C . add -f .env`) },
+  { hook: "danger-bash", name: "rm -rf src/old (relative subdir) → pass", expect: "pass",
+    payload: bash(`rm -rf src/old-module`) },
+  { hook: "danger-bash", name: "rm single file → pass", expect: "pass",
+    payload: bash(`rm notes.txt`) },
+
+  // --- v1.3: provider keys + wide PEM in the write-time scanner (audit H2) ---
+  { hook: "scan-secrets", name: "Anthropic sk-ant key literal → deny", expect: "deny",
+    payload: content(`ANTHROPIC_API_KEY="${ANT_KEY}"`) },
+  { hook: "scan-secrets", name: "OpenAI sk- key literal → deny", expect: "deny",
+    payload: content(`OPENAI_API_KEY="${OPENAI_KEY}"`) },
+  { hook: "scan-secrets", name: "Slack xoxb token literal → deny", expect: "deny",
+    payload: content(`SLACK_BOT_TOKEN="${SLACK_TOK}"`) },
+  { hook: "scan-secrets", name: "EC private key header → deny", expect: "deny",
+    payload: content(PEM_EC) },
+  { hook: "scan-secrets", name: "OPENSSH private key header → deny", expect: "deny",
+    payload: content(PEM_OPENSSH) },
+  { hook: "scan-secrets", name: "generic *_TOKEN high-entropy literal → deny", expect: "deny",
+    payload: content(`MY_SERVICE_TOKEN="${ENTROPIC}"`) },
+  { hook: "scan-secrets", name: "generic key with suffix (MY_SECRET_KEY) → deny", expect: "deny",
+    payload: content(`MY_SECRET_KEY="${ENTROPIC}"`) },
+  // The generic rule is CASE-SENSITIVE (env-style UPPER_SNAKE only): camelCase code
+  // identifiers like secretFilesList followed by ordinary code must never trip it.
+  // Key built at runtime so this source line can't trip the write-time scanner itself.
+  { hook: "scan-secrets", name: "camelCase code identifier stays code", expect: "pass",
+    payload: content(`const ${["secret", "Files", "List"].join("")} = collectPaths(baselineDir, extraOptions);`) },
+  { hook: "scan-secrets", name: "NEXT_PUBLIC_* exempt from generic key rule", expect: "pass",
+    payload: content(`NEXT_PUBLIC_ANALYTICS_KEY="${ENTROPIC}"`) },
+  { hook: "scan-secrets", name: "generic key ${VAR} expression stays code", expect: "pass",
+    payload: content(`DEPLOY_TOKEN=\${DEPLOY_TOKEN}`) },
 
   // format-after-edit (PostToolUse — must always stay silent / non-blocking)
   { hook: "format", name: "edit payload without file-scoped script", expect: "pass",
