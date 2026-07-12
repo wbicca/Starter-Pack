@@ -3,10 +3,7 @@ name: quality-gate
 description: >
   Mandatory verification after each implementation batch. Use after finishing any batch,
   before starting the next, or when the user says "run the quality gate" / "is this
-  ready". Runs scripts/quality/batch-verify.mjs (the docs/STACK.md commands, evidence
-  over claims), inspects the diff (scope, minimality, secrets, versionable .env),
-  applies the design checklist to UI batches, and adapts depth to the project Profile
-  (standard/light) — sensitive flows always get the full sequence.
+  ready".
 ---
 
 # Quality gate

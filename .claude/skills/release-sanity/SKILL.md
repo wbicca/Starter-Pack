@@ -2,9 +2,7 @@
 name: release-sanity
 description: >
   Pre-release audit before publishing, tagging, or deploying — or when the user says "run
-  release sanity" / "are we ready to ship". Runs the quality-gate checklist first, then
-  audits secrets, permissions, destructive commands, validation gaps, and asset licenses,
-  ending in a go / no-go verdict.
+  release sanity" / "are we ready to ship".
 ---
 
 # Release sanity

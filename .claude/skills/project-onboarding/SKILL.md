@@ -4,8 +4,6 @@ description: >
   Initialize a project bootstrapped from the Starter Pack template. Use on the first
   session of a new or adopted repo, when docs/STACK.md is UNCONFIGURED, or when the user
   says "onboard this project" / "set up a new project" / "initialize the starter".
-  Classifies the project, asks only what is missing, writes the project docs — never
-  implements code.
 ---
 
 # Project Onboarding

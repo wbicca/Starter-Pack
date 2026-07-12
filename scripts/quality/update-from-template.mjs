@@ -33,7 +33,7 @@ const REMOTE_NAME = "starter-template";
 // Starter-owned paths — the ONLY paths an update may read from the template or write.
 const UPDATE_PATHS = [
   ".claude", ".codex", ".agents", "scripts/quality",
-  "CLAUDE.md", "AGENTS.md", "USAGE.md", "VERSION", "CHANGELOG.md",
+  "CLAUDE.md", "AGENTS.md", "CODEX.md", "USAGE.md", "VERSION", "CHANGELOG.md",
   ".github/workflows/ci.yml",
 ];
 

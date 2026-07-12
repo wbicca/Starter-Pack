@@ -78,18 +78,11 @@ Common engineering standards for Claude and Codex live in `docs/ENGINEERING_STAN
 commands and stack decisions live in `docs/STACK.md`. Apply both when implementing or
 reviewing code.
 
-Three explicit gates wrap that work:
-- **`refactor-pass`** — after a large change (big feature, large fix, long session):
-  behavior-preserving cleanup.
-- **`quality-gate`** — after **each** implementation batch: runs
-  `scripts/quality/batch-verify.mjs` (configured checks, evidence over claims)
-  + diff/secret inspection.
-- **`release-sanity`** — before any release: pre-publication security/asset audit.
-
-`docs/QUALITY_GATES.md` is the decision map for *which* gate to run *when* (it points to the
-skills above, never restating them). For large or scalable features, consult
-`docs/SCALABILITY_CHECKLIST.md` (MVP → production → scale, stack-agnostic). The starter-doctor
-(`node scripts/quality/starter-doctor.mjs`) is a read-only structural check of the starter itself.
+Three explicit gates wrap that work — `refactor-pass` (after a large change),
+`quality-gate` (after each batch), `release-sanity` (before a release). `docs/QUALITY_GATES.md`
+is the decision map for *which* to run *when*; for large/scalable features consult
+`docs/SCALABILITY_CHECKLIST.md`. The starter-doctor (`node scripts/quality/starter-doctor.mjs`)
+is a read-only structural check of the starter itself.
 
 ## Hook signals
 - `ORCHESTRATOR_WRITE_ASK` → inline app-code write in the standard profile: the human

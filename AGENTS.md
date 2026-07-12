@@ -9,7 +9,7 @@ This repository is designed to work with Claude Code and Codex.
 
 - AGENTS.md is the shared agent contract.
 - CLAUDE.md contains Claude-specific orchestration rules and imports AGENTS.md.
-- Codex should follow AGENTS.md directly.
+- Codex should follow AGENTS.md directly, plus `CODEX.md` for Codex-specific routing.
 - Implementation agents must follow `docs/ENGINEERING_STANDARDS.md`; UI work also
   follows `docs/DESIGN_STANDARDS.md` and the project's Visual language in `docs/STACK.md`.
 - Project-specific commands live in `docs/STACK.md`.
@@ -25,26 +25,8 @@ This repository is designed to work with Claude Code and Codex.
 Claude Code loads skills from `.claude/skills/`; Codex loads them from `.agents/skills/`
 (cross-agent-safe skills are symlinked there; Claude-specific ones get a lean Codex wrapper).
 
-### Codex routing
-
-- Codex must explicitly spawn subagents for non-trivial implementation and review work.
-- Use `frontend-engineer` for frontend implementation.
-- Use `backend-engineer` for backend/API implementation.
-- Use `code-reviewer` after each non-trivial implementation batch.
-- Use `security-auditor` for any sensitive flow (see `docs/CONSTITUTION.md`), dependencies, permissions, or external assets.
-- Use built-in `explorer` for read-heavy investigation when needed.
-- On the Codex side only `$project-onboarding`, `$quality-gate`, `$refactor-pass`, and
-  `$release-sanity` exist as invocable skills (`.agents/skills/`). Every other routing-table
-  row is a **practice to apply inline** — follow its intent via internal best practices +
-  BMAD/Superpowers principles + project docs; it is not an invocable Codex skill.
-- Roles without a Codex agent (database/schema, visual design, QA, deploy) are handled in the
-  main thread or by the nearest available agent (`backend-engineer`/`frontend-engineer`) with
-  extra care.
-- Keep planning in the main thread.
-- Do not spawn recursive agent trees.
-- After each batch, invoke `$quality-gate`.
-- After large changes, invoke `$refactor-pass`.
-- Before release, invoke `$release-sanity`.
+**Codex-specific routing lives in `CODEX.md`** (kept out of this shared contract so it
+doesn't load into every Claude session). Codex reads both this file and `CODEX.md`.
 
 ## Routing table
 > Skill names are the **bare vendored names** (e.g. invoke `brainstorming`, not
@@ -56,9 +38,12 @@ Claude Code loads skills from `.claude/skills/`; Codex loads them from `.agents/
 | Discover / evaluate a new skill | `skill-discovery` | recommends only, never installs (see "External skills are optional") |
 | Feature / impl ideation | Superpowers `brainstorming` | default gate before any coding |
 | Product discovery for a PRD | `bmad-brainstorming` | only inside the BMAD planning track |
-| PRD / product brief | `bmad-prd` | create / update / validate |
+| Product brief (one-pager, pre-PRD) | `bmad-product-brief` | the lean brief; `bmad-prd` is the fuller spec above it |
+| PRD (create / update / validate) | `bmad-prd` | product/spec altitude |
+| Domain / market / technical research | `bmad-domain-research`, `bmad-market-research`, `bmad-technical-research` | discovery inputs to a brief/PRD |
 | Epics & stories | `bmad-create-epics-and-stories`, `bmad-create-story` | |
 | Macro architecture | `bmad-create-architecture` | |
+| UX patterns / design specs | `bmad-ux` | UX planning before `frontend-designer` implements |
 | Technical impl plan (one story) | Superpowers `writing-plans` | the *how*, below PRD altitude |
 | Implementation | Superpowers `test-driven-development` + `verification-before-completion` | |
 | UI implementation / visual quality | `docs/DESIGN_STANDARDS.md` + STACK "Visual language" | contract applied by frontend-designer/engineer; quality-gate checks UI batches |
@@ -68,7 +53,9 @@ Claude Code loads skills from `.claude/skills/`; Codex loads them from `.agents/
 | Forensic / incident / code-archaeology | `bmad-investigate` | understanding, not fixing |
 | Code review (canonical engine) | Superpowers `requesting-code-review` | light, coupled to TDD/verification; continuous |
 | Handling review feedback | Superpowers `receiving-code-review` | not a 2nd reviewer |
-| Deep adversarial audit (opt-in) | `bmad-code-review` | only when explicitly requested |
+| Deep adversarial audit of CODE (opt-in) | `bmad-code-review` | only when explicitly requested |
+| Adversarial review of a non-code artifact (spec, doc, plan) | `bmad-review-adversarial-general` | cynical review of any artifact; not for code diffs |
+| Exhaustive edge-case analysis (method-driven) | `bmad-review-edge-case-hunter` | walks every branch/boundary; orthogonal to adversarial |
 | Refactor round (after large change) | `refactor-pass` | behavior-preserving cleanup; see `docs/ENGINEERING_STANDARDS.md` |
 | Batch verification gate | `quality-gate` | mandatory after each implementation batch |
 | Pre-release audit | `release-sanity` | before publishing; runs the quality-gate checklist first |
