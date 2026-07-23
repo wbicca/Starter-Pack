@@ -47,7 +47,7 @@ function makeFixture({ files = {}, gitignore, commit = true } = {}) {
 function writeBaseline(dir, baseline) {
   mkdirSync(join(dir, ".claude"), { recursive: true });
   const base = { whitespaceFiles: [], conflictFiles: [], envTracked: [],
-                 lastWarningsHash: null };
+                 emittedWarnings: [] };
   base[["secret", "Files"].join("")] = [];
   writeFileSync(join(dir, ".claude", ".quick-check-baseline.json"),
     JSON.stringify({ ...base, ...baseline }, null, 2) + "\n");
@@ -119,6 +119,17 @@ const cases = [
       writeFileSync(join(dir, "docs", "STACK.md"), "> **Profile: light**\n");
       const r = runManual(dir);
       return r.status === 0 && /Profile: line changed/.test(r.stderr);
+    } },
+  // v1.4: per-warning dedup must PERSIST even when no baseline file exists yet (the
+  // old whole-set store silently failed without one → the same warning re-emitted
+  // every turn, 50× in one field report). One emit per session, then silence.
+  { name: "hook: ignored .env warning emits once per session (dedup persists)",
+    run() {
+      const { dir } = makeFixture({ gitignore: ".env\n", files: { ".env": "KEY=v\n" } }); this.dir = dir;
+      const first = runHook(dir);           // no baseline file yet — store must create it
+      const second = runHook(dir);          // same warning set — must stay silent now
+      const msg = (r) => r.json.systemMessage || "";
+      return /ignored local environment file/.test(msg(first)) && !msg(second);
     } },
   { name: "hook: stop_hook_active passes through",
     run() {

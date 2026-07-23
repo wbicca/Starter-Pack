@@ -16,7 +16,7 @@ import { spawnSync } from "node:child_process";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir, tmpdir } from "node:os";
-import { realpathSync, mkdtempSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
+import { realpathSync, mkdtempSync, writeFileSync, mkdirSync, rmSync, existsSync } from "node:fs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -135,8 +135,20 @@ function makeTrackedEnvFixture() {
   return dir;
 }
 const TRACKED_FIX = makeTrackedEnvFixture();
+
+// v1.4: session-scoped inline-write approval markers — must mirror the guard's
+// askMarkerPath convention (os.tmpdir() + "claude-inline-ask-" + sanitized id).
+// SESS_OK's marker is pre-created (an "already approved this session" session);
+// SESS_NEW/SESS_DOC start without one (PostToolUse checks create/skip them below).
+const SESS_OK = "smoke-sess-ok-" + randAlnum(6);
+const SESS_NEW = "smoke-sess-new-" + randAlnum(6);
+const SESS_DOC = "smoke-sess-doc-" + randAlnum(6);
+const markerOf = (s) => join(tmpdir(), "claude-inline-ask-" + s);
+writeFileSync(markerOf(SESS_OK), "");
+
 process.on("exit", () => {
   for (const d of [GIT_FIX, LIGHT_FIX, NOGIT_FIX, TRACKED_FIX, BADPROF_FIX, LIGHT_HOME_FIX]) rmSync(d, { recursive: true, force: true });
+  for (const s of [SESS_OK, SESS_NEW, SESS_DOC]) rmSync(markerOf(s), { force: true });
 });
 
 // Per-root payload builders (fixture cases must set BOTH payload.cwd and the
@@ -489,6 +501,32 @@ const cases = [
   { hook: "scan-secrets", name: "generic key ${VAR} expression stays code", expect: "pass",
     payload: content(`DEPLOY_TOKEN=\${DEPLOY_TOKEN}`) },
 
+  // --- v1.4: read-only scratch exemption (harness temp is not a repo mutation) ---
+  // Redirects and tee into /tmp | /private/tmp pass for read-only agents (an auditor
+  // captures output to inspect it); repo-tree targets and real verbs stay denied.
+  { hook: "write-guard", name: "code-reviewer bash: redirect to /tmp scratch → pass", expect: "pass",
+    payload: bash(`git diff > /tmp/hook-smoke-scratch.txt`, "code-reviewer") },
+  { hook: "write-guard", name: "code-reviewer bash: pipe to tee /tmp → pass", expect: "pass",
+    payload: bash(`npm test 2>&1 | tee /tmp/hook-smoke-out.txt`, "code-reviewer") },
+  { hook: "write-guard", name: "security-auditor bash: redirect /private/tmp → pass", expect: "pass",
+    payload: bash(`ls > /private/tmp/hook-smoke-audit.txt`, "security-auditor") },
+  { hook: "write-guard", name: "code-reviewer bash: redirect into repo file → deny", expect: "deny",
+    payload: bash(`echo hi > notes.txt`, "code-reviewer") },
+  { hook: "write-guard", name: "code-reviewer bash: tee repo file → deny", expect: "deny",
+    payload: bash(`tee docs/x.md < /dev/null`, "code-reviewer") },
+  { hook: "write-guard", name: "code-reviewer bash: cp to /tmp still deny (verb, not capture)", expect: "deny",
+    payload: bash(`cp src/app.ts /tmp/x.ts`, "code-reviewer") },
+
+  // --- v1.4: session-scoped inline-write ASK (standard profile) ---
+  // First approved inline app-code write records a marker; later writes pass. The
+  // marker never relaxes governance, and a session without one still asks.
+  { hook: "write-guard", name: "main write app code, session marker present → pass", expect: "pass",
+    payload: { ...write("src/app.ts"), session_id: SESS_OK } },
+  { hook: "write-guard", name: "main write app code, no session marker → ask", expect: "ask",
+    payload: { ...write("src/app.ts"), session_id: SESS_NEW } },
+  { hook: "write-guard", name: "governance ignores session marker → deny", expect: "deny",
+    payload: { ...write(".claude/settings.json"), session_id: SESS_OK } },
+
   // format-after-edit (PostToolUse — must always stay silent / non-blocking)
   { hook: "format", name: "edit payload without file-scoped script", expect: "pass",
     payload: { tool_name: "Write", tool_input: { file_path: join(root, "src/app.ts") }, cwd: root } },
@@ -522,6 +560,33 @@ const rows = cases.map((c) => {
   if (!ok) failed++;
   return { status: ok ? "PASS" : "FAIL", hook: c.hook, name: c.name, expect: c.expect, got };
 });
+
+// --- v1.4: PostToolUse marker creation (session-scoped ASK memory) ----------------
+// The guard, wired on PostToolUse, must record the marker for a main-window app-code
+// write (the tool ran ⇒ the human approved) and must NOT record one for docs. It
+// must stay completely silent on PostToolUse (no permission decision).
+const postCases = [
+  { name: "PostToolUse app-code write records session marker", file: "src/app.ts",
+    sess: SESS_NEW, expectMarker: true },
+  { name: "PostToolUse docs write records no marker", file: "docs/x.md",
+    sess: SESS_DOC, expectMarker: false },
+];
+for (const pc of postCases) {
+  const r = spawnSync(process.execPath, [join(root, HOOKS["write-guard"])], {
+    input: JSON.stringify({
+      hook_event_name: "PostToolUse", tool_name: "Write",
+      tool_input: { file_path: pc.file, content: "smoke" }, cwd: root, session_id: pc.sess,
+    }),
+    encoding: "utf8", env, cwd: root, timeout: 15_000,
+  });
+  const silent = r.status === 0 && !(r.stdout ?? "").trim();
+  const marker = existsSync(markerOf(pc.sess));
+  const ok = silent && marker === pc.expectMarker;
+  if (!ok) failed++;
+  rows.push({ status: ok ? "PASS" : "FAIL", hook: "write-guard", name: pc.name,
+    expect: pc.expectMarker ? "marker" : "no-marker",
+    got: `${silent ? "silent" : "output"}/${marker ? "marker" : "no-marker"}` });
+}
 
 const w = {
   status: 8, hook: Math.max(...rows.map((r) => r.hook.length)) + 2,

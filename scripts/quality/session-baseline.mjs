@@ -5,7 +5,7 @@
 // quick-check can report them as "pre-existing (before this session)" warnings
 // instead of blocking completion on problems this session did not create.
 // Writes .claude/.quick-check-baseline.json (overwritten on every session start):
-//   { whitespaceFiles, conflictFiles, envTracked, secretFiles, lastWarningsHash }
+//   { whitespaceFiles, conflictFiles, envTracked, secretFiles, emittedWarnings }
 // File PATHS only — secret values are never recorded.
 //
 // Residual limitation: a NEW session re-baselines, so issues introduced in one
@@ -127,7 +127,7 @@ try {
     conflictFiles,
     envTracked,
     secretFiles,
-    lastWarningsHash: null,
+    emittedWarnings: [],
   };
   writeFileSync(resolve(root, ".claude/.quick-check-baseline.json"),
                 JSON.stringify(baseline, null, 2) + "\n");

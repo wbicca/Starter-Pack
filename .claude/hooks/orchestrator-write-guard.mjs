@@ -10,7 +10,9 @@
 //   * governance files       -> DENY (CLAUDE_ORCHESTRATOR_WRITE_OVERRIDE=1 downgrades
 //                               to ASK). Identical in every profile.
 //   * application code       -> profile-based (docs/STACK.md `Profile:` field):
-//                               standard → ASK (human approves small-task inline work);
+//                               standard → ASK, session-scoped: the first approved
+//                               inline write records a marker (PostToolUse) and
+//                               covers the rest of the session;
 //                               light → silent pass. Never a hard DENY anymore.
 //   * out-of-root writes     -> DENY (harness temp/memory conventions excepted).
 //   * writing OUTSIDE the project root (or any traversal that escapes the cwd) is
@@ -197,6 +199,19 @@ const REASON_OPAQUE =
 // Explicit maintenance switch: downgrades main-window DENY -> ASK, never to ALLOW.
 const OVERRIDE = process.env.CLAUDE_ORCHESTRATOR_WRITE_OVERRIDE === "1";
 
+// --- Session-scoped inline-write approval ---------------------------------------
+// In the standard profile the FIRST approved inline app-code write of a session
+// records a marker file (written by the PostToolUse pass below — a declined ask
+// never runs the tool, so no marker ever appears). Later inline app-code writes in
+// the SAME session pass silently: one human approval covers the session, not every
+// keystroke (field data: 28 of 29 asks were approvals). Governance and out-of-root
+// rules never consult the marker. os.tmpdir() is safe here — we only place OUR
+// marker there; it does not widen any write allowlist.
+function askMarkerPath(sessionId) {
+  const sane = sessionId.replace(/[^A-Za-z0-9-]/g, "-");
+  return path.join(os.tmpdir(), "claude-inline-ask-" + sane);
+}
+
 // --- Project profile ------------------------------------------------------------
 // docs/STACK.md may declare `Profile: standard | light` (set by project-onboarding).
 // standard → main-window app-code writes ASK (human approves small-task inline work).
@@ -262,12 +277,35 @@ const toolInput = input.tool_input ?? {};
 const agentId = input.agent_id ?? input.agentId ?? null;
 const agentType = (input.agent_type ?? input.agentType ?? "").toString();
 const isMain = !agentId; // no agent_id => main / orchestrator window
+const sessionId = (input.session_id ?? "").toString();
 const root = (process.env.CLAUDE_PROJECT_DIR || input.cwd || process.cwd()).toString();
 
-// Main-window app-code block: light profile passes, otherwise ASK (never DENY, never
-// silent ALLOW in standard). Governance keeps mainBlock (deny; override → ask).
+// --- PostToolUse: record the session-scoped inline-write approval ---------------
+// This hook is also wired on PostToolUse for file-write tools. A PostToolUse event
+// means the tool ALREADY ran — so a standard-profile main-window app-code write got
+// its human approval (or an earlier marker). Record the marker and exit silently;
+// PostToolUse never emits a permission decision.
+if ((input.hook_event_name ?? "") === "PostToolUse") {
+  if (isMain && sessionId && toolName !== "Bash") {
+    const p = (toolInput.file_path ?? toolInput.path ?? toolInput.filePath ?? toolInput.notebook_path ?? "").toString();
+    if (p) {
+      const n = normalize(p, root);
+      const relPost = stripWorktreePrefix(n.rel);
+      if (!n.outside && !isGovPath(relPost) && APP_EXTS.has(n.ext) &&
+          readProfile(root) === "standard") {
+        try { fs.writeFileSync(askMarkerPath(sessionId), ""); } catch { /* best-effort */ }
+      }
+    }
+  }
+  process.exit(0);
+}
+
+// Main-window app-code block: light profile passes; in standard, the first approved
+// inline write of the session (marker) covers the rest — otherwise ASK (never DENY,
+// never silent ALLOW in standard). Governance keeps mainBlock (deny; override → ask).
 const appBlock = () => {
   if (readProfile(root) === "light") pass();
+  if (sessionId && fs.existsSync(askMarkerPath(sessionId))) pass();
   ask(REASON_APP_ASK);
 };
 
@@ -298,10 +336,24 @@ if (toolName === "Bash") {
   // counts as a mutation); non-read-only subagents touching the governance surface
   // get an ASK (human approves); implementers writing app code pass through.
   if (!isMain) {
-    if (BASH_READ_ONLY.has(agentType) &&
-        (targets.length > 0 || VERB_WRITE.test(scmdEff) || RO_GIT_PM.test(scmdEff) ||
-         opaqueWrite)) {
-      deny(REASON_RO_BASH);
+    if (BASH_READ_ONLY.has(agentType)) {
+      // Scratch exemption: output captured into harness temp paths (/tmp,
+      // /private/tmp, per-project memory) is not a repo mutation — a read-only
+      // auditor must be able to write command results to scratch and read them
+      // back (e.g. a mutation-test baseline). Only redirects and `tee` get the
+      // exemption: cp/mv/rm keep their deny even when aimed at a temp path
+      // (moving repo files out is not "inspecting"), and opaque writes stay
+      // denied (their target is unresolvable). Repo-tree targets always deny.
+      const roTargets = targets.filter((t) => !isHarnessTempPath(path.resolve(root, t), root));
+      const scmdRO = scmdEff.replace(
+        /(?:^|[;&|\n(`])\s*tee\s+(?:-a\s+)?("[^"]*"|'[^']*'|[^\s;|&]+)/g,
+        (m, t) =>
+          isHarnessTempPath(path.resolve(root, t.replace(/^["']|["']$/g, "")), root) ? " " : m,
+      );
+      if (roTargets.length > 0 || VERB_WRITE.test(scmdRO) || RO_GIT_PM.test(scmdRO) ||
+          opaqueWrite) {
+        deny(REASON_RO_BASH);
+      }
     }
     if (!BASH_READ_ONLY.has(agentType) && govHit) ask(REASON_GOV_ASK);
     pass();

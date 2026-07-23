@@ -11,6 +11,13 @@
 //       standard profile → exit 2 (blocker) unless --accept-unconfigured (human waiver);
 //       light profile    → warning only.
 //   * App code changed without any test change → warning (review signal, never blocks).
+//   * Clean working tree with a committed branch → the app-code heuristics fall back
+//     to the committed diff vs the default branch's merge-base (a fully committed
+//     branch must not slip past the guard as "no changes").
+//   * Zero configured commands while the batch touches app code → loud warning: a
+//     PASS that executed nothing is not evidence.
+//   * docs/DELIVERY_LOG.md older than the last merge → warning: the delivery-log
+//     entry has no substitute.
 //
 // Exit codes: 0 = PASS (possibly with warnings) · 1 = a configured command failed ·
 // 2 = unconfigured-Test blocker (standard). Timeout per command via
@@ -31,7 +38,7 @@
 // shell:false — it would break `a && b` commands without adding a real boundary.
 
 import { spawn, spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
 const ROOT = process.cwd();
@@ -102,7 +109,7 @@ function git(args) {
   return r.stdout;
 }
 
-function changedFiles() {
+function changedFiles(warnings) {
   if (RANGE) {
     const out = git(["diff", "--name-only", `${RANGE}...HEAD`]);
     if (out === null) {
@@ -116,7 +123,26 @@ function changedFiles() {
   const tracked = hasHead ? git(["diff", "--name-only", "HEAD"]) : git(["diff", "--name-only"]);
   if (tracked === null) return null;
   const untracked = git(["ls-files", "--others", "--exclude-standard"]) ?? "";
-  return [...new Set((tracked + "\n" + untracked).split("\n").filter(Boolean))];
+  const files = [...new Set((tracked + "\n" + untracked).split("\n").filter(Boolean))];
+  if (files.length > 0 || !hasHead) return files;
+  // Committed-branch blind spot: a fully committed branch has an empty working
+  // diff, so the app-code heuristics saw nothing and the gate could report PASS
+  // while executing nothing. Fall back to the committed diff vs the default
+  // branch's merge-base (first candidate ref that resolves and is not HEAD).
+  const headSha = (git(["rev-parse", "HEAD"]) ?? "").trim();
+  for (const ref of ["origin/main", "origin/master", "main", "master"]) {
+    if (git(["rev-parse", "--verify", ref]) === null) continue;
+    const mb = (git(["merge-base", ref, "HEAD"]) ?? "").trim();
+    if (!mb || mb === headSha) continue;
+    const out = git(["diff", "--name-only", mb, "HEAD"]);
+    if (out === null) continue;
+    const branchFiles = out.split("\n").filter(Boolean);
+    if (branchFiles.length) {
+      warnings.push(`working tree clean — evaluated committed branch diff vs ${ref} (merge-base).`);
+      return branchFiles;
+    }
+  }
+  return files;
 }
 
 // derived from .claude/hooks/orchestrator-write-guard.mjs (APP_EXTS) — anchored with $ and
@@ -131,7 +157,7 @@ const commands = parseCommands(stack, warnings);
 const profile = readProfile(stack);
 if (!stack) warnings.push("docs/STACK.md missing/unreadable — treating every command as not configured.");
 
-const changed = changedFiles();
+const changed = changedFiles(warnings);
 let appChanged = false;
 let testChanged = false;
 if (changed === null) {
@@ -186,6 +212,14 @@ for (const purpose of RUNNABLE) {
   results.push({ purpose, command: row.command, result: r.why });
 }
 
+// A PASS that executed nothing is not evidence — say so loudly when the batch
+// touches app code (or the diff could not be computed at all).
+const anyConfigured = RUNNABLE.some((p) => commands.get(p)?.configured === true);
+if (!anyConfigured && (appChanged || changed === null)) {
+  warnings.push("no configured command was executed — this PASS verified nothing; " +
+    "fill the docs/STACK.md Commands table (a PASS with zero commands is not evidence).");
+}
+
 // Unconfigured-Test policy (only when the batch touches app code).
 const testConfigured = commands.get("Test")?.configured === true;
 let blocker = null;
@@ -204,6 +238,18 @@ if (!testConfigured && appChanged) {
 // Review signal: app code changed but no test file changed. Never blocks.
 if (appChanged && !testChanged) {
   warnings.push("app code changed without any test change — review signal (docs/ENGINEERING_STANDARDS.md), not a blocker.");
+}
+
+// Delivery-log staleness: the DELIVERY_LOG entry has no substitute. When the log
+// exists but is older than the last merge, batches likely closed without their
+// entry — surface it every run (a warning: the fix is a doc append, never a block).
+if (existsSync(join(ROOT, "docs", "DELIVERY_LOG.md"))) {
+  const logT = Number((git(["log", "-1", "--format=%ct", "--", "docs/DELIVERY_LOG.md"]) ?? "").trim());
+  const mergeT = Number((git(["log", "-1", "--merges", "--format=%ct"]) ?? "").trim());
+  if (Number.isFinite(logT) && Number.isFinite(mergeT) && logT > 0 && mergeT > logT) {
+    warnings.push("docs/DELIVERY_LOG.md is older than the last merge — batches may be " +
+      "missing their delivery-log entry (the entry has no substitute).");
+  }
 }
 
 // --- report --------------------------------------------------------------------------

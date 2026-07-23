@@ -43,9 +43,12 @@ function stackMd({ profile = "standard", lint, typecheck, test, build, extraRows
   return crlf ? out.replace(/\n/g, "\r\n") : out;
 }
 
-function makeFixture({ stack, appChange = true, testChange = false, commitAppChange = false, nogit = false } = {}) {
+function makeFixture({ stack, appChange = true, testChange = false, commitAppChange = false,
+                       branchAppChange = false, staleDeliveryLog = false, nogit = false } = {}) {
   const dir = mkdtempSync(join(realTmp, "batch-verify-smoke-"));
-  const g = (args) => (nogit ? { status: 0 } : spawnSync("git", args, { cwd: dir, encoding: "utf8" }));
+  const g = (args, env) => (nogit ? { status: 0 } : spawnSync("git", args, {
+    cwd: dir, encoding: "utf8", ...(env ? { env: { ...process.env, ...env } } : {}),
+  }));
   g(["init", "-q"]);
   g(["config", "user.email", "smoke@example.invalid"]);
   g(["config", "user.name", "batch-verify-smoke"]);
@@ -56,7 +59,29 @@ function makeFixture({ stack, appChange = true, testChange = false, commitAppCha
   }
   g(["add", "."]);
   g(["commit", "-q", "-m", "init"]);
-  if (commitAppChange) {
+  if (staleDeliveryLog) {
+    // DELIVERY_LOG committed on day 1, a merge lands on day 2 → the log is stale.
+    // Explicit dates keep the %ct comparison deterministic (same-second commits
+    // would make it flaky).
+    const OLD = { GIT_COMMITTER_DATE: "2026-01-01T00:00:00 +0000", GIT_AUTHOR_DATE: "2026-01-01T00:00:00 +0000" };
+    const NEW = { GIT_COMMITTER_DATE: "2026-01-02T00:00:00 +0000", GIT_AUTHOR_DATE: "2026-01-02T00:00:00 +0000" };
+    writeFileSync(join(dir, "docs", "DELIVERY_LOG.md"), "# Delivery Log\n");
+    g(["add", "."]); g(["commit", "-q", "-m", "log"], OLD);
+    g(["checkout", "-q", "-b", "side"]);
+    writeFileSync(join(dir, "side.md"), "side\n");
+    g(["add", "."]); g(["commit", "-q", "-m", "side"], OLD);
+    g(["checkout", "-q", "-"]);
+    g(["merge", "-q", "--no-ff", "side", "-m", "merge side"], NEW);
+  }
+  if (branchAppChange) {
+    // Fully committed app change on a FEATURE branch: the working tree is clean, so
+    // only the merge-base fallback can surface it.
+    g(["checkout", "-q", "-b", "feature"]);
+    mkdirSync(join(dir, "src"), { recursive: true });
+    writeFileSync(join(dir, "src", "app.ts"), "export const x = 1;\n");
+    g(["add", "."]);
+    g(["commit", "-q", "-m", "app change on feature"]);
+  } else if (commitAppChange) {
     mkdirSync(join(dir, "src"), { recursive: true });
     writeFileSync(join(dir, "src", "app.ts"), "export const x = 1;\n");
     g(["add", "."]);
@@ -122,6 +147,17 @@ const cases = [
   // unavailable (CI --range mode fails closed, pinned above).
   { name: "no git repo → fail-open warning, exit 0", exit: 0, stderrHas: "git unavailable",
     fx: { stack: stackMd({}), nogit: true } },
+  // v1.4: committed feature-branch work must not slip past the app-code guard —
+  // a clean working tree falls back to the merge-base diff vs the default branch.
+  { name: "committed feature branch caught via merge-base fallback → exit 2", exit: 2,
+    stderrHas: "BLOCKER", fx: { stack: stackMd({}), appChange: false, branchAppChange: true } },
+  // v1.4: a PASS with zero configured commands must say it verified nothing.
+  { name: "zero configured commands + app diff (light) → verified-nothing warning", exit: 0,
+    stderrHas: "verified nothing", fx: { stack: stackMd({ profile: "light" }) } },
+  // v1.4: DELIVERY_LOG older than the last merge → staleness warning (never blocks).
+  { name: "DELIVERY_LOG older than last merge → staleness warning", exit: 0,
+    stderrHas: "delivery-log entry",
+    fx: { stack: stackMd({ test: OK }), appChange: false, staleDeliveryLog: true } },
 ];
 
 let failed = 0;

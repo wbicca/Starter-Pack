@@ -118,6 +118,19 @@ const CANONICAL_SKILLS = [
 // Codex agent TOMLs that must be registered in .codex/config.toml.
 const CODEX_AGENTS = ["backend-engineer", "frontend-engineer", "code-reviewer", "security-auditor"];
 
+// Monorepo support: the application may live in a subdirectory (e.g. crm-app/).
+// Sources, in order: an `App root:` line in docs/STACK.md, a `-C <dir>` /
+// `--dir <dir>` / `--prefix <dir>` flag in the Install or Test command rows,
+// else the repo root. Deterministic parsing only — no guessing.
+function appRootFromStack(stack) {
+  const m = stack.match(/App root:\s*\**\s*`?([^\s*`|]+)`?/);
+  if (m && m[1] && m[1] !== ".") return m[1].replace(/\/+$/, "");
+  const c = stack.match(/\|\s*(?:Install|Test)\s*\|[^|\n]*?(?:-C|--dir|--prefix)[= ]+([^\s|]+)/);
+  if (c && c[1] && c[1] !== ".") return c[1].replace(/\/+$/, "");
+  return ".";
+}
+const APP_ROOT = appRootFromStack(readSafe("docs/STACK.md"));
+
 // Extract the leading YAML-ish frontmatter block from a Markdown agent file.
 function frontmatter(text) {
   const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
@@ -315,9 +328,13 @@ section("Security and repository hygiene", (api) => {
     api.warn("quick-check.mjs not found — skipped secret scan reuse");
   }
 
-  // .env.example presence is a soft signal (warn only).
-  if (!exists(".env.example") && !exists(".env.template")) {
-    api.warn("no .env.example / .env.template — add one when the project needs env vars");
+  // .env.example presence is a soft signal (warn only) — checked at the repo root
+  // AND at the app root (monorepo layouts keep it next to the app's package.json).
+  const hasEnvExample = [".env.example", ".env.template"]
+    .some((f) => exists(f) || (APP_ROOT !== "." && exists(`${APP_ROOT}/${f}`)));
+  if (!hasEnvExample) {
+    const where = APP_ROOT !== "." ? ` at the root or in '${APP_ROOT}/'` : "";
+    api.warn(`no .env.example / .env.template${where} — add one when the project needs env vars`);
   } else {
     api.ok(".env.example / .env.template present");
   }
@@ -378,8 +395,11 @@ section("Project readiness", (api) => {
     else api.warn("docs/STACK.md is configured but has no Capabilities section (relevant agents / integrations / out-of-scope)");
   }
 
-  // Package manager / runtime identification (informational).
+  // Package manager / runtime identification (informational) — root or app root.
   if (exists("package.json")) api.ok("package.json present (Node project)");
+  else if (APP_ROOT !== "." && exists(`${APP_ROOT}/package.json`)) {
+    api.ok(`package.json present in ${APP_ROOT}/ (Node project)`);
+  }
   else api.warn("no package.json — npm script commands (e.g. starter:doctor) are not registered; run this doctor via 'node scripts/quality/starter-doctor.mjs'");
 
   // Quality commands availability (only meaningful once STACK is configured).

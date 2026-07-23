@@ -13,15 +13,17 @@
 //   hook scripts/quality/session-baseline.mjs), findings on files ALREADY flagged at
 //   session start are downgraded to warnings labeled "pre-existing (before this
 //   session)" — this session only blocks on problems it created. Missing/corrupt
-//   baseline → everything blocks, as before. In hook mode, an unchanged warning set
-//   (tracked via lastWarningsHash in the baseline) is emitted only once.
+//   baseline → everything blocks, as before. In hook mode, each warning is emitted
+//   ONCE per session (per-warning hashes in `emittedWarnings`; SessionStart rewrites
+//   the baseline, so every session re-warns once). The store creates the baseline
+//   file when missing — persistence must not depend on SessionStart having run.
 //
 // Does NOT run: install, build, typecheck, tests, E2E, formatter, heavy linter.
 // Does NOT replace: $quality-gate, $refactor-pass, $release-sanity, a real secret
 //   scanner, or a security audit.
 
 import { spawnSync } from "node:child_process";
-import { readFileSync, writeFileSync, existsSync, statSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, statSync, mkdirSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { resolve, normalize, relative } from "node:path";
 // Shared secret patterns — one source with scan-secrets and session-baseline
@@ -86,22 +88,29 @@ function loadBaseline(root) {
       conflictFiles: set("conflictFiles"),
       envTracked: set("envTracked"),
       secretFiles: set("secretFiles"),
-      lastWarningsHash: typeof b.lastWarningsHash === "string" ? b.lastWarningsHash : null,
+      emittedWarnings: set("emittedWarnings"),
     };
   } catch {
     return {
       whitespaceFiles: new Set(), conflictFiles: new Set(),
-      envTracked: new Set(), secretFiles: new Set(), lastWarningsHash: null,
+      envTracked: new Set(), secretFiles: new Set(), emittedWarnings: new Set(),
     };
   }
 }
 
-// Best-effort: remember the last emitted warning set so hook mode doesn't repeat it.
-function storeWarningsHash(root, hash) {
+// Persist the emitted-warning hashes so hook mode surfaces each warning ONCE per
+// session (SessionStart rewrites the baseline, so every session re-warns once).
+// Creates the baseline file when missing — a silently-failing store here meant the
+// dedup never persisted and the same warning re-emitted every single turn.
+function storeEmittedWarnings(root, hashes) {
   try {
     const p = resolve(root, BASELINE_REL);
-    const b = JSON.parse(readFileSync(p, "utf8"));
-    b.lastWarningsHash = hash;
+    let b;
+    try { b = JSON.parse(readFileSync(p, "utf8")); } catch {
+      b = { whitespaceFiles: [], conflictFiles: [], envTracked: [], secretFiles: [] };
+    }
+    b.emittedWarnings = hashes;
+    mkdirSync(resolve(root, ".claude"), { recursive: true });
     writeFileSync(p, JSON.stringify(b, null, 2) + "\n");
   } catch { /* silent — dedup is a convenience, never an error */ }
 }
@@ -405,18 +414,20 @@ if (isHookMode) {
     process.exit(0);
   }
 
-  // Warnings only → surface a non-blocking systemMessage. Dedup applies to ordinary
-  // warnings (an unchanged set — same hash as lastWarningsHash — stays silent), but
+  // Warnings only → surface a non-blocking systemMessage. Per-warning dedup: each
+  // ordinary warning is emitted once per session (its hash is then stored), but
   // PERSISTENT warnings (baselined secrets) re-emit every turn regardless.
   if (warnings.length > 0 || persistent.length > 0) {
-    const hash = createHash("sha256").update([...warnings].sort().join("\n")).digest("hex");
-    const unchanged = hash === baseline.lastWarningsHash;
-    if (unchanged && persistent.length === 0) {
+    const wHash = (w) => createHash("sha256").update(w).digest("hex");
+    const fresh = warnings.filter((w) => !baseline.emittedWarnings.has(wHash(w)));
+    if (fresh.length === 0 && persistent.length === 0) {
       process.stdout.write("{}");
       process.exit(0);
     }
-    if (!unchanged) storeWarningsHash(root, hash);
-    const parts = [...persistent, ...(unchanged ? [] : warnings)];
+    if (fresh.length > 0) {
+      storeEmittedWarnings(root, [...baseline.emittedWarnings, ...fresh.map(wHash)]);
+    }
+    const parts = [...persistent, ...fresh];
     process.stdout.write(JSON.stringify({
       systemMessage: `QUICK_CHECK_WARNING: ${parts.join(" ")}`,
     }));
