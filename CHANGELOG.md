@@ -4,6 +4,50 @@ All notable template changes, one entry per maintenance batch. Projects check th
 template version in `VERSION` (reported by `starter-doctor`) and pull updates with
 `node scripts/quality/update-from-template.mjs`.
 
+## 1.4.0 — 2026-07-23
+
+Field-report calibration — every change traces to the first real-project
+`starter-feedback` audit (CRM, 27 PRs / 7 days). Theme: move the weight from rite
+to artifact; alarm only on what the policy forbids; cut lead time without cutting
+evidence.
+
+- **Read-only scratch exemption** (`orchestrator-write-guard`): read-only agents may
+  capture command output via redirect/`tee` into harness temp paths (/tmp,
+  /private/tmp, project memory) — fixes a security audit that had to DERIVE a
+  mutation-test result it could have EXECUTED. Repo-tree targets, real verbs
+  (cp/mv/rm) and opaque writes stay denied.
+- **Session-scoped inline-write ASK**: in the standard profile the first approved
+  inline app-code write records a marker (PostToolUse) and covers the rest of the
+  session — field data showed 28 approvals in 29 asks. A decline records nothing;
+  governance and out-of-root rules never consult the marker.
+- **quick-check warning dedup fixed**: per-warning hashes (`emittedWarnings`) that
+  persist even when no baseline file exists (the silent-store bug behind 50 identical
+  `.env.local` warnings); each warning now emits once per session. Baselined-secret
+  warnings still re-emit every turn.
+- **batch-verify blind spots**: a clean working tree now falls back to the committed
+  branch diff vs the default branch's merge-base (a fully committed branch had
+  produced "PASS" that executed nothing); a PASS with zero configured commands says
+  "verified nothing" out loud; a `DELIVERY_LOG.md` older than the last merge warns
+  that entries are missing.
+- **starter-doctor monorepo-aware**: resolves the app root from STACK.md (`App root:`
+  line or `-C/--dir/--prefix` in Install/Test rows) before checking
+  `package.json`/`.env.example` — kills the permanent false warnings on monorepos.
+- **Contracts — rite → artifact**: the planning gate is now an artifact ("Planning
+  artifact" in AGENTS.md — BMAD is the canonical path; a hand-written spec with the
+  same sections satisfies it); the DELIVERY_LOG entry has **no substitute**;
+  consolidation via **PR + CI** is canonical when a remote exists (cherry-pick =
+  local alternative); **epic-level autonomy is the default cadence** (sensitive flows
+  still stop); a single sequential story may use a branch instead of a worktree.
+- **Implementer goal loop**: all 7 worktree implementers iterate implement →
+  `batch-verify` → fix (max 3) and only return green with evidence — cuts the
+  post-review fix-round ping-pong observed in the field.
+- **Onboarding**: records `App root:`; brownfield adoption reconciles a replaced
+  CLAUDE.md immediately (no orphaned `.bak`); volatile counts (test totals) are
+  banned as sanity invariants; no second `AGENTS.md` in an app subdirectory.
+- **Tests**: hook-smoke 136→147 (scratch exemption, session marker, PostToolUse);
+  quick-check-smoke 12→13 (dedup persistence); batch-verify-smoke 20→23 (merge-base
+  fallback, verified-nothing, DELIVERY_LOG staleness).
+
 ## 1.3.0 — 2026-07-11
 
 Security-hook hardening, single-source consolidation, contract honesty, and a token

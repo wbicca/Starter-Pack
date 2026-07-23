@@ -14,6 +14,7 @@
 
 ## Resolved stack
 _(empty until configured)_
+- App root: .
 - Language:
 - Framework:
 - UI:

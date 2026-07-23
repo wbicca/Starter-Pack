@@ -100,6 +100,10 @@ preserve what's still true and amend rather than rewrite.
   the stack isn't validated yet, `PARTIAL` when only some of it is known, `CONFIGURED`
   only once the main stack decisions (language, framework, DB/Auth, hosting) are filled.
   For an existing project, record the detected stack; for a new one, the user's choices.
+  Record the **`App root:`** line (`.` for a root-level app; the subdirectory for a
+  monorepo — the doctor and gates read it). Never record volatile counts (test/file
+  totals) as sanity invariants — they go stale in days; reference the command, never
+  its current output.
   Also fill the **Capabilities** section (relevant agents · optional integrations/MCPs ·
   out-of-scope) from the classification, so agents load only what's relevant. Mark unused
   items `n/a`; never invent a capability.
@@ -146,6 +150,17 @@ conversation, record it in `docs/CONSTITUTION.md` immediately — that in-flow
 confirmation **is** the explicit human approval; do not leave a placeholder or defer it
 to a second approval round. If there are none, leave the section's default placeholder.
 
+### Brownfield adoption hygiene
+When the starter was copied onto an existing repo:
+- If a pre-existing `CLAUDE.md`/`AGENTS.md` was replaced during installation (e.g. a
+  `*.bak` copy exists), reconcile it NOW with the user: merge what still applies into
+  the project docs, delete the `.bak`, and record the decision in `DECISIONS.md`.
+  Never leave an orphaned `.bak` for later.
+- Monorepo layout: record the app subdirectory in STACK.md's `App root:` line. Do
+  NOT create a second `AGENTS.md` inside the app subdirectory — subdirectory rules
+  belong in `docs/STACK.md` (Hard rules), not in a file that collides with the root
+  contract.
+
 ## Guardrails (ask before crossing these)
 - **Never** modify `docs/CONSTITUTION.md` without explicit user approval — it's the
   non-negotiables.
@@ -186,6 +201,7 @@ Report back, concisely:
 - [ ] CI seeded from templates/project-ci.yml when the project has a remote (or the local-only decision recorded).
 - [ ] STACK.md Capabilities section filled (relevant agents · optional integrations · out-of-scope), or marked n/a.
 - [ ] STACK.md Profile set (standard | light) and confirmed with the user.
+- [ ] STACK.md App root recorded; brownfield: pre-existing CLAUDE.md reconciled (no orphaned .bak).
 - [ ] STACK.md Visual language filled for UI projects (or marked n/a).
 - [ ] No application code written; no protected file changed without approval.
 - [ ] Delivered the summary + recommended the next mandatory flow.

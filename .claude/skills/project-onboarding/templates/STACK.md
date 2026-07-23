@@ -8,6 +8,7 @@
 > pass, proportional gates. Sensitive flows keep full discipline in both.
 
 ## Resolved stack
+- App root: <`.` for a root-level app; the subdirectory for a monorepo, e.g. `crm-app`>
 - Language: <e.g. TypeScript>
 - Framework: <e.g. Next.js>
 - UI: <e.g. shadcn/ui + Tailwind, or n/a>
@@ -19,6 +20,8 @@
 
 > Fill in only commands that are actually configured. Leave the rest as TBD /
 > UNCONFIGURED — never invent one. Set Status to CONFIGURED once a command is verified.
+> Never record volatile counts (number of tests/files) as sanity invariants — they go
+> stale in days; reference the command, not its current output.
 
 | Purpose | Command | Status |
 |---|---|---|

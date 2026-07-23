@@ -99,8 +99,10 @@ colateral de um batch).
   Ex.: *"corrige o typo no README"*, *"anota essa decisão em `docs/DECISIONS.md`"*.
 - **Código de aplicação, tarefa pequena** → no profile `standard`, o Claude pode
   implementar **inline** — a escrita dispara um pedido de aprovação (ASK): você aprova
-  e ele faz na hora, ou recusa e ele delega. No profile `light`, passa direto, sem
-  prompt. Ex.: *"adiciona um campo opcional `phone` no form"*.
+  e ele faz na hora, ou recusa e ele delega. **A primeira aprovação vale pela sessão
+  inteira** — escritas inline seguintes não re-perguntam (uma recusa não registra
+  nada). No profile `light`, passa direto, sem prompt. Ex.: *"adiciona um campo
+  opcional `phone` no form"*.
 
 ### 3.2 Feature média (multi-arquivo, escopo claro)
 Vai para **um agente especializado** (Sonnet), em worktree. Ex.: *"implementa o endpoint
@@ -110,8 +112,14 @@ de exportar relatório em CSV"* → `backend-engineer`.
 Fluxo completo, **planejamento na janela principal**:
 1. *"Vamos planejar a feature de cobrança recorrente."* → BMAD: `bmad-prd` → épicos/stories
    (`bmad-create-epics-and-stories`) → arquitetura se precisar (`bmad-create-architecture`).
+   O gate é o **artefato**, não a ferramenta (ver `AGENTS.md` → "Planning artifact"):
+   uma spec manual versionada com as mesmas seções (objetivo · decisões · riscos ·
+   sequenciamento · rollback) satisfaz o gate igualmente.
 2. **Gate de aprovação:** você aprova a lista de stories **antes** de qualquer fan-out
-   (plan → approve → execute). Sem aprovação, nada é implementado.
+   (plan → approve → execute). Sem aprovação, nada é implementado. Na aprovação você
+   escolhe a cadência — o default é **autonomia por épico** (batches seguem com todos
+   os gates rodando e reportando; parada humana só no fim do épico); fluxos sensíveis
+   sempre param para aprovação.
 3. Com as **stories** aprovadas, a implementação faz **fan-out**: um `frontend-engineer`/
    `backend-engineer` (Sonnet) **por story**, em worktree, com TDD (`subagent-driven-development`).
 4. **Review** (`requesting-code-review`) → você revisa os diffs → merge → registra no
@@ -203,8 +211,10 @@ A regra completa vive em `AGENTS.md` → "Delegation & isolation". Na prática:
 4. Como `worktree.baseRef = head`, cada agente paralelo **parte do HEAD estável** — nunca do
    worktree de outro agente. Cada um tem **sua própria** worktree.
 5. Cada agente **devolve**: resumo · arquivos alterados · testes executados · riscos · **hash do commit** · **disciplina seguida** (skills aplicadas + evidência de verificação).
-6. O orquestrador **consolida por cherry-pick** dos commits dos agentes (ou pede sua aprovação);
-   ele **não** cola código de agente à mão na janela principal.
+6. **Consolidação:** com remote, o caminho canônico é **um PR por story/batch** — o CI
+   da branch roda o mesmo `batch-verify` e o merge fecha o batch. Cherry-pick dos
+   commits do worktree é a alternativa local (sem remote). Em ambos os casos o
+   orquestrador **não** cola código de agente à mão na janela principal.
 7. **Redesign:** itere a direção visual em **uma única worktree ou página de preview**; só
    **propague para outras seções depois que você aprovar** a linguagem visual.
 
@@ -216,7 +226,10 @@ de redesign aprovada. Depois de cada batch, nesta ordem: `quality-gate` (passo 1
 `scripts/quality/batch-verify.mjs`, evidência determinística) → `verification-before-completion`
 → `requesting-code-review` → `security-auditor` (fluxos sensíveis — ver `docs/CONSTITUTION.md` —
 mais dependências relevantes ou assets externos) → corrigir bloqueadores → só então o próximo
-batch. Assets externos: registre origem e licença em `NOTICE.md` antes de publicar.
+batch. A execução pode ir pela skill ou pelo mesmo checklist como prática explícita, mas
+**a entrada no `DELIVERY_LOG.md` não tem substituto** — sem ela o batch não está fechado
+(o `batch-verify` avisa quando o log está mais antigo que o último merge). Assets
+externos: registre origem e licença em `NOTICE.md` antes de publicar.
 
 > **Mapa dos gates:** `docs/QUALITY_GATES.md` diz *qual* nível rodar *quando* (Quick Check ·
 > Development Gate · Release Gate) e aponta para a skill canônica de cada um — sem reescrevê-las.
@@ -305,9 +318,10 @@ Se um hook bloquear algo legítimo, peça confirmação explícita ou ajuste a a
 
 - O **Opus principal não altera governança** (`CLAUDE.md`, `AGENTS.md`, `.claude/**`,
   `.codex/**`, `.agents/**`, `scripts/quality/**`) — DENY determinístico (override →
-  ASK). Para **código de aplicação**, a política é por profile: `standard` → cada
-  escrita inline pede sua aprovação (ASK); `light` → passa direto. Implementação
-  média/grande continua sendo delegada a agentes Sonnet em worktree.
+  ASK). Para **código de aplicação**, a política é por profile: `standard` → a escrita
+  inline pede sua aprovação (ASK) e **a primeira aprovação cobre o resto da sessão**;
+  `light` → passa direto. Implementação média/grande continua sendo delegada a
+  agentes Sonnet em worktree.
 - Escritas de **subagentes** em arquivos de governança (`CLAUDE.md`, `AGENTS.md`, `.claude/**`,
   `.codex/**`, `.agents/**`, `scripts/quality/**`) são marcadas como **ask** pelo hook. Num
   subagente **interativo** isso vira um prompt de aprovação; num subagente de **background**
@@ -419,7 +433,12 @@ node scripts/quality/batch-verify.mjs
 
 Ele lê a tabela **Commands** e o **Profile** do `docs/STACK.md`, roda os comandos
 configurados (Lint → Typecheck → Test → Build, parando na primeira falha; Format fica
-de fora — formatador muta arquivos) e imprime a tabela de evidência. Exit codes:
+de fora — formatador muta arquivos) e imprime a tabela de evidência. Três avisos
+importantes que ele emite: com a árvore limpa numa branch commitada, ele avalia o
+**diff da branch vs merge-base** da branch default (trabalho commitado não escapa do
+guard); um PASS com **zero comandos configurados** declara explicitamente que "não
+verificou nada"; e um `docs/DELIVERY_LOG.md` **mais antigo que o último merge** gera
+aviso de entrada faltando. Exit codes:
 `0` passou (avisos possíveis) · `1` um comando configurado falhou · `2` o comando de
 Test está `TBD` e o batch toca código de aplicação (profile `standard`) — configure o
 comando ou, por decisão sua, rode com `--accept-unconfigured` e registre o waiver no

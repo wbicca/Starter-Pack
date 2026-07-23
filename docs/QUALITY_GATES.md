@@ -85,7 +85,8 @@ checklist clean for UI batches, sanctioned-path check passed.
 as not configured); diff is clean and scoped; no secrets/real `.env`; app code went through
 a sanctioned path; code review done when the batch is non-trivial; an entry appended to
 `docs/DELIVERY_LOG.md` when the project keeps one (what shipped · validation · review/approval
-· commit).
+· commit) — **the entry has no substitute: a batch without it is not closed**
+(`batch-verify` warns when the log is older than the last merge).
 
 ---
 
