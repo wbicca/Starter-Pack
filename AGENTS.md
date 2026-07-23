@@ -18,6 +18,8 @@ This repository is designed to work with Claude Code and Codex.
   project marked out of scope.
 - Do not assume project context from the folder name; ask first.
 - Do not implement non-trivial work before planning and **explicit human approval** of the plan.
+  The planning gate is satisfied by an **artifact**, not a specific tool — see
+  "Planning artifact" below.
 - After each implementation batch, run `quality-gate`.
 - After large changes, run `refactor-pass`.
 - Before release, run `release-sanity`.
@@ -97,6 +99,16 @@ not configured, fall back to `Glob`/`Grep`. Never required; the project must wor
   workflows, and expansion packs — not for simple Claude Code operational skills.
 - `skill-discovery` may recommend skills but never installs without explicit approval.
 
+## Planning artifact — the gate is the artifact, not the tool
+
+Non-trivial work requires an **approved, versioned spec before any code**, covering:
+objective · product decisions · structural risks · sequencing · rollback. BMAD is the
+canonical path to produce it (`bmad-prd`, `bmad-create-epics-and-stories`, …); a
+hand-written spec covering the same sections satisfies the gate equally. What never
+satisfies it: implementing non-trivial work from a chat message with no versioned
+artifact. This is the single canonical statement of the planning gate — other files
+reference it.
+
 ## Delegation & isolation
 
 **End-to-end flow (new project / non-trivial feature):**
@@ -118,11 +130,11 @@ not configured, fall back to `Glob`/`Grep`. Never required; the project must wor
 **Rules:**
 - **Approval gate:** the human approves the plan/story list **before** any implementation
   fan-out (plan → approve → execute). "Faça tudo" authorizes orchestration end-to-end, not
-  skipping that approval. At plan approval the human also chooses the cadence: per-batch
-  confirmation (default) or epic-level autonomy — batches then proceed with all gates
-  still running and REPORTING, stopping only at epic completion; batches touching
-  sensitive flows (see `docs/CONSTITUTION.md`) always stop for approval
-  regardless.
+  skipping that approval. Default cadence: **epic-level autonomy** — batches proceed with
+  all gates still running and REPORTING, stopping only at epic completion (lead-time is
+  dominated by mid-epic waits, and the gates still report every batch). The human may
+  instead choose per-batch confirmation at plan approval; batches touching sensitive
+  flows (see `docs/CONSTITUTION.md`) always stop for approval regardless.
 - No scaffold, multi-file change, or new product is implemented **inline by the orchestrator** —
   the only exception is a small, clearly-local change.
 - Planning never uses a worktree; medium/large implementation does.
@@ -135,7 +147,7 @@ not configured, fall back to `Glob`/`Grep`. Never required; the project must wor
 | Review / audit (read-only) | No |
 | Single small edit | No |
 | Base scaffold (one agent) | Yes |
-| Implementation of a story | Yes |
+| Single sequential story (nothing else running) | Optional — a feature branch is enough; worktrees isolate PARALLEL writes |
 | Parallel independent changes (after scaffold) | Yes |
 | Risky / destructive change | Yes |
 
@@ -152,18 +164,22 @@ from the current branch HEAD — keep HEAD stable before fanning out.
 5. Each agent works in **its own** worktree.
 6. Each agent returns: **summary · files changed · tests run · risks · commit hash ·
    discipline followed (skills applied + verification evidence)**.
-7. The orchestrator consolidates by **cherry-pick** (or requests human approval) — it does
-   not hand-apply agent code into the main window. (Convention, not a guarded invariant:
-   no hook verifies cherry-pick vs hand-paste; the orchestrator upholds it. `quality-gate`
+7. **Consolidation:** when the project has a remote, the canonical path is a **PR per
+   story/batch** — the branch CI runs the same `batch-verify` rail and the merge closes
+   the batch (field evidence: PR + green CI outperformed local cherry-pick). Cherry-pick
+   from the agent worktree is the local alternative when there is no remote. Either way,
+   the orchestrator never hand-applies agent code into the main window. (Convention, not
+   a guarded invariant: no hook verifies it; the orchestrator upholds it. `quality-gate`
    step 8 only flags *unconsolidated* worktrees.)
 8. **Never** dispatch an isolated agent asking it to edit a worktree that already belongs to
    another agent.
 9. Exploratory visual iteration uses a **single** worktree or preview page until the visual
    direction is approved.
 10. Only **parallelize visual propagation after** the visual language is approved.
-11. **Cherry-pick conflict** → never hand-apply agent code into the main window. Re-dispatch
-    the conflicting story to a fresh implementer rebased on the new HEAD, or ask the human.
-    Stories that must touch the same files are **sequenced, not parallelized**.
+11. **Consolidation conflict** (PR merge or cherry-pick) → never hand-apply agent code
+    into the main window. Re-dispatch the conflicting story to a fresh implementer
+    rebased on the new HEAD, or ask the human. Stories that must touch the same files
+    are **sequenced, not parallelized**.
 
 ## Project profiles
 
@@ -176,8 +192,8 @@ protection, the security hooks, quick-check, or the sensitive-flow rule below.
 
 | Aspect | standard | light |
 |---|---|---|
-| Main-window inline app-code write | ASK (human approves small tasks) | passes silently |
-| BMAD planning for non-trivial work | required | opt-in (brief in-window planning still expected for multi-file work) |
+| Main-window inline app-code write | ASK — the first approval of the session covers the rest of it | passes silently |
+| Planning artifact for non-trivial work (see "Planning artifact") | required | opt-in (brief in-window planning still expected for multi-file work) |
 | quality-gate per batch | full sequence | proportional (commands + diff/secret inspection; review opt-in) |
 | `requesting-code-review` per batch | required | opt-in |
 | Delegation / worktrees / fan-out | canonical for medium+ | available, optional |
@@ -201,11 +217,11 @@ After **each** batch, before starting the next:
    (the `docs/STACK.md` commands, fail-fast, evidence over claims) + diff/secret
    inspection, and
    appends the `docs/DELIVERY_LOG.md` entry (what shipped · validation · review/approval ·
-   commit) when the project keeps one (the skill is the canonical vehicle; running the
-   same checklist as explicit practice and recording it in the DELIVERY_LOG entry is
-   equally valid — what matters is that the checks ran and were recorded). The entry is
-   recorded *by the skill/practice*, not verified at write time by any hook — `starter-feedback`
-   audits its presence after the fact;
+   commit) when the project keeps one. The EXECUTION may go through the skill or the
+   same checklist run as explicit practice — but the **DELIVERY_LOG entry has no
+   substitute**: without it the batch is not closed. No hook verifies the entry at
+   write time — `batch-verify` warns when the log is older than the last merge, and
+   `starter-feedback` audits it after the fact;
 2. run `verification-before-completion` — evidence before any "done" claim;
 3. run `requesting-code-review`;
 4. trigger `security-auditor` when the batch touches a sensitive flow (see

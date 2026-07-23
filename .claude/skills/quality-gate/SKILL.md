@@ -50,8 +50,8 @@ is sound; it does not refactor (`refactor-pass`) or audit for release (`release-
    `.env.example` / `.env.template` with placeholders are the shareable form.
 6. **Sanctioned-path check** — confirm application code was written through a
    sanctioned path: an implementation agent, an ASK-approved inline write (standard
-   profile), or an inline write in the light profile. Flag code that bypassed the
-   write-guard.
+   profile — the first approval of a session covers its later inline writes), or an
+   inline write in the light profile. Flag code that bypassed the write-guard.
 7. **Design check (UI batches only)** — when the diff touches UI files
    (`tsx/jsx/vue/svelte/css/scss/html`), run the design review checklist at the end of
    `docs/DESIGN_STANDARDS.md`: five view states · contrast/keyboard basics ·
@@ -64,8 +64,10 @@ is sound; it does not refactor (`refactor-pass`) or audit for release (`release-
    before the batch closes. Report what was found.
 9. **Code review** — recommend `requesting-code-review` when the batch is non-trivial.
 10. **Delivery log** — when the project keeps `docs/DELIVERY_LOG.md`, append the batch
-    entry: what shipped · validation · review/approval · commit hash. Skip silently when
-    the project has no delivery log.
+    entry: what shipped · validation · review/approval · commit hash. **The entry has
+    no substitute — a batch without its entry is not closed** (batch-verify warns when
+    the log is older than the last merge). Skip only when the project keeps no
+    delivery log.
 
 ## Deliverable
 A table plus a short verdict:

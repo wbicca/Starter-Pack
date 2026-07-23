@@ -31,7 +31,16 @@ layout, styling, components, responsiveness, and accessibility.
   responsiveness) and the project's **Visual language** in `docs/STACK.md` — they are
   the visual-quality contract. Cover empty/loading/error states before calling a view done.
 - When you work in an isolated worktree, commit your completed work there (small, cohesive
-  commits) — the orchestrator consolidates by cherry-pick and needs a commit to pick.
+  commits) — consolidation (PR or cherry-pick) needs a commit either way.
+
+## Definition of done (goal loop)
+- Iterate until green BEFORE returning: implement → run
+  `node scripts/quality/batch-verify.mjs` from your worktree root → fix → repeat
+  (max 3 iterations). Only commit and return once the verifier passes — its table is
+  your evidence. If `docs/STACK.md` has no configured commands yet, verify with the
+  checks that do exist and say so explicitly.
+- Still red after 3 iterations → STOP and return an honest report of the failure
+  (what fails, what you tried) instead of iterating further.
 
 ## Required Output
 Return a short, structured handoff:

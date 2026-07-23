@@ -29,21 +29,25 @@ writes the project docs including `docs/STACK.md`. Never assume or hardcode a st
 `AGENTS.md` → "Project profiles".
 - **Docs / non-app-code fix** (docs/, README/USAGE/NOTICE, a note): edit directly.
 - **App-code fix (small, clearly local)**: in `standard`, writing inline surfaces an
-  **ASK** — approve = implement inline; decline = delegate to one agent. In `light`,
+  **ASK** — approve = implement inline; decline = delegate to one agent. The first
+  approval covers the rest of the session (no re-ask per write). In `light`,
   implement inline directly. Either way, run the (proportional) gate after.
 - **Medium** (multi-file, clear scope): delegate to a specialized agent (Sonnet).
 - **Large** (new feature / product / epic): plan with BMAD first, then implement.
 - **Sensitive flows** (see `docs/CONSTITUTION.md` for the canonical list): full discipline
   in BOTH profiles — planning, review, and `security-auditor` are never skipped.
 
-## Planning gate (BMAD) — required before non-trivial work
+## Planning gate — required before non-trivial work
 New projects, new modules, and non-trivial features **must not** jump straight to
-implementation. Before mutating code, run BMAD planning **proportional to complexity**,
-produce stories, and get approval:
+implementation. The gate is satisfied by an **artifact, not a tool** (canonical
+statement: `AGENTS.md` → "Planning artifact"): an approved, versioned spec covering
+objective · decisions · structural risks · sequencing · rollback. BMAD is the
+canonical path to produce it, **proportional to complexity**:
 - New simple project → product brief + a lean PRD/spec + minimal architecture (only if
   needed) + stories.
 - Larger product → fuller BMAD flow, proportional to complexity.
-- Small, clearly-local change in an existing project → BMAD may be skipped.
+- A hand-written spec covering the same sections satisfies the gate equally.
+- Small, clearly-local change in an existing project → the gate may be skipped.
 
 In the **light** profile, formal BMAD planning is **opt-in**: skip it for small,
 clearly-local work, but still plan (briefly, in-window) anything multi-file — and
@@ -87,8 +91,10 @@ is a read-only structural check of the starter itself.
 ## Hook signals
 - `ORCHESTRATOR_WRITE_ASK` → inline app-code write in the standard profile: the human
   approves (small task, implement inline) or declines (delegate to the right agent —
-  do not retry inline after a decline). In the light profile inline app-code writes
-  pass without a prompt.
+  do not retry inline after a decline). The ASK is **session-scoped**: the first
+  approved write records a marker and later inline app-code writes pass silently for
+  the rest of the session (a decline records nothing). In the light profile inline
+  app-code writes pass without a prompt.
 - `GOVERNANCE_WRITE_DENIED` / `GOVERNANCE_WRITE_ASK` → governance edits happen only in
   explicit, human-approved maintenance batches: a subagent write surfaces an approval
   prompt (ask) to the human; the main window needs `CLAUDE_ORCHESTRATOR_WRITE_OVERRIDE=1`.
