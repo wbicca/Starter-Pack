@@ -158,6 +158,17 @@ const cases = [
   { name: "DELIVERY_LOG older than last merge → staleness warning", exit: 0,
     stderrHas: "delivery-log entry",
     fx: { stack: stackMd({ test: OK }), appChange: false, staleDeliveryLog: true } },
+  // v1.5: a stale log on a PASS prints the draft entry; --log appends it.
+  { name: "stale DELIVERY_LOG on PASS prints draft entry", exit: 0,
+    stderrHas: "Draft DELIVERY_LOG entry",
+    fx: { stack: stackMd({ test: OK }), appChange: false, staleDeliveryLog: true } },
+  { name: "--log appends draft entry to DELIVERY_LOG", exit: 0,
+    stderrHas: "appended to docs/DELIVERY_LOG.md", args: ["--log"],
+    fx: { stack: stackMd({ test: OK }), appChange: false, staleDeliveryLog: true } },
+  // v1.5: every PASS prints the batch-close checklist.
+  { name: "PASS prints batch close checklist", exit: 0,
+    stderrHas: "Batch close checklist",
+    fx: { stack: stackMd({ lint: OK, typecheck: OK, test: OK, build: OK }), testChange: true } },
 ];
 
 let failed = 0;

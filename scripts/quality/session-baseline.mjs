@@ -13,10 +13,13 @@
 // boundary (the /clear matcher was dropped so an in-session reset cannot re-baseline).
 //
 // Best-effort: any git failure → silent exit 0. SessionStart stdout becomes session
-// context, so on success this prints NOTHING.
+// context — on success this prints NOTHING except a short PENDING_STATE brief when
+// there is one (stale DELIVERY_LOG, merged worktrees awaiting cleanup, a volatile
+// count in STACK.md). Once, at the moment the operator decides what to do — instead
+// of chronic end-of-turn warnings that train the operator to ignore warnings.
 
 import { spawnSync } from "node:child_process";
-import { readFileSync, writeFileSync, statSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, statSync, existsSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 // Shared secret patterns — same source quick-check consumes. The baseline applies no
 // placeholder exemption, so it records a SUPERSET of what quick-check flags — the safe
@@ -131,6 +134,36 @@ try {
   };
   writeFileSync(resolve(root, ".claude/.quick-check-baseline.json"),
                 JSON.stringify(baseline, null, 2) + "\n");
+
+  // --- Pending-state brief (stdout → session context) -----------------------------
+  const brief = [];
+  if (existsSync(resolve(root, "docs/DELIVERY_LOG.md"))) {
+    const logT = Number(run("git", ["log", "-1", "--format=%ct", "--", "docs/DELIVERY_LOG.md"], { cwd: root }).stdout);
+    const mergeT = Number(run("git", ["log", "-1", "--merges", "--format=%ct"], { cwd: root }).stdout);
+    if (Number.isFinite(logT) && Number.isFinite(mergeT) && logT > 0 && mergeT > logT) {
+      brief.push("docs/DELIVERY_LOG.md is older than the last merge (batch-verify --log drafts the missing entry)");
+    }
+  }
+  let wts = [];
+  try { wts = readdirSync(resolve(root, ".claude/worktrees")).filter((e) => e !== ".DS_Store"); } catch { wts = []; }
+  if (wts.length) {
+    const defBranch = ["origin/main", "origin/master", "main", "master"]
+      .find((r) => run("git", ["rev-parse", "--verify", r], { cwd: root }).status === 0);
+    let merged = 0;
+    for (const w of wts) {
+      const sha = run("git", ["-C", resolve(root, ".claude/worktrees", w), "rev-parse", "HEAD"]).stdout;
+      if (defBranch && sha &&
+          run("git", ["merge-base", "--is-ancestor", sha, defBranch], { cwd: root }).status === 0) merged++;
+    }
+    if (merged > 0) {
+      brief.push(`${merged} merged agent worktree(s) awaiting cleanup (starter-doctor prints the removal commands)`);
+    }
+  }
+  const stackText = readTextCapped(resolve(root, "docs/STACK.md"));
+  if (stackText && /\b\d{2,}\s+(?:testes?|tests?|arquivos|files|specs?)\b/i.test(stackText)) {
+    brief.push("docs/STACK.md records a volatile count — reference the command, not its output");
+  }
+  if (brief.length) process.stdout.write("PENDING_STATE: " + brief.join(" · ") + "\n");
 } catch {
   /* best-effort — never block session start */
 }

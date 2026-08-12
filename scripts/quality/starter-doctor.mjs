@@ -113,7 +113,7 @@ const TDD_AGENTS = ["frontend-engineer", "backend-engineer", "qa-tester"];
 // Canonical starter skills named in AGENTS.md / CLAUDE.md — each must ship a SKILL.md.
 const CANONICAL_SKILLS = [
   "project-onboarding", "quality-gate", "refactor-pass", "release-sanity", "skill-discovery",
-  "starter-feedback",
+  "starter-feedback", "impress-gate",
 ];
 // Codex agent TOMLs that must be registered in .codex/config.toml.
 const CODEX_AGENTS = ["backend-engineer", "frontend-engineer", "code-reviewer", "security-auditor"];
@@ -345,16 +345,48 @@ section("Security and repository hygiene", (api) => {
   if (gi && /(^|\n)\s*\.env\s*(\n|$)/.test(gi)) api.ok(".gitignore ignores .env");
   else if (gi) api.warn(".gitignore does not obviously ignore .env — confirm secrets can't be committed");
 
-  // Leftover agent worktrees (.claude/worktrees/*) — each must be consolidated
-  // (cherry-pick) or removed before a batch closes; a leftover means unreviewed work.
-  // Warn-level: a process smell, not a broken repo. (.DS_Store is not a worktree.)
+  // Leftover agent worktrees (.claude/worktrees/*) — only UNMERGED content warns.
+  // A worktree whose commits are already contained in the default branch is finished
+  // work awaiting cleanup (OK + the exact removal commands): a WARN that is always on
+  // trains the operator to ignore the WARN that will one day be real (field report
+  // 2026-08: 6 chronic worktree WARNs, all content already in main).
+  const DEF_BRANCH = ["origin/main", "origin/master", "main", "master"]
+    .find((r) => run("git", ["rev-parse", "--verify", r], { cwd: ROOT }).status === 0);
+  const inDefault = (ref) => !!DEF_BRANCH && !!ref &&
+    run("git", ["merge-base", "--is-ancestor", ref, DEF_BRANCH], { cwd: ROOT }).status === 0;
   let worktrees = [];
   try { worktrees = readdirSync(resolve(ROOT, ".claude/worktrees")); } catch { worktrees = []; }
   worktrees = worktrees.filter((e) => e !== ".DS_Store");
   if (worktrees.length) {
-    api.warn(`agent worktree(s) present: ${worktrees.map(stripControl).join(", ")} — consolidate or remove before closing the batch`);
+    const merged = [];
+    const unmerged = [];
+    for (const w of worktrees) {
+      const sha = run("git", ["-C", resolve(ROOT, ".claude/worktrees", w), "rev-parse", "HEAD"]).stdout;
+      (inDefault(sha) ? merged : unmerged).push(w);
+    }
+    if (unmerged.length) {
+      api.warn(`agent worktree(s) with UNMERGED content: ${unmerged.map(stripControl).join(", ")} — consolidate (PR/cherry-pick) or discard before closing the batch`);
+    }
+    if (merged.length) {
+      const cmds = merged.map((w) => `git worktree remove ".claude/worktrees/${stripControl(w)}"`).join(" && ");
+      api.ok(`${merged.length} merged agent worktree(s) safe to prune — run: ${cmds}`);
+    }
   } else {
     api.ok("no leftover agent worktrees");
+  }
+
+  // Stale agent branches (worktree-agent-*) — merged ones are safe to delete.
+  const agentBranches = gitList(ROOT, ["branch", "--list", "worktree-agent-*", "--format=%(refname:short)"]);
+  if (agentBranches.length) {
+    const mergedBr = agentBranches.filter((b) => inDefault(b));
+    const unmergedBr = agentBranches.length - mergedBr.length;
+    if (mergedBr.length) {
+      const shown = mergedBr.slice(0, 5).map(stripControl).join(" ");
+      api.ok(`${mergedBr.length} merged worktree-agent-* branch(es) safe to delete — run: git branch -d ${shown}${mergedBr.length > 5 ? " …" : ""}`);
+    }
+    if (unmergedBr > 0) {
+      api.warn(`${unmergedBr} worktree-agent-* branch(es) with unmerged content — review before deleting`);
+    }
   }
 });
 
@@ -393,6 +425,12 @@ section("Project readiness", (api) => {
   if (status && status !== "UNCONFIGURED") {
     if (/^##\s+Capabilities\b/m.test(stack)) api.ok("docs/STACK.md has a Capabilities section");
     else api.warn("docs/STACK.md is configured but has no Capabilities section (relevant agents / integrations / out-of-scope)");
+  }
+
+  // Volatile counts recorded as prose go stale in days (field report: a "903 tests"
+  // sanity note read as healthy at 40% of the real suite). Enforce the v1.4.0 rule.
+  if (/\b\d{2,}\s+(?:testes?|tests?|arquivos|files|specs?)\b/i.test(stack)) {
+    api.warn("docs/STACK.md records a volatile count (e.g. \"NNN tests\") — reference the command, never its current output");
   }
 
   // Package manager / runtime identification (informational) — root or app root.

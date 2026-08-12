@@ -10,8 +10,11 @@
 // command can still be obfuscated past it. Keep it as defense-in-depth.
 
 import { isVersionable } from "./lib/exposure.mjs";
+import { logEvent } from "./lib/govlog.mjs";
 
 function decide(decision, reason) {
+  // ROOT is initialized before any deny/ask can fire (they all run after parsing).
+  logEvent(ROOT, { hook: "danger-bash", decision, code: reason.slice(0, 80) });
   process.stdout.write(JSON.stringify({
     hookSpecificOutput: {
       hookEventName: "PreToolUse",

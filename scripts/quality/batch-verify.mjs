@@ -17,7 +17,13 @@
 //   * Zero configured commands while the batch touches app code → loud warning: a
 //     PASS that executed nothing is not evidence.
 //   * docs/DELIVERY_LOG.md older than the last merge → warning: the delivery-log
-//     entry has no substitute.
+//     entry has no substitute. On a PASS with a stale log the script PRINTS a draft
+//     entry; with --log it APPENDS the draft to the log for the human to edit (the
+//     only mutation this verifier ever performs, and only on explicit opt-in — CI
+//     never passes --log).
+//   * On every PASS the script prints the batch-close checklist (the gate steps a
+//     script cannot run: log entry, review, security, worktrees) — field evidence
+//     showed the checklist only survives where the execution happens.
 //
 // Exit codes: 0 = PASS (possibly with warnings) · 1 = a configured command failed ·
 // 2 = unconfigured-Test blocker (standard). Timeout per command via
@@ -29,8 +35,9 @@
 // unavailable (warning, heuristics skipped) — a broken local git must not brick the
 // gate the human is standing next to.
 //
-// Usage: node scripts/quality/batch-verify.mjs [--accept-unconfigured] [--range <ref>]
+// Usage: node scripts/quality/batch-verify.mjs [--accept-unconfigured] [--range <ref>] [--log]
 //   --range <ref>  diff <ref>...HEAD instead of the local working state (CI use).
+//   --log          append the drafted DELIVERY_LOG entry (local batch close; never CI).
 //
 // Trust model: STACK.md commands run with shell:true BY DESIGN — they are exactly what
 // the gate is supposed to execute (compound commands need shell operators), STACK.md
@@ -38,12 +45,13 @@
 // shell:false — it would break `a && b` commands without adding a real boundary.
 
 import { spawn, spawnSync } from "node:child_process";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, appendFileSync } from "node:fs";
 import { join } from "node:path";
 
 const ROOT = process.cwd();
 const argv = process.argv.slice(2);
 const ACCEPT_UNCONFIGURED = argv.includes("--accept-unconfigured");
+const APPEND_LOG = argv.includes("--log");
 const rangeIdx = argv.indexOf("--range");
 const RANGE = rangeIdx !== -1 ? argv[rangeIdx + 1] : null;
 if (rangeIdx !== -1 && !RANGE) {
@@ -243,13 +251,39 @@ if (appChanged && !testChanged) {
 // Delivery-log staleness: the DELIVERY_LOG entry has no substitute. When the log
 // exists but is older than the last merge, batches likely closed without their
 // entry — surface it every run (a warning: the fix is a doc append, never a block).
-if (existsSync(join(ROOT, "docs", "DELIVERY_LOG.md"))) {
+const LOG_PATH = join(ROOT, "docs", "DELIVERY_LOG.md");
+const logExists = existsSync(LOG_PATH);
+let logStale = false;
+if (logExists) {
   const logT = Number((git(["log", "-1", "--format=%ct", "--", "docs/DELIVERY_LOG.md"]) ?? "").trim());
   const mergeT = Number((git(["log", "-1", "--merges", "--format=%ct"]) ?? "").trim());
   if (Number.isFinite(logT) && Number.isFinite(mergeT) && logT > 0 && mergeT > logT) {
+    logStale = true;
     warnings.push("docs/DELIVERY_LOG.md is older than the last merge — batches may be " +
       "missing their delivery-log entry (the entry has no substitute).");
   }
+}
+
+// Draft DELIVERY_LOG entry — generated from git + the command results so closing the
+// batch is an edit, not a from-scratch write (field evidence: as a purely manual step
+// the entry happened in 4 of 26 batches). Human edits the TODO before committing.
+function draftLogEntry(results) {
+  const today = new Date().toISOString().slice(0, 10);
+  const head = (git(["rev-parse", "--short", "HEAD"]) ?? "").trim() || "TBD";
+  const logSha = (git(["log", "-1", "--format=%H", "--", "docs/DELIVERY_LOG.md"]) ?? "").trim();
+  // What shipped = merge subjects since the log's last commit (the unlogged batches).
+  let shipped = (logSha ? (git(["log", `${logSha}..HEAD`, "--merges", "--format=%s"]) ?? "") : "")
+    .split("\n").filter(Boolean).slice(0, 10);
+  if (!shipped.length) shipped = [((git(["log", "-1", "--format=%s"]) ?? "").trim() || "TBD")];
+  const validation = results.map((r) => `${r.purpose}: ${r.result}`).join(" · ");
+  return [
+    `### ${today} — batch close (draft by batch-verify — edit before committing)`,
+    ...shipped.map((s) => `- **Shipped:** ${s}`),
+    `- **Validation:** ${validation}`,
+    `- **Review/approval:** TODO (who reviewed · human approval)`,
+    `- **Commit:** ${head}`,
+    "",
+  ].join("\n");
 }
 
 // --- report --------------------------------------------------------------------------
@@ -262,5 +296,28 @@ if (blocker) err(`BLOCKER: ${blocker}`);
 
 if (commandFailed) { err("\nbatch-verify: FAIL"); process.exit(1); }
 if (blocker) { err("\nbatch-verify: FAIL (unconfigured Test on an app-code batch)"); process.exit(2); }
+
+// PASS path: draft the DELIVERY_LOG entry (print when stale; append on --log) and
+// print the batch-close checklist — the gate steps a script cannot run.
+if (logExists && (APPEND_LOG || logStale)) {
+  const draft = draftLogEntry(results);
+  if (APPEND_LOG) {
+    try {
+      appendFileSync(LOG_PATH, "\n" + draft);
+      err("\nbatch-verify: draft entry appended to docs/DELIVERY_LOG.md — edit the TODO before committing.");
+    } catch (e) {
+      err(`\nbatch-verify: could not append to docs/DELIVERY_LOG.md (${e.code ?? "error"}) — draft below:\n${draft}`);
+    }
+  } else {
+    err("\nDraft DELIVERY_LOG entry (append with --log):\n" + draft);
+  }
+}
+err("");
+err("Batch close checklist (steps this script cannot run):");
+err("  [ ] DELIVERY_LOG entry appended — no substitute (use --log for a draft)");
+err("  [ ] code review dispatched (non-trivial batch)");
+err("  [ ] security-auditor dispatched (sensitive flow — see docs/CONSTITUTION.md)");
+err("  [ ] agent worktrees consolidated or removed (git worktree list)");
+
 err(warnings.length ? "\nbatch-verify: PASS (with warnings)" : "\nbatch-verify: PASS");
 process.exit(0);

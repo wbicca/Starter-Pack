@@ -143,12 +143,15 @@ const TRACKED_FIX = makeTrackedEnvFixture();
 const SESS_OK = "smoke-sess-ok-" + randAlnum(6);
 const SESS_NEW = "smoke-sess-new-" + randAlnum(6);
 const SESS_DOC = "smoke-sess-doc-" + randAlnum(6);
+const SESS_BASH = "smoke-sess-bash-" + randAlnum(6);
+const SESS_BASH_DOC = "smoke-sess-bdoc-" + randAlnum(6);
+const SESS_BASH_GOV = "smoke-sess-bgov-" + randAlnum(6);
 const markerOf = (s) => join(tmpdir(), "claude-inline-ask-" + s);
 writeFileSync(markerOf(SESS_OK), "");
 
 process.on("exit", () => {
   for (const d of [GIT_FIX, LIGHT_FIX, NOGIT_FIX, TRACKED_FIX, BADPROF_FIX, LIGHT_HOME_FIX]) rmSync(d, { recursive: true, force: true });
-  for (const s of [SESS_OK, SESS_NEW, SESS_DOC]) rmSync(markerOf(s), { force: true });
+  for (const s of [SESS_OK, SESS_NEW, SESS_DOC, SESS_BASH, SESS_BASH_DOC, SESS_BASH_GOV]) rmSync(markerOf(s), { force: true });
 });
 
 // Per-root payload builders (fixture cases must set BOTH payload.cwd and the
@@ -566,16 +569,24 @@ const rows = cases.map((c) => {
 // write (the tool ran ⇒ the human approved) and must NOT record one for docs. It
 // must stay completely silent on PostToolUse (no permission decision).
 const postCases = [
-  { name: "PostToolUse app-code write records session marker", file: "src/app.ts",
-    sess: SESS_NEW, expectMarker: true },
-  { name: "PostToolUse docs write records no marker", file: "docs/x.md",
-    sess: SESS_DOC, expectMarker: false },
+  { name: "PostToolUse app-code write records session marker", tool: "Write",
+    tool_input: { file_path: "src/app.ts", content: "smoke" }, sess: SESS_NEW, expectMarker: true },
+  { name: "PostToolUse docs write records no marker", tool: "Write",
+    tool_input: { file_path: "docs/x.md", content: "smoke" }, sess: SESS_DOC, expectMarker: false },
+  // v1.5: an approved Bash redirect into app code must record the marker too — the
+  // v1.4 gap (`toolName !== "Bash"`) reproduced the ASK after every Bash approval.
+  { name: "PostToolUse Bash app-code redirect records marker", tool: "Bash",
+    tool_input: { command: "echo hi > src/app.ts" }, sess: SESS_BASH, expectMarker: true },
+  { name: "PostToolUse Bash docs redirect records no marker", tool: "Bash",
+    tool_input: { command: "echo hi > docs/x.md" }, sess: SESS_BASH_DOC, expectMarker: false },
+  { name: "PostToolUse Bash governance redirect records no marker", tool: "Bash",
+    tool_input: { command: "echo hi > .claude/settings.json" }, sess: SESS_BASH_GOV, expectMarker: false },
 ];
 for (const pc of postCases) {
   const r = spawnSync(process.execPath, [join(root, HOOKS["write-guard"])], {
     input: JSON.stringify({
-      hook_event_name: "PostToolUse", tool_name: "Write",
-      tool_input: { file_path: pc.file, content: "smoke" }, cwd: root, session_id: pc.sess,
+      hook_event_name: "PostToolUse", tool_name: pc.tool,
+      tool_input: pc.tool_input, cwd: root, session_id: pc.sess,
     }),
     encoding: "utf8", env, cwd: root, timeout: 15_000,
   });

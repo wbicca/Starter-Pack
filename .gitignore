@@ -51,6 +51,8 @@ Thumbs.db
 _bmad/custom/config.user.toml
 # quick-check session baseline (written by the SessionStart hook, per-machine)
 .claude/.quick-check-baseline.json
+# governance event log (appended by the hooks, per-machine — paths/codes only)
+.claude/.governance-log.jsonl
 
 # BMAD output: ephemeral artifacts — keep only the base structure
 /_bmad-output/**

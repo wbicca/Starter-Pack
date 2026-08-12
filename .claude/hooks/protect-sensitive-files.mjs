@@ -4,8 +4,12 @@
 // tracked or not git-ignored is denied (it could enter the next commit).
 
 import { isVersionable } from "./lib/exposure.mjs";
+import { logEvent } from "./lib/govlog.mjs";
+
+let LOG_ROOT = "";
 
 function deny(reason) {
+  logEvent(LOG_ROOT, { hook: "protect-env", decision: "deny", code: reason.slice(0, 80) });
   process.stdout.write(JSON.stringify({
     hookSpecificOutput: {
       hookEventName: "PreToolUse",
@@ -32,6 +36,7 @@ try {
   process.exit(0);
 }
 const input = payload.tool_input ?? {};
+LOG_ROOT = (process.env.CLAUDE_PROJECT_DIR || payload.cwd || process.cwd()).toString();
 
 const path = (input.file_path ?? input.path ?? input.filePath ?? input.notebook_path ?? "").toString();
 if (!path) process.exit(0);

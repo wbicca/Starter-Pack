@@ -29,6 +29,7 @@ import { resolve, normalize, relative } from "node:path";
 // Shared secret patterns — one source with scan-secrets and session-baseline
 // (module-relative path: works from any cwd).
 import { INTRINSIC_SECRETS } from "../../.claude/hooks/lib/secret-patterns.mjs";
+import { logEvent } from "../../.claude/hooks/lib/govlog.mjs";
 
 // ---------------------------------------------------------------------------
 // Utilities
@@ -407,6 +408,8 @@ if (isHookMode) {
     const summary = blockers.length === 1
       ? blockers[0]
       : `${blockers.length} issues — ${blockers[0]} (+${blockers.length - 1} more; run manually for full list)`;
+    logEvent(root, { hook: "quick-check", decision: "block",
+      code: blockers[0].slice(0, 80), session: (event.session_id ?? "").toString() });
     process.stdout.write(JSON.stringify({
       decision: "block",
       reason: `QUICK_CHECK_FAILED: ${summary}`,
@@ -426,6 +429,8 @@ if (isHookMode) {
     }
     if (fresh.length > 0) {
       storeEmittedWarnings(root, [...baseline.emittedWarnings, ...fresh.map(wHash)]);
+      logEvent(root, { hook: "quick-check", decision: "warn",
+        code: fresh[0].slice(0, 80), session: (event.session_id ?? "").toString() });
     }
     const parts = [...persistent, ...fresh];
     process.stdout.write(JSON.stringify({

@@ -11,8 +11,13 @@
 
 import { isVersionable } from "./lib/exposure.mjs";
 import { INTRINSIC_SECRETS, ASSIGNMENT_KEYS, PUBLIC_KEY_PREFIX } from "./lib/secret-patterns.mjs";
+import { logEvent } from "./lib/govlog.mjs";
+
+let LOG_ROOT = "";
 
 function deny(reason) {
+  // Category only — the matched value is never logged (govlog contract).
+  logEvent(LOG_ROOT, { hook: "scan-secrets", decision: "deny", code: reason.slice(0, 80) });
   process.stdout.write(JSON.stringify({
     hookSpecificOutput: {
       hookEventName: "PreToolUse",
@@ -39,6 +44,7 @@ try {
   process.exit(0);
 }
 const input = payload.tool_input ?? {};
+LOG_ROOT = (process.env.CLAUDE_PROJECT_DIR || payload.cwd || process.cwd()).toString();
 
 // Exposure-based short-circuit: content aimed at an ignored-and-untracked file can
 // never be committed — skip the scan. Writes without an identifiable target path

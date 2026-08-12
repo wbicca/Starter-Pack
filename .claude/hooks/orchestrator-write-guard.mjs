@@ -51,6 +51,12 @@
 import path from "node:path";
 import os from "node:os";
 import fs from "node:fs";
+import { logEvent } from "./lib/govlog.mjs";
+
+// Context for the governance event log — populated after the payload is parsed so
+// every ask/deny records WHICH tool and role triggered it (the 2026-08 audit could
+// not attribute ASKs to a tool from transcripts alone). Paths/codes only.
+const LOG = { root: "", tool: "", agent: "main", session: "" };
 
 // --- Application-code surface -------------------------------------------------
 const APP_EXTS = new Set([
@@ -229,6 +235,10 @@ function readProfile(root) {
 
 // --- Output helpers -----------------------------------------------------------
 function decide(decision, reason) {
+  logEvent(LOG.root, {
+    hook: "write-guard", decision, code: reason.split(":")[0],
+    tool: LOG.tool, agent: LOG.agent, session: LOG.session,
+  });
   process.stdout.write(JSON.stringify({
     hookSpecificOutput: {
       hookEventName: "PreToolUse",
@@ -279,22 +289,37 @@ const agentType = (input.agent_type ?? input.agentType ?? "").toString();
 const isMain = !agentId; // no agent_id => main / orchestrator window
 const sessionId = (input.session_id ?? "").toString();
 const root = (process.env.CLAUDE_PROJECT_DIR || input.cwd || process.cwd()).toString();
+LOG.root = root; LOG.tool = toolName; LOG.session = sessionId;
+LOG.agent = isMain ? "main" : (agentType || "subagent");
 
 // --- PostToolUse: record the session-scoped inline-write approval ---------------
-// This hook is also wired on PostToolUse for file-write tools. A PostToolUse event
-// means the tool ALREADY ran — so a standard-profile main-window app-code write got
-// its human approval (or an earlier marker). Record the marker and exit silently;
-// PostToolUse never emits a permission decision.
+// This hook is also wired on PostToolUse for file-write tools AND Bash. A PostToolUse
+// event means the tool ALREADY ran — so a standard-profile main-window app-code write
+// got its human approval (or an earlier marker). Record the marker and exit silently;
+// PostToolUse never emits a permission decision. Bash is covered too: an approved
+// redirect into app code passed the same PreToolUse ASK — skipping it here reproduced
+// the question on every later write (2026-08 field report, friction 4).
 if ((input.hook_event_name ?? "") === "PostToolUse") {
-  if (isMain && sessionId && toolName !== "Bash") {
-    const p = (toolInput.file_path ?? toolInput.path ?? toolInput.filePath ?? toolInput.notebook_path ?? "").toString();
-    if (p) {
-      const n = normalize(p, root);
-      const relPost = stripWorktreePrefix(n.rel);
-      if (!n.outside && !isGovPath(relPost) && APP_EXTS.has(n.ext) &&
-          readProfile(root) === "standard") {
-        try { fs.writeFileSync(askMarkerPath(sessionId), ""); } catch { /* best-effort */ }
+  if (isMain && sessionId && readProfile(root) === "standard") {
+    let appWrite = false;
+    if (toolName === "Bash") {
+      const cmd = (toolInput.command ?? "").toString();
+      const scmd = stripSafeReadOnlyRedirects(cmd)
+        .replace(/\.claude\/worktrees\/[^/\s"']+\//g, "");
+      appWrite = extractRedirectTargets(scmd).some((t) => {
+        const n = normalize(t, root);
+        return !n.outside && APP_EXT_RE.test(t) && !isGovPath(stripWorktreePrefix(n.rel));
+      });
+    } else {
+      const p = (toolInput.file_path ?? toolInput.path ?? toolInput.filePath ?? toolInput.notebook_path ?? "").toString();
+      if (p) {
+        const n = normalize(p, root);
+        const relPost = stripWorktreePrefix(n.rel);
+        appWrite = !n.outside && !isGovPath(relPost) && APP_EXTS.has(n.ext);
       }
+    }
+    if (appWrite) {
+      try { fs.writeFileSync(askMarkerPath(sessionId), ""); } catch { /* best-effort */ }
     }
   }
   process.exit(0);
