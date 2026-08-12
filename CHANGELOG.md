@@ -4,6 +4,53 @@ All notable template changes, one entry per maintenance batch. Projects check th
 template version in `VERSION` (reported by `starter-doctor`) and pull updates with
 `node scripts/quality/update-from-template.mjs`.
 
+## 1.5.0 — 2026-08-12
+
+Round-2 field calibration ("what the starter automated survived; what it only wrote
+in the contract did not") + the impress-gate. Every item traces to the 2026-08-12
+`starter-feedback` audit (108 commits / 26 PRs / 150 dispatches under v1.4.0).
+
+- **batch-verify closes the batch with you**: on a PASS it prints the batch-close
+  checklist (the steps that only lived inside the never-invoked quality-gate skill:
+  log entry · review · security · worktrees) and DRAFTS the DELIVERY_LOG entry from
+  git + command results when the log is stale — `--log` appends it for editing (the
+  verifier's only mutation, explicit opt-in, never CI). Field evidence: as a purely
+  manual step the entry happened in 4 of 26 batches.
+- **`impress-gate` skill (new, opt-in)**: gauntlet-style visual quality gate for UI
+  batches — a fresh-context READ-ONLY critic drives the real app (Playwright /
+  `webapp-testing`), provokes the five states, captures screenshots/console to
+  scratch, and judges against an explicit rubric (DESIGN_STANDARDS + STACK Visual
+  language + blind comparison vs a reference when one exists). Verdict always names
+  the largest remaining gap; max 3 rounds then human escalation; missing tooling is
+  suggested and approved once, never auto-installed. Wired into quality-gate step 7,
+  the frontend agents' goal loop, and STACK Capabilities.
+- **Session-scoped ASK covers Bash** (v1.4.0 defect, audit friction 4): the approval
+  marker is now recorded for approved Bash redirects into app code too (PostToolUse
+  wiring for Bash added) — ends the ~30 re-asks measured in approved sessions.
+- **Governance event log**: every hook ask/deny/block/fresh-warn appends one JSON
+  line to `.claude/.governance-log.jsonl` (gitignored; paths/codes only, with tool
+  attribution). `starter-feedback` now reads exact counts instead of transcript
+  archaeology (the audit documented grep self-contamination and a silent count
+  failure).
+- **Doctor: signal, not noise**: worktrees/`worktree-agent-*` branches whose content
+  is already in the default branch are OK + ready-to-paste cleanup commands; only
+  UNMERGED content warns (the chronic WARN covered 6 worktrees, all merged). New
+  warning when STACK.md records a volatile count ("NNN tests") — enforcing the
+  v1.4.0 rule that field data showed being violated (903 recorded vs 2242 real).
+- **SessionStart pending-state brief**: session-baseline prints `PENDING_STATE:`
+  (stale DELIVERY_LOG · merged worktrees awaiting cleanup · volatile count) once, at
+  the moment the operator decides what to do — instead of chronic end-of-turn noise.
+- **Planning track declared at onboarding**: `BMAD` | `manual specs` (new Step 0
+  question + Capabilities line). With `manual specs` the BMAD routes stay installed
+  but dormant — two audit rounds measured zero BMAD invocations against eight
+  excellent hand-written specs.
+- **Docs/contract sync**: AGENTS (routing row, batch close, planning track,
+  worktree-cleanup pointer), USAGE (§3.5b impress-gate, `--log`, PENDING_STATE,
+  governance log), QUALITY_GATES, quality-gate/onboarding/starter-feedback skills,
+  DECISIONS template format note.
+- **Tests**: hook-smoke 147→150 (Bash marker PostToolUse); batch-verify-smoke 23→26
+  (draft print, `--log` append, checklist).
+
 ## 1.4.0 — 2026-07-23
 
 Field-report calibration — every change traces to the first real-project

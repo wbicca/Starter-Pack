@@ -135,6 +135,16 @@ Mantenha **cirúrgico**: *"refatora só o módulo de pagamentos para extrair o c
 impostos; não toque no resto"*. (O `CLAUDE.md` reforça: mudanças cirúrgicas, sem mexer em
 código adjacente que não está quebrado.)
 
+### 3.5b Gate visual "impress" (opt-in, batches de UI)
+Quando quiser uma barra de qualidade **acima** dos testes para entregas visuais:
+*"roda o impress-gate"* → um crítico read-only com contexto fresco **navega o app de
+verdade** (Playwright/`webapp-testing`), provoca os 5 estados, tira screenshots e só
+aprova contra a rubrica (`DESIGN_STANDARDS` + Visual language + referência, comparação
+cega quando houver). Veredito sempre nomeia o **maior gap restante**; máx. 3 rodadas e
+escala para você. Sempre **depois** do `batch-verify` verde, nunca no lugar dele.
+Habilite no `STACK.md` → Capabilities; se faltar ferramenta, ele sugere e pede sua
+aprovação uma única vez — nunca instala sozinho.
+
 ### 3.6 Code review
 *"Revisa este diff."* → `code-reviewer` (read-only) via `requesting-code-review`. Ele
 **reporta tudo** com confiança e severidade (não auto-filtra). Para auditoria adversarial
@@ -382,7 +392,16 @@ Code quanto no Codex. Ele executa apenas verificações rápidas e óbvias — n
 **Baseline de sessão:** o estado pré-existente é capturado no `SessionStart`
 (`scripts/quality/session-baseline.mjs`); problemas que **já existiam antes da sessão**
 viram **aviso**, não bloqueador — o quick-check só bloqueia o que a sessão introduziu.
-Avisos repetidos não são reemitidos a cada turno (deduplicação por sessão).
+Avisos repetidos não são reemitidos a cada turno (deduplicação por sessão). O mesmo
+hook imprime, no início da sessão, um **briefing de pendências** (`PENDING_STATE:`)
+quando há algo acumulado — DELIVERY_LOG atrasado, worktrees mergeados aguardando
+limpeza, contagem volátil no STACK — uma vez, no momento em que você decide o que
+fazer, em vez de avisos crônicos de fim de turno.
+
+**Log de governança:** cada decisão de hook (ask/deny/block/warn) é registrada em
+`.claude/.governance-log.jsonl` (gitignored; caminhos e códigos apenas, nunca conteúdo
+ou segredo). É o que a auditoria `starter-feedback` lê para contar eventos exatos —
+com atribuição de ferramenta — em vez de arqueologia de transcript.
 
 **O que ele NÃO faz:** install, build, typecheck, testes, E2E, formatter, linter pesado.
 
@@ -438,7 +457,13 @@ importantes que ele emite: com a árvore limpa numa branch commitada, ele avalia
 **diff da branch vs merge-base** da branch default (trabalho commitado não escapa do
 guard); um PASS com **zero comandos configurados** declara explicitamente que "não
 verificou nada"; e um `docs/DELIVERY_LOG.md` **mais antigo que o último merge** gera
-aviso de entrada faltando. Exit codes:
+aviso de entrada faltando.
+
+No **PASS**, ele também fecha o batch com você: imprime o **checklist de fechamento**
+(entrada no log · review · security-auditor · worktrees) e, quando o log está
+desatualizado, **rascunha a entrada do DELIVERY_LOG** a partir do git + resultados dos
+comandos — imprime para colar, ou **anexa direto com `--log`** (você edita o TODO
+antes de commitar; o CI nunca usa `--log`). Exit codes:
 `0` passou (avisos possíveis) · `1` um comando configurado falhou · `2` o comando de
 Test está `TBD` e o batch toca código de aplicação (profile `standard`) — configure o
 comando ou, por decisão sua, rode com `--accept-unconfigured` e registre o waiver no

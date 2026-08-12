@@ -74,6 +74,11 @@ and recommends a code review for non-trivial batches.
 
 - **If a command is `UNCONFIGURED`/`TBD` in `docs/STACK.md`**, the gate reports it as *not
   configured* — it never guesses or silently skips.
+- **On a PASS, `batch-verify` closes the batch WITH you:** it prints the batch-close
+  checklist (log entry · review · security · worktrees) and drafts the DELIVERY_LOG
+  entry when the log is stale (`--log` appends it for editing; CI never uses `--log`).
+- **`impress-gate`** (opt-in, UI batches): a fresh-context read-only critic drives the
+  real app against the design rubric — always after this gate's PASS, never instead.
 - **`refactor-pass`** — run **after a large change or long session** (behavior-preserving
   cleanup). It is *not* a substitute for the quality-gate; it complements it.
 
