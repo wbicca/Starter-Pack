@@ -43,6 +43,8 @@
 
 - Relevant agents: <subset actually used, e.g. frontend-engineer, backend-engineer, database-architect>
 - Optional integrations / MCPs in use: <e.g. Supabase, Railway, codegraph — or `none`>
+- Planning track: <BMAD | manual specs — with `manual specs` the BMAD routes stay dormant>
+- Visual quality gate: <impress-gate enabled? yes/no — needs Playwright or webapp-testing>
 - Explicitly out of scope: <e.g. no database, no deploy yet, no payments>
 
 ## Visual language

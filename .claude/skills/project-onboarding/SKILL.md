@@ -39,6 +39,9 @@ Before reading or scanning anything, ask the user (one short batch) and **wait f
    stack obrigatória, multi-tenant, white-label, segurança, performance, integrações obrigatórias)"
 5. "Este projeto é algo simples/pequeno (script, landing, protótipo, ferramenta pessoal)
    ou um produto completo? Isso define o profile de orquestração (light vs standard)."
+6. "Para planejar features não-triviais, você prefere o track BMAD guiado (PRD → épicos →
+   stories) ou specs manuais (você escreve/aprova a spec com as seções do gate)? Isso é
+   registrado em Capabilities e pode ser trocado depois."
 
 Rules:
 - The folder name is a **hint only, never the source of truth** — do not classify the product from it.
@@ -106,7 +109,9 @@ preserve what's still true and amend rather than rewrite.
   its current output.
   Also fill the **Capabilities** section (relevant agents · optional integrations/MCPs ·
   out-of-scope) from the classification, so agents load only what's relevant. Mark unused
-  items `n/a`; never invent a capability.
+  items `n/a`; never invent a capability. Record the **Planning track** from Step 0 Q6
+  (`BMAD` | `manual specs`) — with `manual specs` the BMAD routes stay installed but
+  dormant (agents don't propose them; the artifact gate still applies).
   Set the **Profile** honestly (`standard` | `light`) from the size classification the
   user confirmed. Fill the **Visual language** section for projects with a UI (design
   reference · component library/tokens · theme) — or mark it `n/a`.
@@ -202,6 +207,7 @@ Report back, concisely:
 - [ ] STACK.md Capabilities section filled (relevant agents · optional integrations · out-of-scope), or marked n/a.
 - [ ] STACK.md Profile set (standard | light) and confirmed with the user.
 - [ ] STACK.md App root recorded; brownfield: pre-existing CLAUDE.md reconciled (no orphaned .bak).
+- [ ] Planning track (BMAD | manual specs) asked and recorded in Capabilities.
 - [ ] STACK.md Visual language filled for UI projects (or marked n/a).
 - [ ] No application code written; no protected file changed without approval.
 - [ ] Delivered the summary + recommended the next mandatory flow.

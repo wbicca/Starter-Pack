@@ -25,7 +25,9 @@ is sound; it does not refactor (`refactor-pass`) or audit for release (`release-
 ## Steps
 1. **Run the batch verifier** — `node scripts/quality/batch-verify.mjs` (the
    deterministic owner of this step: it reads the configured `docs/STACK.md` commands,
-   runs Lint → Typecheck → Test → Build fail-fast, and prints the evidence table).
+   runs Lint → Typecheck → Test → Build fail-fast, and prints the evidence table —
+   plus, on a PASS, the batch-close checklist and a drafted DELIVERY_LOG entry when
+   the log is stale; `--log` appends the draft for editing).
    Report its table and exit code. **Its execution is the only evidence accepted for
    "checks passed" — a subagent's report never substitutes for running it.** Exit `2`
    means the Test command is UNCONFIGURED while the batch touches app code (standard
@@ -57,7 +59,8 @@ is sound; it does not refactor (`refactor-pass`) or audit for release (`release-
    `docs/DESIGN_STANDARDS.md`: five view states · contrast/keyboard basics ·
    responsiveness at extremes · consistency with `docs/STACK.md` Visual language ·
    no one-off tokens. Report findings like any other gate item. Skip silently for
-   non-UI batches.
+   non-UI batches. When the project enables the **`impress-gate`** (opt-in), run it
+   here — after this script's PASS, never as its substitute.
 8. **Agent worktrees** — run `git worktree list`; any agent worktree
    (`.claude/worktrees/*`) with uncommitted or unconsolidated content requires an
    explicit decision — consolidate (cherry-pick) or discard (`git worktree remove`) —

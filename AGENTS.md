@@ -60,6 +60,7 @@ doesn't load into every Claude session). Codex reads both this file and `CODEX.m
 | Exhaustive edge-case analysis (method-driven) | `bmad-review-edge-case-hunter` | walks every branch/boundary; orthogonal to adversarial |
 | Refactor round (after large change) | `refactor-pass` | behavior-preserving cleanup; see `docs/ENGINEERING_STANDARDS.md` |
 | Batch verification gate | `quality-gate` | mandatory after each implementation batch |
+| Visual quality gate (opt-in, UI batches) | `impress-gate` | AFTER batch-verify green; fresh-context critic drives the real app |
 | Pre-release audit | `release-sanity` | before publishing; runs the quality-gate checklist first |
 | Starter usage report | `starter-feedback` | evidence-based audit at milestones; output feeds template maintenance |
 | Parallel / risky work | Superpowers `using-git-worktrees` | |
@@ -108,6 +109,12 @@ hand-written spec covering the same sections satisfies the gate equally. What ne
 satisfies it: implementing non-trivial work from a chat message with no versioned
 artifact. This is the single canonical statement of the planning gate — other files
 reference it.
+
+Projects declare their **planning track** at onboarding (`docs/STACK.md` →
+Capabilities): `BMAD` or `manual specs`. With `manual specs` the BMAD routing rows
+stay installed but **dormant** — agents do not propose them by default (field
+evidence: two audit rounds, zero BMAD invocations, eight excellent hand-written
+specs). Flipping the track later is a one-line Capabilities edit.
 
 ## Delegation & isolation
 
@@ -219,14 +226,21 @@ After **each** batch, before starting the next:
    appends the `docs/DELIVERY_LOG.md` entry (what shipped · validation · review/approval ·
    commit) when the project keeps one. The EXECUTION may go through the skill or the
    same checklist run as explicit practice — but the **DELIVERY_LOG entry has no
-   substitute**: without it the batch is not closed. No hook verifies the entry at
-   write time — `batch-verify` warns when the log is older than the last merge, and
-   `starter-feedback` audits it after the fact;
+   substitute**: without it the batch is not closed. `batch-verify` drafts the entry
+   for you (printed on a PASS with a stale log; appended with `--log` — edit the TODO
+   before committing), prints the batch-close checklist on every PASS, and warns when
+   the log is older than the last merge; `starter-feedback` audits it after the fact;
 2. run `verification-before-completion` — evidence before any "done" claim;
 3. run `requesting-code-review`;
 4. trigger `security-auditor` when the batch touches a sensitive flow (see
    `docs/CONSTITUTION.md`), relevant dependencies, or external assets;
-5. fix blockers — only then start the next batch.
+5. fix blockers — only then start the next batch. When agent worktrees/branches were
+   consolidated, clean them up (`starter-doctor` prints the exact removal commands;
+   `finishing-a-development-branch` is the canonical flow).
+
+For UI batches, the project may additionally enable the **`impress-gate`** (opt-in): a
+fresh-context read-only critic drives the real app and only approves against the
+design rubric — always AFTER batch-verify passes, never as its substitute.
 
 In the **light** profile the per-batch sequence is proportional (see "Project
 profiles"): step 1 runs in its reduced form, steps 2–3 are opt-in, step 4 (sensitive

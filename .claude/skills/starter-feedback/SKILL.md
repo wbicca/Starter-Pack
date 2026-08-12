@@ -30,6 +30,11 @@ Collect before writing anything:
 - **Checks**: run the `docs/STACK.md` test command if one is configured; run
   `node scripts/quality/starter-doctor.mjs` and `node scripts/quality/quick-check.mjs`
   and record their output.
+- **Governance log FIRST**: when `.claude/.governance-log.jsonl` exists, read it before
+  any transcript grep — the hooks append one JSON line per ask/deny/block/warn with
+  `hook`, `decision`, `code`, `tool`, `agent`, `session`. It is the exact count the
+  transcript can only approximate (and it carries the tool attribution transcripts
+  lack). Use transcripts to *contextualize* log events, not to count them.
 - **Transcripts**: find the project's transcript dir under `$CLAUDE_CONFIG_DIR/projects/`
   (fall back to `~/.claude/projects/`). The slug is the absolute project path with `/`
   and spaces replaced by `-`. **GREP the `*.jsonl` files — never read them whole**:
