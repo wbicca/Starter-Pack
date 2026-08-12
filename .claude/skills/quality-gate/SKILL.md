@@ -59,8 +59,10 @@ is sound; it does not refactor (`refactor-pass`) or audit for release (`release-
    `docs/DESIGN_STANDARDS.md`: five view states · contrast/keyboard basics ·
    responsiveness at extremes · consistency with `docs/STACK.md` Visual language ·
    no one-off tokens. Report findings like any other gate item. Skip silently for
-   non-UI batches. When the project enables the **`impress-gate`** (opt-in), run it
-   here — after this script's PASS, never as its substitute.
+   non-UI batches. For UI batches, the **`impress-gate` runs here BY DEFAULT** (after
+   step 1's PASS, never as its substitute) unless the project opted out in
+   `docs/STACK.md` → Capabilities; skipping it on a UI batch is legitimate only for a
+   trivial visual change, with the reason recorded in the DELIVERY_LOG entry.
 8. **Agent worktrees** — run `git worktree list`; any agent worktree
    (`.claude/worktrees/*`) with uncommitted or unconsolidated content requires an
    explicit decision — consolidate (cherry-pick) or discard (`git worktree remove`) —

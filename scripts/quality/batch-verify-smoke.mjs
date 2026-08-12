@@ -44,7 +44,8 @@ function stackMd({ profile = "standard", lint, typecheck, test, build, extraRows
 }
 
 function makeFixture({ stack, appChange = true, testChange = false, commitAppChange = false,
-                       branchAppChange = false, staleDeliveryLog = false, nogit = false } = {}) {
+                       branchAppChange = false, staleDeliveryLog = false, uiChange = false,
+                       nogit = false } = {}) {
   const dir = mkdtempSync(join(realTmp, "batch-verify-smoke-"));
   const g = (args, env) => (nogit ? { status: 0 } : spawnSync("git", args, {
     cwd: dir, encoding: "utf8", ...(env ? { env: { ...process.env, ...env } } : {}),
@@ -89,6 +90,10 @@ function makeFixture({ stack, appChange = true, testChange = false, commitAppCha
   } else if (appChange) {
     mkdirSync(join(dir, "src"), { recursive: true });
     writeFileSync(join(dir, "src", "app.ts"), "export const x = 1;\n");
+  }
+  if (uiChange) {
+    mkdirSync(join(dir, "src"), { recursive: true });
+    writeFileSync(join(dir, "src", "App.tsx"), "export const App = () => null;\n");
   }
   if (testChange) {
     mkdirSync(join(dir, "src"), { recursive: true });
@@ -165,10 +170,14 @@ const cases = [
   { name: "--log appends draft entry to DELIVERY_LOG", exit: 0,
     stderrHas: "appended to docs/DELIVERY_LOG.md", args: ["--log"],
     fx: { stack: stackMd({ test: OK }), appChange: false, staleDeliveryLog: true } },
-  // v1.5: every PASS prints the batch-close checklist.
+  // v1.5: every PASS prints the batch-close checklist (no impress line off UI).
   { name: "PASS prints batch close checklist", exit: 0,
-    stderrHas: "Batch close checklist",
+    stderrHas: "Batch close checklist", stderrNotHas: "impress-gate",
     fx: { stack: stackMd({ lint: OK, typecheck: OK, test: OK, build: OK }), testChange: true } },
+  // v1.5.1: a UI batch adds the impress-gate line to the checklist.
+  { name: "UI batch adds impress-gate line to checklist", exit: 0,
+    stderrHas: "impress-gate verdict",
+    fx: { stack: stackMd({ test: OK }), uiChange: true, testChange: true } },
 ];
 
 let failed = 0;

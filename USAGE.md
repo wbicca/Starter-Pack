@@ -135,15 +135,18 @@ Mantenha **cirúrgico**: *"refatora só o módulo de pagamentos para extrair o c
 impostos; não toque no resto"*. (O `CLAUDE.md` reforça: mudanças cirúrgicas, sem mexer em
 código adjacente que não está quebrado.)
 
-### 3.5b Gate visual "impress" (opt-in, batches de UI)
-Quando quiser uma barra de qualidade **acima** dos testes para entregas visuais:
-*"roda o impress-gate"* → um crítico read-only com contexto fresco **navega o app de
-verdade** (Playwright/`webapp-testing`), provoca os 5 estados, tira screenshots e só
-aprova contra a rubrica (`DESIGN_STANDARDS` + Visual language + referência, comparação
-cega quando houver). Veredito sempre nomeia o **maior gap restante**; máx. 3 rodadas e
-escala para você. Sempre **depois** do `batch-verify` verde, nunca no lugar dele.
-Habilite no `STACK.md` → Capabilities; se faltar ferramenta, ele sugere e pede sua
-aprovação uma única vez — nunca instala sozinho.
+### 3.5b Gate visual "impress" (automático em batches de UI)
+Em batch que toca arquivos de UI, o **impress-gate roda por default — sem você pedir**:
+um crítico read-only com contexto fresco **navega o app de verdade**
+(Playwright/`webapp-testing`), provoca os 5 estados, tira screenshots e só aprova
+contra a rubrica (`DESIGN_STANDARDS` + Visual language + referência, comparação cega
+quando houver). Veredito sempre nomeia o **maior gap restante**; máx. 3 rodadas e
+escala para você. Sempre **depois** do `batch-verify` verde, nunca no lugar dele — o
+próprio `batch-verify` detecta o batch de UI e cobra o veredito no checklist de
+fechamento. Pular só para mudança visual trivial, com o motivo registrado no
+DELIVERY_LOG. Opt-out do projeto inteiro: `STACK.md` → Capabilities
+(`Visual quality gate: no`). Se faltar ferramenta, ele sugere e pede sua aprovação uma
+única vez — nunca instala sozinho.
 
 ### 3.6 Code review
 *"Revisa este diff."* → `code-reviewer` (read-only) via `requesting-code-review`. Ele

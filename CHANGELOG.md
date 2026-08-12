@@ -4,6 +4,25 @@ All notable template changes, one entry per maintenance batch. Projects check th
 template version in `VERSION` (reported by `starter-doctor`) and pull updates with
 `node scripts/quality/update-from-template.mjs`.
 
+## 1.5.1 — 2026-08-12
+
+Impress-gate flipped from opt-in to **default-on for UI batches** — an opt-in step
+contradicts the round-2 thesis (opt-in rites get silently abandoned; the quality-gate
+skill measured 0 invocations). The trigger is deterministic, not a human memory:
+
+- **batch-verify detects the UI batch** (tsx/jsx/vue/svelte/css/scss/html in the
+  diff — same set as the quality-gate design check) and adds the impress-gate line to
+  the close checklist; the DELIVERY_LOG draft gains an `Impress:` field on UI batches.
+- **Default-on, scoped**: runs automatically after batch-verify's PASS on UI batches
+  only — backend batches, CI, and opted-out projects (`Visual quality gate: no` in
+  STACK Capabilities) are exempt by construction. Skipping on a UI batch is legitimate
+  only for a trivial visual change, with the reason recorded in the log entry.
+- Contract/docs sync: impress-gate + quality-gate skills, AGENTS routing row and
+  batch-close paragraph, USAGE §3.5b, QUALITY_GATES, frontend agents' goal loop,
+  onboarding STACK template default (`yes` for UI projects).
+- Tests: batch-verify-smoke 26→27 (UI-batch checklist line; non-UI PASS pinned to NOT
+  carry it).
+
 ## 1.5.0 — 2026-08-12
 
 Round-2 field calibration ("what the starter automated survived; what it only wrote

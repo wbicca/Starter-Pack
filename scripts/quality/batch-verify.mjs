@@ -23,7 +23,9 @@
 //     never passes --log).
 //   * On every PASS the script prints the batch-close checklist (the gate steps a
 //     script cannot run: log entry, review, security, worktrees) — field evidence
-//     showed the checklist only survives where the execution happens.
+//     showed the checklist only survives where the execution happens. A UI batch
+//     (tsx/jsx/vue/svelte/css/scss/html in the diff) adds the impress-gate line:
+//     the gate runs by default on UI batches; skipping requires a recorded reason.
 //
 // Exit codes: 0 = PASS (possibly with warnings) · 1 = a configured command failed ·
 // 2 = unconfigured-Test blocker (standard). Timeout per command via
@@ -165,14 +167,20 @@ const commands = parseCommands(stack, warnings);
 const profile = readProfile(stack);
 if (!stack) warnings.push("docs/STACK.md missing/unreadable — treating every command as not configured.");
 
+// UI surface (matches the quality-gate design-check set): a batch touching these
+// triggers the impress-gate line in the close checklist and the log draft.
+const UI_EXT_RE = /\.(tsx|jsx|vue|svelte|css|scss|html?)$/i;
+
 const changed = changedFiles(warnings);
 let appChanged = false;
 let testChanged = false;
+let uiChanged = false;
 if (changed === null) {
   warnings.push("git unavailable — diff heuristics (app-code/test-change) skipped.");
 } else {
   appChanged = changed.some((f) => APP_EXT_RE.test(f) && !TEST_PATH_RE.test(f));
   testChanged = changed.some((f) => TEST_PATH_RE.test(f));
+  uiChanged = changed.some((f) => UI_EXT_RE.test(f) && !TEST_PATH_RE.test(f));
 }
 
 // Run one STACK command. `detached` puts the shell in its own process group on POSIX
@@ -281,6 +289,9 @@ function draftLogEntry(results) {
     ...shipped.map((s) => `- **Shipped:** ${s}`),
     `- **Validation:** ${validation}`,
     `- **Review/approval:** TODO (who reviewed · human approval)`,
+    // UI batch: the impress-gate runs by default — record its verdict, or the
+    // recorded reason for skipping (a trivial visual change).
+    ...(uiChanged ? [`- **Impress:** TODO (verdict · rounds — or the recorded skip reason)`] : []),
     `- **Commit:** ${head}`,
     "",
   ].join("\n");
@@ -318,6 +329,9 @@ err("  [ ] DELIVERY_LOG entry appended — no substitute (use --log for a draft)
 err("  [ ] code review dispatched (non-trivial batch)");
 err("  [ ] security-auditor dispatched (sensitive flow — see docs/CONSTITUTION.md)");
 err("  [ ] agent worktrees consolidated or removed (git worktree list)");
+if (uiChanged) {
+  err("  [ ] impress-gate verdict recorded (UI batch detected — runs by default; skipping requires a recorded reason)");
+}
 
 err(warnings.length ? "\nbatch-verify: PASS (with warnings)" : "\nbatch-verify: PASS");
 process.exit(0);

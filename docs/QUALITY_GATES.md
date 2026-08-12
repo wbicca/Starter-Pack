@@ -77,8 +77,10 @@ and recommends a code review for non-trivial batches.
 - **On a PASS, `batch-verify` closes the batch WITH you:** it prints the batch-close
   checklist (log entry · review · security · worktrees) and drafts the DELIVERY_LOG
   entry when the log is stale (`--log` appends it for editing; CI never uses `--log`).
-- **`impress-gate`** (opt-in, UI batches): a fresh-context read-only critic drives the
-  real app against the design rubric — always after this gate's PASS, never instead.
+- **`impress-gate`** (default-on for UI batches): a fresh-context read-only critic
+  drives the real app against the design rubric — runs automatically after this
+  gate's PASS on a UI batch, never instead of it; skipping is a recorded exception,
+  and projects opt out via STACK Capabilities.
 - **`refactor-pass`** — run **after a large change or long session** (behavior-preserving
   cleanup). It is *not* a substitute for the quality-gate; it complements it.
 

@@ -60,7 +60,7 @@ doesn't load into every Claude session). Codex reads both this file and `CODEX.m
 | Exhaustive edge-case analysis (method-driven) | `bmad-review-edge-case-hunter` | walks every branch/boundary; orthogonal to adversarial |
 | Refactor round (after large change) | `refactor-pass` | behavior-preserving cleanup; see `docs/ENGINEERING_STANDARDS.md` |
 | Batch verification gate | `quality-gate` | mandatory after each implementation batch |
-| Visual quality gate (opt-in, UI batches) | `impress-gate` | AFTER batch-verify green; fresh-context critic drives the real app |
+| Visual quality gate (default-on for UI batches) | `impress-gate` | runs automatically AFTER batch-verify green on a UI batch; skip = recorded exception; project opt-out in STACK Capabilities |
 | Pre-release audit | `release-sanity` | before publishing; runs the quality-gate checklist first |
 | Starter usage report | `starter-feedback` | evidence-based audit at milestones; output feeds template maintenance |
 | Parallel / risky work | Superpowers `using-git-worktrees` | |
@@ -238,9 +238,12 @@ After **each** batch, before starting the next:
    consolidated, clean them up (`starter-doctor` prints the exact removal commands;
    `finishing-a-development-branch` is the canonical flow).
 
-For UI batches, the project may additionally enable the **`impress-gate`** (opt-in): a
-fresh-context read-only critic drives the real app and only approves against the
-design rubric — always AFTER batch-verify passes, never as its substitute.
+For UI batches the **`impress-gate` runs by default** (no ask needed): a fresh-context
+read-only critic drives the real app and only approves against the design rubric —
+always AFTER batch-verify passes, never as its substitute. `batch-verify` detects the
+UI batch and adds the verdict to the close checklist; skipping is legitimate only for
+a trivial visual change, with the reason recorded in the DELIVERY_LOG entry. Projects
+opt out entirely via `docs/STACK.md` → Capabilities (`Visual quality gate: no`).
 
 In the **light** profile the per-batch sequence is proportional (see "Project
 profiles"): step 1 runs in its reduced form, steps 2–3 are opt-in, step 4 (sensitive

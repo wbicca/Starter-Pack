@@ -1,11 +1,12 @@
 ---
 name: impress-gate
 description: >
-  Opt-in visual quality gauntlet for UI batches: a fresh-context, read-only critic
+  Default-on visual quality gauntlet for UI batches: a fresh-context, read-only critic
   drives the REAL running app (Playwright), captures evidence, and only approves when
-  genuinely impressed against an explicit rubric. Use after batch-verify passes on a
-  UI batch, when the user says "run the impress gate" / "só aprova se impressionar",
-  or when a visual delivery needs a quality bar beyond tests.
+  genuinely impressed against an explicit rubric. Runs automatically after batch-verify
+  passes on a batch that touches UI files (no ask needed); also on demand when the user
+  says "run the impress gate" / "só aprova se impressionar". Skipping is the recorded
+  exception, never the silent default.
 ---
 
 # Impress gate — the critic must SEE it work
@@ -15,8 +16,13 @@ visual polish). A **fresh-context critic** navigates the real rendered app, inte
 captures screenshots and console errors, and returns `IMPRESSED` / `NOT IMPRESSED`
 with the largest remaining gap. The builder fixes; the loop repeats — bounded.
 
-**Scope:** UI/visible-flow batches only. Backend/API keeps `batch-verify` as its bar.
-Never runs in CI. Token-intensive by design — that is the trade for a real quality bar.
+**Scope and trigger:** UI/visible-flow batches only — and there it runs **by default**,
+without being asked (`batch-verify` detects the UI batch and puts the verdict on the
+close checklist; field evidence: opt-in steps are silently abandoned). Skipping is
+legitimate only for a trivial visual change (typo, copy) and the reason is recorded in
+the DELIVERY_LOG entry. Backend/API keeps `batch-verify` as its bar. Never runs in CI.
+Token-intensive by design — that is the trade for a real quality bar. The project can
+opt out entirely in `docs/STACK.md` → Capabilities (`Visual quality gate: no`).
 
 ## Preconditions (never skip)
 
