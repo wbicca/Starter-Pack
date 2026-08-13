@@ -48,6 +48,11 @@ is sound; it does not refactor (`refactor-pass`) or audit for release (`release-
    behavior and must be a deliberate human decision, never a side effect of a batch.
 4. **Obvious secrets** — scan new/changed content for API keys, tokens, private keys,
    credential-bearing URLs. Flag any hit.
+   **Sensitive-flow gate:** when the batch touches a `Sensitive paths` glob declared in
+   `docs/STACK.md`, `batch-verify` blocks (exit 2, both profiles) until a
+   `security-auditor` pass is recorded — dispatch it, then
+   `node scripts/quality/record-audit.mjs --verdict clear` (or rerun with
+   `--accept-audit-waiver` for a human-approved exception, reason in the DELIVERY_LOG).
 5. **Real `.env` files** — flag any **versionable** real `.env` (tracked or not
    git-ignored). An ignored, local-only `.env` is fine — never read its content.
    `.env.example` / `.env.template` with placeholders are the shareable form.

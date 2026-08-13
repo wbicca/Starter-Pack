@@ -4,6 +4,35 @@ All notable template changes, one entry per maintenance batch. Projects check th
 template version in `VERSION` (reported by `starter-doctor`) and pull updates with
 `node scripts/quality/update-from-template.mjs`.
 
+## 1.6.0 — 2026-08-13
+
+Sensitive-flow enforcement — the strategy-critic's highest-leverage bet: code review's
+sibling guarantee (security-auditor on sensitive flows) moves from a printed checklist
+line to a deterministic gate, finishing the rite→script pattern the template already
+validated for DELIVERY_LOG, quality-gate, and impress-gate.
+
+- **`Sensitive paths` in `docs/STACK.md` → Capabilities**: comma-separated globs mapping
+  the CONSTITUTION flows (auth · RLS · payments · webhooks · fiscal · PII) to the
+  project's real paths. Set at onboarding (new Step-5 instruction + checklist item).
+- **`batch-verify` enforces it**: a batch touching a sensitive path FAILS (exit 2, in
+  BOTH profiles — sensitive flows never relax) until a fresh `security-auditor` pass is
+  recorded. Freshness is per-file git-blob hash, so any later edit to a sensitive file
+  invalidates the prior audit and re-requires it. `--accept-audit-waiver` is the
+  human-approved exception (reason in DELIVERY_LOG); the close checklist's security line
+  becomes `[x] ENFORCED`, and the DELIVERY_LOG draft gains a `Security-audit:` field.
+- **`scripts/quality/record-audit.mjs` (new)**: the orchestrator records the auditor's
+  verdict after it returns (the read-only auditor can't write its own record — by
+  design). Appends paths + content-hashes only to `.claude/.audit-log.jsonl`
+  (gitignored, like the governance log).
+- **`starter-doctor`**: requires the new script; warns when the tree has sensitive-
+  looking paths (auth/rls/webhook/payment/billing/fiscal/…) but STACK declares no
+  `Sensitive paths` — the gate can't fire undeclared.
+- **CI honesty**: in `--range`/CI mode the gitignored audit log is invisible, so the gate
+  WARNS instead of failing — local enforcement is the point; a committed CI signal is
+  the planned v1.6.1 follow-up.
+- **Tests**: batch-verify-smoke 28→34 (unaudited→exit 2, recorded→PASS/ENFORCED, stale
+  hash→exit 2, waiver, undeclared→no gate, CI-range→warn).
+
 ## 1.5.3 — 2026-08-13
 
 Contract-coherence batch from a full release-sanity review (deterministic layer clean;

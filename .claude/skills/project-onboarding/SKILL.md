@@ -112,6 +112,11 @@ preserve what's still true and amend rather than rewrite.
   items `n/a`; never invent a capability. Record the **Planning track** from Step 0 Q6
   (`BMAD` | `manual specs`) — with `manual specs` the BMAD routes stay installed but
   dormant (agents don't propose them; the artifact gate still applies).
+  Fill **Sensitive paths** by mapping the `docs/CONSTITUTION.md` sensitive flows
+  (auth · RLS · payments · webhooks · fiscal · PII) to THIS project's real paths as
+  globs — a batch touching one is then *enforced* to carry a recorded `security-auditor`
+  pass (`batch-verify`, both profiles). Mark `n/a` only for a project with genuinely no
+  sensitive flow (e.g. a static landing); when in doubt, declare the paths.
   Set the **Profile** honestly (`standard` | `light`) from the size classification the
   user confirmed. Fill the **Visual language** section for projects with a UI (design
   reference · component library/tokens · theme) — or mark it `n/a`.
@@ -208,6 +213,7 @@ Report back, concisely:
 - [ ] STACK.md Profile set (standard | light) and confirmed with the user.
 - [ ] STACK.md App root recorded; brownfield: pre-existing CLAUDE.md reconciled (no orphaned .bak).
 - [ ] Planning track (BMAD | manual specs) asked and recorded in Capabilities.
+- [ ] Sensitive paths mapped from the CONSTITUTION flows to real globs (or n/a for a no-sensitive-flow project).
 - [ ] STACK.md Visual language filled for UI projects (or marked n/a).
 - [ ] No application code written; no protected file changed without approval.
 - [ ] Delivered the summary + recommended the next mandatory flow.

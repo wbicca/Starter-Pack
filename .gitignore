@@ -53,6 +53,8 @@ _bmad/custom/config.user.toml
 .claude/.quick-check-baseline.json
 # governance event log (appended by the hooks, per-machine — paths/codes only)
 .claude/.governance-log.jsonl
+# sensitive-flow audit log (written by record-audit.mjs — paths + content hashes only)
+.claude/.audit-log.jsonl
 
 # BMAD output: ephemeral artifacts — keep only the base structure
 /_bmad-output/**

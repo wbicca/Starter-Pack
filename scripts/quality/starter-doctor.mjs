@@ -79,7 +79,7 @@ const REQUIRED_FILES = [
   ".claude/settings.json",
   "scripts/quality/quick-check.mjs", "scripts/quality/quick-check-smoke.mjs",
   "scripts/quality/batch-verify.mjs", "scripts/quality/batch-verify-smoke.mjs",
-  "scripts/quality/update-smoke.mjs",
+  "scripts/quality/update-smoke.mjs", "scripts/quality/record-audit.mjs",
   ".claude/hooks/lib/secret-patterns.mjs", ".claude/hooks/lib/exposure.mjs",
 ];
 const REQUIRED_DIRS = [
@@ -459,6 +459,19 @@ section("Project readiness", (api) => {
   // sanity note read as healthy at 40% of the real suite). Enforce the v1.4.0 rule.
   if (/\b\d{2,}\s+(?:testes?|tests?|arquivos|files|specs?)\b/i.test(stack)) {
     api.warn("docs/STACK.md records a volatile count (e.g. \"NNN tests\") — reference the command, never its current output");
+  }
+
+  // Sensitive-flow enforcement (v1.6): if the tree has sensitive-looking paths but
+  // STACK declares no `Sensitive paths`, the batch-verify audit gate can't fire —
+  // warn so the CONSTITUTION flows get mapped to real globs. Heuristic, warn-only.
+  if (status && status !== "UNCONFIGURED") {
+    const hasDecl = /^[-*]?\s*Sensitive paths:\s*(?!.*(?:n\/a|none|tbd|<)).+$/mi.test(stack);
+    const tracked = gitList(ROOT, ["ls-files"]);
+    const SENSITIVE_HINT = /(^|\/)(auth|rls|webhooks?|payments?|billing|checkout|fiscal|invoices?)(\/|[._-]|$)/i;
+    const hint = tracked.find((f) => SENSITIVE_HINT.test(f));
+    if (!hasDecl && hint) {
+      api.warn(`tree has sensitive-looking path(s) (e.g. ${stripControl(hint)}) but docs/STACK.md declares no 'Sensitive paths' — the security-auditor gate cannot enforce; map the CONSTITUTION flows to globs`);
+    }
   }
 
   // Package manager / runtime identification (informational) — root or app root.

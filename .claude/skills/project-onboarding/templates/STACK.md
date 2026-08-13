@@ -45,6 +45,7 @@
 - Optional integrations / MCPs in use: <e.g. Supabase, Railway, codegraph — or `none`>
 - Planning track: <BMAD | manual specs — with `manual specs` the BMAD routes stay dormant>
 - Visual quality gate: <yes (default for UI projects — impress-gate runs automatically on UI batches) | no — needs Playwright or webapp-testing>
+- Sensitive paths: <globs mapping the CONSTITUTION flows (auth · RLS · payments · webhooks · fiscal · PII) to THIS project's real paths, e.g. `app/**/auth/**, supabase/migrations/**, app/api/webhooks/**` — or n/a. A batch touching one requires a recorded security-auditor pass (batch-verify enforces it in both profiles).>
 - Explicitly out of scope: <e.g. no database, no deploy yet, no payments>
 
 ## Visual language

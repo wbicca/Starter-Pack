@@ -49,6 +49,7 @@ _(empty until configured)_
 - Optional integrations / MCPs in use: _(e.g. Supabase, Railway, codegraph — or `none`)_
 - Planning track: _(BMAD | manual specs — with `manual specs` the BMAD routes stay dormant)_
 - Visual quality gate: _(yes — impress-gate on UI batches | no — needs Playwright/webapp-testing)_
+- Sensitive paths: _(globs mapping the CONSTITUTION flows to real paths — or n/a; batch-verify requires a recorded security-auditor pass for a batch touching one)_
 - Explicitly out of scope: _(e.g. no database, no deploy yet, no payments)_
 
 ## Visual language

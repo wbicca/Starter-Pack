@@ -23,7 +23,7 @@ const BAD = `node -e "process.exit(1)"`;
 // Build a docs/STACK.md with the real Commands-table shape. Purposes left undefined
 // render as `TBD | UNCONFIGURED`. `extraRows` appends raw table rows after Build (for
 // pinning malformed-row handling). `crlf` converts the final string to CRLF line endings.
-function stackMd({ profile = "standard", lint, typecheck, test, build, extraRows = [], crlf = false } = {}) {
+function stackMd({ profile = "standard", lint, typecheck, test, build, extraRows = [], crlf = false, sensitive } = {}) {
   const row = (p, c) => (c ? `| ${p} | ${c} | CONFIGURED |` : `| ${p} | TBD | UNCONFIGURED |`);
   const out = [
     "# Stack", "",
@@ -39,13 +39,17 @@ function stackMd({ profile = "standard", lint, typecheck, test, build, extraRows
     "| E2E | TBD | UNCONFIGURED |",
     "| Security | TBD | UNCONFIGURED |",
     "",
+    "## Capabilities",
+    ...(sensitive ? [`- Sensitive paths: ${sensitive}`] : []),
+    "",
   ].join("\n");
   return crlf ? out.replace(/\n/g, "\r\n") : out;
 }
 
 function makeFixture({ stack, appChange = true, testChange = false, commitAppChange = false,
                        branchAppChange = false, staleDeliveryLog = false, squashDeliveryLog = false,
-                       uiChange = false, nogit = false } = {}) {
+                       uiChange = false, sensitiveChange = false, recordAudit = false,
+                       staleAudit = false, commitSensitive = false, nogit = false } = {}) {
   const dir = mkdtempSync(join(realTmp, "batch-verify-smoke-"));
   const g = (args, env) => (nogit ? { status: 0 } : spawnSync("git", args, {
     cwd: dir, encoding: "utf8", ...(env ? { env: { ...process.env, ...env } } : {}),
@@ -112,6 +116,17 @@ function makeFixture({ stack, appChange = true, testChange = false, commitAppCha
   if (testChange) {
     mkdirSync(join(dir, "src"), { recursive: true });
     writeFileSync(join(dir, "src", "app.test.ts"), "// test\n");
+  }
+  if (sensitiveChange) {
+    mkdirSync(join(dir, "app", "auth"), { recursive: true });
+    writeFileSync(join(dir, "app", "auth", "login.ts"), "export const login = 1;\n");
+    if (commitSensitive) { g(["add", "."]); g(["commit", "-q", "-m", "auth change"]); }
+    if (recordAudit) {
+      spawnSync(process.execPath, [join(root, "scripts", "quality", "record-audit.mjs"), "--verdict", "clear"],
+        { cwd: dir, encoding: "utf8" });
+      // staleAudit: mutate the file AFTER recording so its content hash no longer matches.
+      if (staleAudit) writeFileSync(join(dir, "app", "auth", "login.ts"), "export const login = 2; // changed\n");
+    }
   }
   return dir;
 }
@@ -197,6 +212,30 @@ const cases = [
   { name: "squash-merged work makes DELIVERY_LOG stale → warning", exit: 0,
     stderrHas: "delivery-log entry",
     fx: { stack: stackMd({ test: OK }), appChange: false, squashDeliveryLog: true } },
+  // v1.6.0: sensitive-flow enforcement.
+  { name: "sensitive path, no audit record → exit 2 (both profiles)", exit: 2,
+    stderrHas: "no fresh security-auditor record",
+    fx: { stack: stackMd({ profile: "light", test: OK, sensitive: "app/auth/**" }),
+          appChange: false, sensitiveChange: true } },
+  { name: "sensitive path with recorded audit → PASS + ENFORCED", exit: 0,
+    stderrHas: "security-auditor ENFORCED",
+    fx: { stack: stackMd({ test: OK, sensitive: "app/auth/**" }),
+          appChange: false, sensitiveChange: true, recordAudit: true } },
+  { name: "sensitive file edited after audit → stale hash → exit 2", exit: 2,
+    stderrHas: "no fresh security-auditor record",
+    fx: { stack: stackMd({ test: OK, sensitive: "app/auth/**" }),
+          appChange: false, sensitiveChange: true, recordAudit: true, staleAudit: true } },
+  { name: "sensitive path, --accept-audit-waiver → PASS with warning", exit: 0,
+    stderrHas: "waived via --accept-audit-waiver", args: ["--accept-audit-waiver"],
+    fx: { stack: stackMd({ test: OK, sensitive: "app/auth/**" }),
+          appChange: false, sensitiveChange: true } },
+  { name: "no Sensitive paths declared → sensitive file does not gate", exit: 0,
+    stderrNotHas: "security-auditor record",
+    fx: { stack: stackMd({ test: OK }), appChange: false, sensitiveChange: true } },
+  { name: "CI --range: sensitive path unaudited → warning, not exit 2", exit: 0,
+    stderrHas: "cannot see the local audit log", args: ["--range", "HEAD~1"],
+    fx: { stack: stackMd({ test: OK, sensitive: "app/auth/**" }),
+          appChange: false, sensitiveChange: true, commitSensitive: true } },
 ];
 
 let failed = 0;

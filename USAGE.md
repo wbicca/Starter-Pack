@@ -467,7 +467,16 @@ No **PASS**, ele também fecha o batch com você: imprime o **checklist de fecha
 (entrada no log · review · security-auditor · worktrees) e, quando o log está
 desatualizado, **rascunha a entrada do DELIVERY_LOG** a partir do git + resultados dos
 comandos — imprime para colar, ou **anexa direto com `--log`** (você edita o TODO
-antes de commitar; o CI nunca usa `--log`). Exit codes:
+antes de commitar; o CI nunca usa `--log`).
+
+**Enforcement de fluxo sensível:** se você declarar `Sensitive paths` no `STACK.md`
+(mapeando os fluxos da Constituição — auth/RLS/pagamento/webhook/fiscal/PII — para os
+caminhos reais), um batch que toque um deles **falha (exit 2, nos dois profiles)** até
+haver um registro de que o `security-auditor` passou: despache o auditor e rode
+`node scripts/quality/record-audit.mjs --verdict clear` (ou `--accept-audit-waiver`
+para uma exceção sua, com motivo no DELIVERY_LOG). O registro é por **hash de conteúdo**
+— qualquer edição posterior no arquivo sensível invalida a auditoria e re-exige.
+No CI (`--range`) vira aviso (o log de auditoria é gitignored). Exit codes:
 `0` passou (avisos possíveis) · `1` um comando configurado falhou · `2` o comando de
 Test está `TBD` e o batch toca código de aplicação (profile `standard`) — configure o
 comando ou, por decisão sua, rode com `--accept-unconfigured` e registre o waiver no

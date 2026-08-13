@@ -28,20 +28,31 @@
 //     showed the checklist only survives where the execution happens. A UI batch
 //     (tsx/jsx/vue/svelte/css/scss/html in the diff) adds the impress-gate line:
 //     the gate runs by default on UI batches; skipping requires a recorded reason.
+//   * Sensitive-flow enforcement: docs/STACK.md → Capabilities may declare
+//     `Sensitive paths:` globs (auth/RLS/payments/webhooks/fiscal/PII → real paths).
+//     A batch touching one FAILS (exit 2, BOTH profiles — sensitive flows never
+//     relax) unless a fresh security-auditor pass is recorded for the exact current
+//     content of those files (per-file git-blob hash in .claude/.audit-log.jsonl,
+//     written by scripts/quality/record-audit.mjs). --accept-audit-waiver downgrades
+//     to a warning (human exception, reason in DELIVERY_LOG). In --range/CI mode the
+//     gitignored audit log is invisible, so it warns instead of failing (a committed
+//     CI signal is the v1.6.1 follow-up).
 //
 // Exit codes: 0 = PASS (possibly with warnings) · 1 = a configured command failed ·
-// 2 = unconfigured-Test blocker (standard). Timeout per command via
-// BATCH_VERIFY_TIMEOUT_MS (default 600000); a timed-out command's whole process
-// group is killed (no orphaned test/build workers).
+// 2 = a blocker: unconfigured-Test (standard) OR a sensitive path without a fresh
+// security-auditor record. Timeout per command via BATCH_VERIFY_TIMEOUT_MS
+// (default 600000); a timed-out command's whole process group is killed.
 //
 // Diff-availability asymmetry (deliberate): --range mode (CI) FAILS CLOSED on a bad
 // ref — CI must never silently skip the guard. Local mode FAILS OPEN when git is
 // unavailable (warning, heuristics skipped) — a broken local git must not brick the
 // gate the human is standing next to.
 //
-// Usage: node scripts/quality/batch-verify.mjs [--accept-unconfigured] [--range <ref>] [--log]
-//   --range <ref>  diff <ref>...HEAD instead of the local working state (CI use).
-//   --log          append the drafted DELIVERY_LOG entry (local batch close; never CI).
+// Usage: node scripts/quality/batch-verify.mjs [--accept-unconfigured] [--accept-audit-waiver]
+//                                              [--range <ref>] [--log]
+//   --range <ref>          diff <ref>...HEAD instead of the local working state (CI use).
+//   --log                  append the drafted DELIVERY_LOG entry (local close; never CI).
+//   --accept-audit-waiver  human-approved exception to the sensitive-flow audit gate.
 //
 // Trust model: STACK.md commands run with shell:true BY DESIGN — they are exactly what
 // the gate is supposed to execute (compound commands need shell operators), STACK.md
@@ -55,6 +66,7 @@ import { join } from "node:path";
 const ROOT = process.cwd();
 const argv = process.argv.slice(2);
 const ACCEPT_UNCONFIGURED = argv.includes("--accept-unconfigured");
+const ACCEPT_AUDIT_WAIVER = argv.includes("--accept-audit-waiver");
 const APPEND_LOG = argv.includes("--log");
 const rangeIdx = argv.indexOf("--range");
 const RANGE = rangeIdx !== -1 ? argv[rangeIdx + 1] : null;
@@ -162,6 +174,51 @@ function changedFiles(warnings) {
 const APP_EXT_RE = /\.(tsx?|jsx?|mjs|cjs|mts|cts|css|scss|vue|svelte|py|rb|go|java|sql|sh|html?|rs|php|kts?|c|h|cpp|cc|hpp|cs|swift)$/i;
 const TEST_PATH_RE = /(^|\/)(__tests__|tests?|e2e)\/|\.(test|spec)\.[^./]+$/i;
 
+// --- sensitive-flow enforcement (kept in sync with record-audit.mjs) ----------------
+// docs/STACK.md → Capabilities may declare `Sensitive paths:` as comma-separated globs
+// mapping the CONSTITUTION's sensitive flows (auth · RLS · payments · webhooks · fiscal
+// · PII) to this project's real paths. A batch touching one of them must carry a
+// recorded security-auditor pass (.claude/.audit-log.jsonl, per-file content hash) or
+// the gate FAILS (exit 2) — in BOTH profiles: sensitive flows never relax.
+function sensitiveGlobs(stack) {
+  if (!stack) return [];
+  const m = stack.match(/^[-*]?\s*Sensitive paths:\s*(.+)$/mi);
+  if (!m) return [];
+  return m[1].split(",").map((s) => s.trim().replace(/^`|`$/g, ""))
+    .filter((s) => s && !/^(n\/a|none|tbd|<.*>)$/i.test(s));
+}
+function globToRe(glob) {
+  let re = "";
+  for (let i = 0; i < glob.length; i++) {
+    const c = glob[i];
+    if (c === "*") {
+      if (glob[i + 1] === "*") { re += ".*"; i++; if (glob[i + 1] === "/") i++; }
+      else re += "[^/]*";
+    } else re += c.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+  }
+  return new RegExp("^" + re + "$");
+}
+function hashOf(file) {
+  const h = git(["hash-object", "--", file]);
+  return h ? h.trim() : null;
+}
+// An audit entry covers a file iff it lists that path with the CURRENT content hash.
+function auditedHashes() {
+  const covered = new Map(); // path -> Set(hashes recorded)
+  let raw;
+  try { raw = readFileSync(join(ROOT, ".claude", ".audit-log.jsonl"), "utf8"); } catch { return covered; }
+  for (const line of raw.split("\n")) {
+    if (!line.trim()) continue;
+    let e; try { e = JSON.parse(line); } catch { continue; }
+    if (!e || typeof e.files !== "object" || !e.files) continue;
+    for (const [p, h] of Object.entries(e.files)) {
+      if (!covered.has(p)) covered.set(p, new Set());
+      covered.get(p).add(h);
+    }
+  }
+  return covered;
+}
+
 // --- main ---------------------------------------------------------------------------
 const stack = readStack();
 const warnings = [];
@@ -177,12 +234,15 @@ const changed = changedFiles(warnings);
 let appChanged = false;
 let testChanged = false;
 let uiChanged = false;
+let sensitiveChanged = [];
 if (changed === null) {
   warnings.push("git unavailable — diff heuristics (app-code/test-change) skipped.");
 } else {
   appChanged = changed.some((f) => APP_EXT_RE.test(f) && !TEST_PATH_RE.test(f));
   testChanged = changed.some((f) => TEST_PATH_RE.test(f));
   uiChanged = changed.some((f) => UI_EXT_RE.test(f) && !TEST_PATH_RE.test(f));
+  const sglobs = sensitiveGlobs(stack).map(globToRe);
+  if (sglobs.length) sensitiveChanged = changed.filter((f) => sglobs.some((re) => re.test(f)));
 }
 
 // Run one STACK command. `detached` puts the shell in its own process group on POSIX
@@ -258,6 +318,34 @@ if (appChanged && !testChanged) {
   warnings.push("app code changed without any test change — review signal (docs/ENGINEERING_STANDARDS.md), not a blocker.");
 }
 
+// Sensitive-flow enforcement: a batch touching a declared sensitive path must carry a
+// recorded, still-fresh security-auditor pass (per-file content hash). Applies in BOTH
+// profiles — the CONSTITUTION says sensitive flows never relax. This is the rite→script
+// move for the last prose checklist item (record via scripts/quality/record-audit.mjs).
+let auditBlocker = null;
+if (sensitiveChanged.length) {
+  const covered = auditedHashes();
+  const unaudited = sensitiveChanged.filter((f) => {
+    const h = hashOf(f);
+    return !h || !covered.get(f)?.has(h);
+  });
+  if (unaudited.length) {
+    const list = unaudited.slice(0, 5).join(", ") + (unaudited.length > 5 ? ` (+${unaudited.length - 5} more)` : "");
+    const base = `batch touches sensitive path(s) with no fresh security-auditor record: ${list}.`;
+    if (RANGE) {
+      // CI cannot see the gitignored local audit log — surface, don't fail (the local
+      // gate is the enforcement point; a committed CI signal is the v1.6.1 follow-up).
+      warnings.push(base + " (CI/--range: cannot see the local audit log — enforced locally; verify the audit happened before merge)");
+    } else if (ACCEPT_AUDIT_WAIVER) {
+      warnings.push(base + " (waived via --accept-audit-waiver — record the reason in docs/DELIVERY_LOG.md)");
+    } else {
+      auditBlocker = base + " Dispatch security-auditor, then record it: " +
+        "node scripts/quality/record-audit.mjs --verdict clear  (or rerun with " +
+        "--accept-audit-waiver for a human-approved exception, reason in docs/DELIVERY_LOG.md).";
+    }
+  }
+}
+
 // Delivery-log staleness: the DELIVERY_LOG entry has no substitute. When the log
 // exists but is older than the last merge, batches likely closed without their
 // entry — surface it every run (a warning: the fix is a doc append, never a block).
@@ -301,6 +389,8 @@ function draftLogEntry(results) {
     // UI batch: the impress-gate runs by default — record its verdict, or the
     // recorded reason for skipping (a trivial visual change).
     ...(uiChanged ? [`- **Impress:** TODO (verdict · rounds — or the recorded skip reason)`] : []),
+    // Sensitive batch: record the security-auditor verdict (or the waiver reason).
+    ...(sensitiveChanged.length ? [`- **Security-audit:** TODO (security-auditor verdict — or the recorded waiver reason)`] : []),
     `- **Commit:** ${head}`,
     "",
   ].join("\n");
@@ -313,9 +403,11 @@ err("|---|---|");
 for (const r of results) err(`| ${r.purpose}: \`${r.command}\` | ${r.result} |`);
 for (const w of warnings) err(`WARNING: ${w}`);
 if (blocker) err(`BLOCKER: ${blocker}`);
+if (auditBlocker) err(`BLOCKER: ${auditBlocker}`);
 
 if (commandFailed) { err("\nbatch-verify: FAIL"); process.exit(1); }
 if (blocker) { err("\nbatch-verify: FAIL (unconfigured Test on an app-code batch)"); process.exit(2); }
+if (auditBlocker) { err("\nbatch-verify: FAIL (sensitive path without a fresh security-auditor record)"); process.exit(2); }
 
 // PASS path: draft the DELIVERY_LOG entry (print when stale; append on --log) and
 // print the batch-close checklist — the gate steps a script cannot run.
@@ -340,7 +432,12 @@ err("");
 err("Batch close checklist (steps this script cannot run):");
 err("  [ ] DELIVERY_LOG entry appended — no substitute (use --log for a draft)");
 err("  [ ] code review dispatched (non-trivial batch)");
-err("  [ ] security-auditor dispatched (sensitive flow — see docs/CONSTITUTION.md)");
+if (sensitiveChanged.length) {
+  // Reaching PASS means every sensitive file is audited (or the waiver was accepted).
+  err("  [x] security-auditor ENFORCED — sensitive path(s) carry a fresh recorded audit (or an accepted waiver)");
+} else {
+  err("  [ ] security-auditor dispatched (sensitive flow — see docs/CONSTITUTION.md; declare Sensitive paths in docs/STACK.md to enforce)");
+}
 err("  [ ] agent worktrees consolidated or removed (git worktree list)");
 if (uiChanged) {
   err("  [ ] impress-gate verdict recorded (UI batch detected — runs by default; skipping requires a recorded reason)");

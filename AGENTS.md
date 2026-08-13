@@ -234,7 +234,11 @@ After **each** batch, before starting the next:
 2. run `verification-before-completion` — evidence before any "done" claim;
 3. run `requesting-code-review`;
 4. trigger `security-auditor` when the batch touches a sensitive flow (see
-   `docs/CONSTITUTION.md`), relevant dependencies, or external assets;
+   `docs/CONSTITUTION.md`), relevant dependencies, or external assets. When the project
+   declares `Sensitive paths` in `docs/STACK.md`, this is **enforced**, not just
+   recommended: `batch-verify` FAILS (exit 2, both profiles) on a batch touching one
+   until the auditor's pass is recorded with `node scripts/quality/record-audit.mjs`
+   (`--accept-audit-waiver` is the human-approved exception, reason in the DELIVERY_LOG);
 5. fix blockers — only then start the next batch. When agent worktrees/branches were
    consolidated, clean them up (`starter-doctor` prints the exact removal commands;
    `finishing-a-development-branch` is the canonical flow).

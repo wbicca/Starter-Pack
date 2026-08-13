@@ -78,6 +78,11 @@ and recommends a code review for non-trivial batches.
 - **On a PASS, `batch-verify` closes the batch WITH you:** it prints the batch-close
   checklist (log entry · review · security · worktrees) and drafts the DELIVERY_LOG
   entry when the log is stale (`--log` appends it for editing; CI never uses `--log`).
+- **Sensitive-flow enforcement:** a batch touching a `Sensitive paths` glob (declared
+  in `docs/STACK.md`) FAILS (exit 2, both profiles — sensitive flows never relax) until
+  a `security-auditor` pass is recorded via `scripts/quality/record-audit.mjs` (fresh
+  per file content hash). `--accept-audit-waiver` is the recorded human exception; in
+  CI/`--range` it warns (the local audit log is gitignored).
 - **`impress-gate`** (default-on for UI batches): a fresh-context read-only critic
   drives the real app against the design rubric — runs automatically after this
   gate's PASS on a UI batch, never instead of it; skipping is a recorded exception,
