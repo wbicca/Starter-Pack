@@ -4,6 +4,51 @@ All notable template changes, one entry per maintenance batch. Projects check th
 template version in `VERSION` (reported by `starter-doctor`) and pull updates with
 `node scripts/quality/update-from-template.mjs`.
 
+## 1.5.2 — 2026-08-13
+
+Gauntlet-loop self-review of the template (three fresh-context blind critics —
+machinery, security, contract — all NOT IMPRESSED). Every fix traces to a reproduced
+finding; the smokes gained a case per defect.
+
+- **Security (write-time + net):**
+  - `block-dangerous-bash`: `rm -rf ./*` and `rm -rf .*` now DENY — they slipped the
+    `\*` anchor (`.*` can match `..` and escape to the parent).
+  - `secret-patterns`: added distinct provider prefixes that passed before —
+    `gho_/ghu_/ghs_/ghr_`, `rk_live_/rk_test_`, `whsec_`, `glpat-`, `SG.`, `xapp-`,
+    `hf_`, `dop_v1_`, `ya29.` (GitLab-in-camelCase-key now caught via the intrinsic
+    shape).
+  - `starter-doctor`: the worktree/branch cleanup commands are emitted ONLY for names
+    matching `^[A-Za-z0-9._/-]+$` — git accepts `$();&|` in ref names, so an untrusted
+    name could otherwise inject a command the human runs by pasting; unsafe names get a
+    manual-removal warning instead.
+  - session ASK marker created with `O_NOFOLLOW` (a symlink planted at the predictable
+    `/tmp` path can no longer make the write truncate a target file).
+  - `session-baseline` surfaces `CLAUDE_ORCHESTRATOR_WRITE_OVERRIDE` when active — the
+    governance DENY→ASK downgrade is no longer invisible.
+  - `APP_EXTS` extended (rs/php/kt/c/cpp/cs/swift/yaml…) so a stack-agnostic starter
+    ASKs on non-JS app code too.
+- **Machinery correctness:**
+  - Supabase anon key exemption moved to the shared lib and applied in quick-check AND
+    session-baseline — the layers had diverged (quick-check blocked at end-of-turn what
+    the write-time scanner publishes by design).
+  - Squash/rebase-merge blindness fixed in four places: DELIVERY_LOG staleness
+    (batch-verify + session-baseline) now compares against the last commit of any kind,
+    and worktree "merged" detection (doctor + session-baseline) adds a content-identical
+    arm — the old `--merges` / `--is-ancestor` checks silently never fired for the
+    default GitHub squash flow.
+  - `checkOutsidePaths` parses git rename entries correctly; `--log` warns when there is
+    no DELIVERY_LOG to append to; the drafted entry sanitizes commit subjects.
+- **Contract coherence:** the DELIVERY_LOG entry is NOT opt-in in the light profile
+  (only code review is) — fixing a direct contradiction inside the quality-gate skill;
+  README now lists batch-verify/impress-gate/starter-feedback and carries an honest
+  Codex caveat; the seed `docs/STACK.md` Capabilities gained Planning track + Visual
+  quality gate (matching the onboarding template); "symlinked" replaced by the real
+  wrapper description; stale "cherry-pick consolidation" pointers updated to PR-canonical;
+  CODEX.md says how to satisfy/waive the impress-gate; three doc-vs-code textual
+  divergences corrected (placeholder scope, `=======`, `audit<digits>.log`); the
+  impress-gate "runs by default" framing labeled as an orchestrator discipline rule.
+- **Tests:** hook-smoke 150→159, quick-check-smoke 13→14, batch-verify-smoke 27→28.
+
 ## 1.5.1 — 2026-08-12
 
 Impress-gate flipped from opt-in to **default-on for UI batches** — an opt-in step
