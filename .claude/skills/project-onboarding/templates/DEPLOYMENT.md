@@ -18,7 +18,10 @@ operational signals needed to run it safely.
 - **Hosting & pipeline** — where it runs and how it gets there (CI/CD).
 - **Configuration** — required env vars/secrets by name (values never stored here; see
   `.env.example`).
-- **Deploy & rollback** — the one-step deploy path and the known rollback.
+- **Deploy & rollback** — the one-step deploy path and the known rollback. When
+  deploying from CI, the seeded `.github/workflows/cd.yml` runs it behind a
+  **required-reviewer gate** (`environment: production` — configure required reviewers
+  in GitHub → Settings → Environments so prod deploys pause for human approval).
 - **Operational signals** — health checks, key metrics/alerts, where logs live.
 
 ## Guiding questions

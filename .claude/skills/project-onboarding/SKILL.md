@@ -148,6 +148,12 @@ never produce an empty or useless doc. Start each from its template in this skil
   rationale and the GitHub Actions quota gotchas live in the seed's comments and in
   `DEPLOYMENT.md` → "CI cost & GitHub Actions quota". Skip CI for an explicitly
   local-only project and record that decision in `DECISIONS.md`.
+- **`.github/workflows/cd.yml`** — seed from this skill's `templates/project-cd.yml`
+  **only when the project deploys from CI** (many projects deploy via a platform
+  integration instead — then skip it). It carries the required-reviewer approval gate
+  (`environment: production`) for the sensitive prod-deploy action; on seeding it, tell
+  the user to create the `production` environment with required reviewers in GitHub
+  settings, and fill the deploy command + rollback path from the stack.
 
 Rules: a doc that is **N/A for the type** is skipped entirely; a doc whose area is **in
 scope but unknown** is created with `TBD:` so the gap is tracked. Examples — static frontend:

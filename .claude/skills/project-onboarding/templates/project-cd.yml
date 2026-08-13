@@ -1,0 +1,74 @@
+# Project CD (deploy) — seeded by the Starter Pack's project-onboarding skill.
+# Companion to project-ci.yml: CI verifies on the PR; this deploys AFTER merge to the
+# default branch. Seed it only when the project is actually deployed from CI (many
+# projects deploy from a platform integration instead — then skip this file).
+#
+# THE APPROVAL GATE is the point. Deploying to production is a sensitive action, so it
+# must not run unattended:
+#   1. In GitHub → Settings → Environments, create an environment named `production`
+#      and add "Required reviewers" (and optional wait timer / branch restrictions).
+#   2. The `environment: production` line below then PAUSES the job until a reviewer
+#      approves in the Actions UI — the human gate the starter requires for sensitive
+#      flows. (A demo that deploys straight to prod on every merge is the anti-pattern
+#      this seed exists to avoid.)
+#
+# Secrets: reference them as ${{ secrets.NAME }} or use the platform's own deploy auth —
+# never commit real credentials, and never echo a secret into a committed file.
+#
+# Cost (private repos pay per runner-minute): paths-ignore skips deploys for doc-only
+# commits; timeout-minutes caps a hung deploy; concurrency QUEUES deploys instead of
+# cancelling one mid-flight (an interrupted deploy is worse than a delayed one).
+name: Project CD
+
+on:
+  push:
+    branches: [main, master]
+    paths-ignore: # a docs-only commit should not trigger a production deploy
+      - "docs/**"
+      - "**/*.md"
+      - ".vscode/**"
+      - ".gitignore"
+      - "LICENSE"
+      - "NOTICE.md"
+
+# Never cancel an in-flight deploy — queue the next one behind it.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Required-reviewer gate — configure the `production` environment in repo settings.
+    # The job pauses here until a human approves. This is the sensitive-action gate.
+    environment:
+      name: production
+      # url: https://<your-production-url>   # optional — shown in the Actions/Deployments UI
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4 # swap/add the runtime the stack needs
+        with:
+          node-version: 20
+          cache: npm
+      # - name: Install dependencies
+      #   run: <Install command from docs/STACK.md, e.g. npm ci>
+
+      # Optional but recommended: re-verify the exact tree being deployed. Cheap
+      # insurance that what reaches prod is what CI validated.
+      # - name: Verify (docs/STACK.md quality commands)
+      #   run: node scripts/quality/batch-verify.mjs
+
+      - name: Deploy
+        # The real deploy command comes from docs/STACK.md / the devops-deployment agent
+        # (e.g. a platform CLI: `vercel deploy --prod`, `railway up`, `flyctl deploy`,
+        # a container push, or a dbt/`terraform apply`). Keep prod credentials in
+        # ${{ secrets.* }} or the platform's auth — never in the repo.
+        run: |
+          echo "TODO: replace with the project's production deploy command"
+        # env:
+        #   DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+
+      # Rollback: document the one known-good path so it exists BEFORE it's needed —
+      # e.g. redeploy the previous tag/commit, the platform's "promote previous"
+      # button, or `<cli> rollback`. Record it in docs/DEPLOYMENT.md, not just here.

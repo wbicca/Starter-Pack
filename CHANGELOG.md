@@ -4,6 +4,28 @@ All notable template changes, one entry per maintenance batch. Projects check th
 template version in `VERSION` (reported by `starter-doctor`) and pull updates with
 `node scripts/quality/update-from-template.mjs`.
 
+## 1.6.2 — 2026-08-13
+
+CD (deploy) workflow seed — closing a real gap: the onboarding seeded CI (verify) but
+never CD, so every deploying adopter hand-rolled it. Inspired by a dbt/Snowflake demo's
+CI+CD split, corrected on the one thing that demo lacked: an approval gate.
+
+- **`templates/project-cd.yml` (new)** — stack-agnostic deploy seed, companion to
+  `project-ci.yml`. Deploys AFTER merge to the default branch, behind a **required-
+  reviewer gate** (`environment: production` — the job pauses for human approval in the
+  Actions UI, matching the starter's sensitive-action-needs-approval ethos; a straight-
+  to-prod-on-merge deploy is the anti-pattern this seed avoids). Carries the v1.6.1 cost
+  hygiene (paths-ignore, timeout-minutes) and `concurrency: cancel-in-progress:false`
+  (queue deploys, never cancel one mid-flight). Deploy command + rollback are
+  stack-agnostic placeholders (devops-deployment / STACK fill them); secrets via
+  `${{ secrets.* }}` or platform auth, never committed. Includes an optional re-verify
+  step so what reaches prod is what CI validated.
+- **Onboarding** seeds `cd.yml` only when the project deploys from CI (many deploy via a
+  platform integration instead), and prompts the user to create the `production`
+  environment with required reviewers.
+- **`DEPLOYMENT.md` template** — the Deploy & rollback section points at the gated CD
+  workflow.
+
 ## 1.6.1 — 2026-08-13
 
 CI cost hardening — transplanted from a field report (a private repo paying per
