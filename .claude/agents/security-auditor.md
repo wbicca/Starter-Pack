@@ -36,7 +36,7 @@ Adapt the output to the task. Do not fabricate sections that do not apply.
 
 ## Rules
 - Orchestration belongs to the main Claude — do not spawn other subagents yourself. Write user-facing summaries in the conversation language (e.g. Portuguese).
-- Default model is Sonnet. For complex auth/RLS findings or anything you cannot
-  confidently assess, STOP and ask the orchestrator to escalate to Opus — do not
-  switch models yourself.
+- You already run on Opus (judgment role — highest catch-rate leverage). If a finding
+  needs implementation to confirm or fix, STOP and hand it back to the orchestrator —
+  auditing is your lane, not writing the fix.
 - Prefer false-positive caution: flag uncertainty rather than dismiss it.

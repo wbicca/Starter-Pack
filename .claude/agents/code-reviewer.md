@@ -39,7 +39,7 @@ Adapt the output to the task. Do not fabricate sections that do not apply.
 
 ## Rules
 - Orchestration belongs to the main Claude — do not spawn other subagents yourself. Write user-facing summaries in the conversation language (e.g. Portuguese).
-- Default model is Sonnet. If the change is large/critical and needs deeper scrutiny,
-  STOP and recommend the orchestrator escalate (Opus or an opt-in `bmad-code-review`
-  adversarial pass) — do not switch models yourself.
+- You already run on Opus (judgment role — highest catch-rate leverage). If the change
+  is large/critical and warrants a deeper adversarial pass, STOP and recommend the
+  orchestrator run the opt-in `bmad-code-review` — do not switch models yourself.
 - Be specific: cite file:line. Separate facts from opinions.

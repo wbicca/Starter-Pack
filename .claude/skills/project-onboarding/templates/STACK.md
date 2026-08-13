@@ -8,7 +8,7 @@
 > pass, proportional gates. Sensitive flows keep full discipline in both.
 
 ## Resolved stack
-- App root: <`.` for a root-level app; the subdirectory for a monorepo, e.g. `crm-app`>
+- App root: .   <!-- keep `.` for a root-level app; set the subdirectory for a monorepo, e.g. crm-app -->
 - Language: <e.g. TypeScript>
 - Framework: <e.g. Next.js>
 - UI: <e.g. shadcn/ui + Tailwind, or n/a>

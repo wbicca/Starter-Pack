@@ -123,10 +123,14 @@ const CODEX_AGENTS = ["backend-engineer", "frontend-engineer", "code-reviewer", 
 // `--dir <dir>` / `--prefix <dir>` flag in the Install or Test command rows,
 // else the repo root. Deterministic parsing only — no guessing.
 function appRootFromStack(stack) {
+  // Reject an unfilled placeholder: `App root: <…>` parses its leading `<` as the
+  // value, which would silently point the monorepo checks at a nonexistent dir.
+  // Treat any value carrying `<`/`>` as unset → repo root.
+  const isPlaceholder = (v) => v.includes("<") || v.includes(">");
   const m = stack.match(/App root:\s*\**\s*`?([^\s*`|]+)`?/);
-  if (m && m[1] && m[1] !== ".") return m[1].replace(/\/+$/, "");
+  if (m && m[1] && m[1] !== "." && !isPlaceholder(m[1])) return m[1].replace(/\/+$/, "");
   const c = stack.match(/\|\s*(?:Install|Test)\s*\|[^|\n]*?(?:-C|--dir|--prefix)[= ]+([^\s|]+)/);
-  if (c && c[1] && c[1] !== ".") return c[1].replace(/\/+$/, "");
+  if (c && c[1] && c[1] !== "." && !isPlaceholder(c[1])) return c[1].replace(/\/+$/, "");
   return ".";
 }
 const APP_ROOT = appRootFromStack(readSafe("docs/STACK.md"));

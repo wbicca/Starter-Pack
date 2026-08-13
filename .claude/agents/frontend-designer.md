@@ -41,9 +41,10 @@ layout, styling, components, responsiveness, and accessibility.
   checks that do exist and say so explicitly.
 - Still red after 3 iterations → STOP and return an honest report of the failure
   (what fails, what you tried) instead of iterating further.
-- UI batches run the `impress-gate` by default (unless the project opted out): your
-  done includes its verdict — expect a fresh-context critic to drive the real UI and
-  return the largest gap; fix it, don't argue with it.
+- On UI batches the orchestrator runs the `impress-gate` AFTER you return (a
+  fresh-context read-only critic drives the real UI — you do not invoke it yourself).
+  Expect it to bounce work back with the largest visual gap; when it does, fix the gap,
+  don't argue with it.
 
 ## Required Output
 Return a short, structured handoff:

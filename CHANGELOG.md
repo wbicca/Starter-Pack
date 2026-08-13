@@ -4,6 +4,28 @@ All notable template changes, one entry per maintenance batch. Projects check th
 template version in `VERSION` (reported by `starter-doctor`) and pull updates with
 `node scripts/quality/update-from-template.mjs`.
 
+## 1.5.3 — 2026-08-13
+
+Contract-coherence batch from a full release-sanity review (deterministic layer clean;
+three fresh-context critics — agents/skills, E2E/Codex, strategy). Small confirmed
+defects only; the strategic bet (sensitive-flow enforcement) is deferred to v1.6.
+
+- The three Opus judgment agents (code-reviewer, security-auditor, system-architect) no
+  longer carry the self-referential "Default model is Sonnet / escalate to Opus"
+  boilerplate — a no-op that contradicted their `model: opus` frontmatter and the
+  CLAUDE.md model policy. Reworded to reflect the Opus tier and the real hand-back rule.
+- The frontend agents' goal-loop no longer says the impress-gate verdict is part of the
+  agent's own "definition of done" — the gate is an orchestrator-level, fresh-context,
+  never-the-builder step that runs AFTER the agent returns. Reworded to "expect it to
+  bounce work back; fix the gap".
+- `starter-doctor`'s `appRootFromStack` rejects an unfilled `App root: <…>` placeholder
+  (it parsed the leading `<` as the value → monorepo checks silently targeted `<//…`);
+  the onboarding STACK template now defaults `App root:` to `.` with an HTML-comment hint.
+- The Codex onboarding wrapper (`.agents/skills/project-onboarding/SKILL.md`) is now a
+  thin pointer to the canonical skill (like the other three wrappers) instead of a
+  parallel rewrite that had drifted — it had dropped the profile/planning-track questions
+  and the Profile/App-root/Visual-language/CI-seed steps the gates depend on.
+
 ## 1.5.2 — 2026-08-13
 
 Gauntlet-loop self-review of the template (three fresh-context blind critics —
