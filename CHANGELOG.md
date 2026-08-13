@@ -4,6 +4,32 @@ All notable template changes, one entry per maintenance batch. Projects check th
 template version in `VERSION` (reported by `starter-doctor`) and pull updates with
 `node scripts/quality/update-from-template.mjs`.
 
+## 1.6.1 — 2026-08-13
+
+CI cost hardening — transplanted from a field report (a private repo paying per
+runner-minute for an integration suite). The problem and the fix are generic; the
+numbers were project-specific.
+
+- **`templates/project-ci.yml` (the seed derived projects get)** — the real money
+  target: `paths-ignore` on push + pull_request (doc-only commits cost nothing;
+  duplicated lists, with the "GitHub does not expand YAML anchors" warning in-file);
+  `concurrency` cancels superseded runs; `timeout-minutes` caps a hung job;
+  `setup-node` dependency cache. Plus a fully-commented OPTIONAL integration job
+  template carrying the rationale that must live in the file: PR-only (with the
+  reversion trigger — parallel PRs / second maintainer), build cache with
+  `restore-keys`, shared-DB `concurrency: cancel-in-progress:false`, and the
+  DB-per-run `services:` option with its version-parity and WebSocket-driver caveats.
+- **The starter's own `.github/workflows/ci.yml`** — the two safe wins that apply
+  (it has no integration suite): `paths-ignore` for inert paths (`**/*.md`, `.vscode`,
+  `.gitignore`, `LICENSE`, `NOTICE.md` — a change confined to these can't alter the
+  smokes/doctor outcome), `timeout-minutes`, and superseded-run cancellation.
+- **`templates/DEPLOYMENT.md`** — a "CI cost & GitHub Actions quota" section with the
+  two operational traps: "card on file ≠ spending limit raised" ($0 default), and the
+  quota-exhausted signature that masquerades as a CI bug (cancelled/failure with empty
+  steps, ~3s, `BlobNotFound` logs → check billing before diagnosing code).
+- **Onboarding** — a line pointing to the seed's cost guidance for a private repo with
+  an expensive suite.
+
 ## 1.6.0 — 2026-08-13
 
 Sensitive-flow enforcement — the strategy-critic's highest-leverage bet: code review's

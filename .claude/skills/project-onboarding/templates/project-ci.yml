@@ -7,16 +7,50 @@
 #   - setup-node fits Node projects; swap/add setup-python etc. as the stack needs.
 #   - Uncomment the Install step with the Install command from docs/STACK.md — the
 #     quality commands usually need dependencies.
+#
+# COST (private repos pay per runner-minute; the clock counts PER JOB, not per run):
+#   - paths-ignore below skips CI for doc-only commits (edit BOTH lists — the GitHub
+#     workflow parser does NOT expand YAML anchors/aliases).
+#     ⚠️ If a required status check + branch protection is enabled, a docs-only PR never
+#        produces the check and can't merge — add a same-named dummy job or drop the rule.
+#   - concurrency cancels a superseded run on the same ref (cheap verify only).
+#   - timeout-minutes caps a hung job before it burns the whole monthly allowance.
+#   - An expensive integration suite belongs in its own PR-only job — see the commented
+#     template at the bottom, and keep its rationale IN this file.
+#   - "Card on file != spending limit raised": Actions spending limit defaults to $0 even
+#     with a valid card. A job that "fails" in ~3s with no failing step / empty steps /
+#     BlobNotFound logs = quota exhausted, NOT a code bug — check Settings -> Billing ->
+#     Spending limit on the ACCOUNT before diagnosing code.
 name: Project CI
 
 on:
   push:
     branches: [main, master]
+    paths-ignore: # keep in sync with the pull_request list below (no YAML anchors)
+      - "docs/**"
+      - "**/*.md"
+      - ".vscode/**"
+      - ".gitignore"
+      - "LICENSE"
+      - "NOTICE.md"
   pull_request:
+    paths-ignore: # keep in sync with the push list above (no YAML anchors)
+      - "docs/**"
+      - "**/*.md"
+      - ".vscode/**"
+      - ".gitignore"
+      - "LICENSE"
+      - "NOTICE.md"
+
+# Cancel a superseded run on the same ref — safe for the stateless verify job.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 15 # a stuck job otherwise burns the whole allowance
     steps:
       - uses: actions/checkout@v4
         with:
@@ -24,9 +58,61 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm # dependency cache (swap to pnpm/yarn per the stack)
       # - name: Install dependencies
       #   run: <Install command from docs/STACK.md, e.g. npm ci>
       - name: Batch verify (docs/STACK.md quality commands)
         run: node scripts/quality/batch-verify.mjs --range "origin/${{ github.event.repository.default_branch }}"
       - name: Quick check (hygiene & secrets)
         run: node scripts/quality/quick-check.mjs
+
+# ---------------------------------------------------------------------------------------
+# OPTIONAL — expensive integration suite. Uncomment and adapt when the project has one.
+# The comments are the point: the WHY must live in the file, or in six months nobody
+# knows if a choice was deliberate or an accident.
+# ---------------------------------------------------------------------------------------
+#  integration:
+#    # PR-ONLY on purpose. With squash + sequential merges, the tree that lands on the
+#    # default branch is the SAME one the PR just validated — rerunning on push pays again
+#    # to reconfirm the known. REVERSION TRIGGER: switch back to running on push (drop this
+#    # `if`) the moment there are parallel PRs or more than one maintainer — then the
+#    # cross-PR interaction is a real risk worth paying for.
+#    if: github.event_name == 'pull_request'
+#    runs-on: ubuntu-latest
+#    timeout-minutes: 30
+#    # If the suite shares ONE database, serialize it — parallel runs corrupt each other
+#    # when test setup truncates data. cancel-in-progress:false so a cancel never leaves
+#    # the DB half-torn-down (a corrupt DB is worse than a lost race). Cost of this: GitHub
+#    # keeps one running + one pending per group; a third cancels the pending one, so with
+#    # many open PRs some runs need a manual re-run. The real cure is a DB PER RUN (below).
+#    concurrency:
+#      group: integration-shared-db
+#      cancel-in-progress: false
+#    steps:
+#      - uses: actions/checkout@v4
+#      - uses: actions/setup-node@v4
+#        with: { node-version: 20, cache: npm }
+#      - name: Cache the build
+#        uses: actions/cache@v4
+#        with:
+#          path: <framework build cache dir, e.g. .next/cache>
+#          key: build-${{ runner.os }}-${{ hashFiles('**/lockfile') }}-${{ hashFiles('src/**') }}
+#          restore-keys: | # reuse the previous cache as a BASE when code changes
+#            build-${{ runner.os }}-${{ hashFiles('**/lockfile') }}-
+#            build-${{ runner.os }}-
+#      # A runner in the US talking to a DB in another region pays ~100ms/query round-trip
+#      # — often HALF the suite's wall-clock. A throwaway DB INSIDE the runner removes both
+#      # the latency and the shared-DB serialization above, with no production-code change:
+#      #   services:
+#      #     db:
+#      #       image: postgres:18   # MATCH the production major version exactly
+#      #       env:
+#      #         POSTGRES_PASSWORD: <local-only test value>
+#      #       ports: ["5432:5432"]
+#      # Caveats: a WebSocket driver (e.g. @neondatabase/serverless) needs a wsproxy
+#      # sidecar; and do NOT swap to a different driver (e.g. plain pg) just for CI —
+#      # that would test a driver you don't ship, defeating the integration test.
+#      - name: Install dependencies
+#        run: <Install command, e.g. npm ci>
+#      - name: Integration tests
+#        run: <E2E/integration command from docs/STACK.md>

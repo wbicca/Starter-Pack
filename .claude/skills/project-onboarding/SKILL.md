@@ -142,7 +142,11 @@ never produce an empty or useless doc. Start each from its template in this skil
   essentially empty (header only) and is appended to after each passing quality-gate.
 - **`.github/workflows/ci.yml`** — seed from this skill's `templates/project-ci.yml`
   when the project has (or will have) a remote repository. Adjust the runtime/install
-  steps to the stack (the template's comments say how). Skip for an explicitly
+  steps to the stack (the template's comments say how). For a **private repo with an
+  expensive suite** (integration/E2E, a real DB), also apply the seed's cost guidance:
+  keep the expensive job **PR-only** and, if it shares one DB, serialize it — the
+  rationale and the GitHub Actions quota gotchas live in the seed's comments and in
+  `DEPLOYMENT.md` → "CI cost & GitHub Actions quota". Skip CI for an explicitly
   local-only project and record that decision in `DECISIONS.md`.
 
 Rules: a doc that is **N/A for the type** is skipped entirely; a doc whose area is **in

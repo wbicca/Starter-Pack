@@ -2,10 +2,32 @@ name: Starter CI
 
 # Guards the starter's own integrity: structural doctor, hook regression smoke,
 # and the shared quick check. All read-only, no dependencies beyond Node.
+#
+# Cost: private repo → pays per runner-minute, and the clock counts PER JOB (the
+# ubuntu+windows matrix is two jobs). The smokes/doctor validate scripts, hooks, and
+# structure — a change confined to the paths below cannot alter their outcome, so
+# skip CI there. (Edit BOTH lists — the workflow parser does NOT expand YAML anchors.)
 on:
   push:
     branches: [master]
+    paths-ignore:
+      - "**/*.md"
+      - ".vscode/**"
+      - ".gitignore"
+      - "LICENSE"
+      - "NOTICE.md"
   pull_request:
+    paths-ignore:
+      - "**/*.md"
+      - ".vscode/**"
+      - ".gitignore"
+      - "LICENSE"
+      - "NOTICE.md"
+
+# Supersede an in-flight run on the same ref (the smokes are stateless).
+concurrency:
+  group: starter-ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check:
@@ -14,6 +36,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 10 # a hung job otherwise burns the whole allowance
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

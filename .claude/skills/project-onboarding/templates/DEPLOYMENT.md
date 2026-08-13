@@ -28,6 +28,24 @@ operational signals needed to run it safely.
 - What must be observable to operate this in production?
 - How are secrets managed (platform tooling, never committed)?
 
+## CI cost & GitHub Actions quota (private repos)
+A private repo pays per runner-minute, and the clock counts **per job**, not per run
+(a 3-job matrix at 10 min each = 30 min). The seeded `ci.yml` already applies the cheap
+wins (`paths-ignore` for doc-only commits · `concurrency` to cancel superseded runs ·
+`timeout-minutes` · dependency/build cache · an expensive suite kept PR-only). Operate
+with these two facts:
+- **Card on file ≠ spending limit raised.** The Actions spending limit defaults to **$0**
+  even with a valid card — until raised, only the free allowance runs. It lives in
+  **Settings → Billing → Spending limit on the ACCOUNT**, not the repo.
+- **"Quota exhausted" masquerades as a CI bug.** When the allowance runs out, jobs
+  `cancelled`/`failure` with **no failing step** (empty `steps: []`), finish in **~3s**,
+  and their logs 404 (`BlobNotFound`). A job that fails that way = check the billing
+  limit **before** diagnosing code. (The billing API endpoints are unreliable; read the
+  dashboard.)
+- **Shared test DB** → serialize the job (`concurrency: cancel-in-progress: false`) so a
+  cancel never leaves the DB half-torn-down; the real cure is a DB **per run**
+  (`services:` inside the runner, image matching the prod major version).
+
 ## Known decisions
 - <date · decision · why — e.g. "Vercel for web; Railway for the worker service"> (TBD)
 
