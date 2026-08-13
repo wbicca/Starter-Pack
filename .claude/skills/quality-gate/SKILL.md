@@ -18,9 +18,10 @@ is sound; it does not refactor (`refactor-pass`) or audit for release (`release-
   substitute a guess or skip silently.
 - **Read the `Profile` in `docs/STACK.md`.** In the **light** profile the gate is
   proportional: run steps 1–5 and 7–8 always; step 6 verifies the sanctioned path (see
-  below); steps 9–10 are opt-in. **Exception (both profiles):** a batch touching a
-  sensitive flow (see `docs/CONSTITUTION.md`) always runs the FULL sequence and triggers
-  `security-auditor`.
+  below); **step 9 (code review) is opt-in, but step 10 (the DELIVERY_LOG entry) is
+  NOT — it has no substitute in either profile** (a batch without its entry is not
+  closed). **Exception (both profiles):** a batch touching a sensitive flow (see
+  `docs/CONSTITUTION.md`) always runs the FULL sequence and triggers `security-auditor`.
 
 ## Steps
 1. **Run the batch verifier** — `node scripts/quality/batch-verify.mjs` (the
@@ -65,7 +66,8 @@ is sound; it does not refactor (`refactor-pass`) or audit for release (`release-
    trivial visual change, with the reason recorded in the DELIVERY_LOG entry.
 8. **Agent worktrees** — run `git worktree list`; any agent worktree
    (`.claude/worktrees/*`) with uncommitted or unconsolidated content requires an
-   explicit decision — consolidate (cherry-pick) or discard (`git worktree remove`) —
+   explicit decision — consolidate (PR merge, or cherry-pick locally) or discard
+   (`git worktree remove`) —
    before the batch closes. Report what was found.
 9. **Code review** — recommend `requesting-code-review` when the batch is non-trivial.
 10. **Delivery log** — when the project keeps `docs/DELIVERY_LOG.md`, append the batch

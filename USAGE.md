@@ -385,11 +385,12 @@ Code quanto no Codex. Ele executa apenas verificações rápidas e óbvias — n
 
 **O que ele verifica (best-effort, somente leitura):**
 - Erros de whitespace / marcadores de conflito (`git diff --check` + `git diff --cached --check`).
-- Marcadores de conflito (`<<<<<<<`, `=======`, `>>>>>>>`) em arquivos modificados ou não rastreados.
+- Marcadores de conflito (`<<<<<<<` / `>>>>>>>` — o `=======` sozinho é underline setext
+  legítimo em Markdown, então não conta) em arquivos modificados ou não rastreados.
 - Arquivos `.env` reais **versionáveis** — tracked, staged, modificados ou não rastreados e não ignorados.
 - Segredos óbvios em linhas adicionadas do diff **e no conteúdo de arquivos não rastreados**
   (tokens Stripe, AWS, GitHub, Google, JWT, PEM, URLs de banco com credencial).
-- Temporários residuais **versionáveis** (`.tmp-*`, `*.tmp`, `audit*.log`).
+- Temporários residuais **versionáveis** (`.tmp-*`, `*.tmp`, `audit<dígitos>.log`).
 - Caminhos fora da raiz do repositório (best-effort).
 
 **Baseline de sessão:** o estado pré-existente é capturado no `SessionStart`

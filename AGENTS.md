@@ -25,7 +25,8 @@ This repository is designed to work with Claude Code and Codex.
 - Before release, run `release-sanity`.
 
 Claude Code loads skills from `.claude/skills/`; Codex loads them from `.agents/skills/`
-(cross-agent-safe skills are symlinked there; Claude-specific ones get a lean Codex wrapper).
+(each is a lean Codex wrapper that points at the canonical skill — the four essential
+ones: project-onboarding + the three gates).
 
 **Codex-specific routing lives in `CODEX.md`** (kept out of this shared contract so it
 doesn't load into every Claude session). Codex reads both this file and `CODEX.md`.

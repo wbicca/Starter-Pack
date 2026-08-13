@@ -47,6 +47,8 @@ _(empty until configured)_
 
 - Relevant agents: _(subset actually used, filled at onboarding)_
 - Optional integrations / MCPs in use: _(e.g. Supabase, Railway, codegraph — or `none`)_
+- Planning track: _(BMAD | manual specs — with `manual specs` the BMAD routes stay dormant)_
+- Visual quality gate: _(yes — impress-gate on UI batches | no — needs Playwright/webapp-testing)_
 - Explicitly out of scope: _(e.g. no database, no deploy yet, no payments)_
 
 ## Visual language

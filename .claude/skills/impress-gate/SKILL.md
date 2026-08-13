@@ -17,8 +17,11 @@ captures screenshots and console errors, and returns `IMPRESSED` / `NOT IMPRESSE
 with the largest remaining gap. The builder fixes; the loop repeats — bounded.
 
 **Scope and trigger:** UI/visible-flow batches only — and there it runs **by default**,
-without being asked (`batch-verify` detects the UI batch and puts the verdict on the
-close checklist; field evidence: opt-in steps are silently abandoned). Skipping is
+without being asked. The trigger is a **discipline rule the orchestrator upholds**, not a
+hook-enforced invariant: `batch-verify` deterministically DETECTS the UI batch and prints
+the verdict line on the close checklist, but nothing executes the gate for you — the
+orchestrator does, prompted by that line (field evidence: opt-in steps are silently
+abandoned, so the reminder lives where the execution happens). Skipping is
 legitimate only for a trivial visual change (typo, copy) and the reason is recorded in
 the DELIVERY_LOG entry. Backend/API keeps `batch-verify` as its bar. Never runs in CI.
 Token-intensive by design — that is the trade for a real quality bar. The project can

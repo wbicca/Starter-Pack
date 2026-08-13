@@ -41,10 +41,11 @@ gates.
 - Whitespace/conflict errors (`git diff --check`).
 - Unresolved conflict markers in modified/staged/untracked files.
 - Obvious secrets in **added** diff lines **and in untracked-file content** (Stripe/AWS/
-  GitHub/Google/OpenAI/Anthropic/Slack keys, PEM, JWT, credential-bearing DB URLs);
-  placeholders are ignored.
+  GitHub/GitLab/Google/OpenAI/Anthropic/Slack keys, PEM, JWT, credential-bearing DB URLs).
+  A DB-URL placeholder password is ignored; the publishable Supabase anon key is exempt;
+  the other intrinsic shapes always flag.
 - A real `.env` file that is **versionable** (tracked/staged/modified/untracked-not-ignored).
-- Versionable residual temporary files (`*.tmp`, `.tmp-*`, `audit*.log`).
+- Versionable residual temporary files (`*.tmp`, `.tmp-*`, `audit<digits>.log`).
 - Files resolving outside the repo root.
 
 **Current warnings** (do **not** block; surfaced by name only, content never read):

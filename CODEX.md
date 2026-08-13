@@ -3,8 +3,7 @@
 Codex-specific routing. `AGENTS.md` is the shared contract (read it first); this file
 holds only what is specific to the Codex runtime, so it doesn't load into every Claude
 session. Claude Code loads skills from `.claude/skills/`; Codex loads them from
-`.agents/skills/` (cross-agent-safe skills are symlinked there; Claude-specific ones get
-a lean Codex wrapper).
+`.agents/skills/`, where each is a lean Codex wrapper pointing at the canonical skill.
 
 - Codex must explicitly spawn subagents for non-trivial implementation and review work.
 - Use `frontend-engineer` for frontend implementation.
@@ -19,6 +18,11 @@ a lean Codex wrapper).
 - Roles without a Codex agent (database/schema, visual design, QA, deploy) are handled in the
   main thread or by the nearest available agent (`backend-engineer`/`frontend-engineer`) with
   extra care.
+- The **impress-gate** (default-on for UI batches on the Claude side) has no Codex skill or
+  Playwright-equipped critic. On Codex, `batch-verify`'s UI-batch checklist line is satisfied
+  by running the `docs/DESIGN_STANDARDS.md` review checklist manually against the running app,
+  or waived with a recorded reason in the DELIVERY_LOG entry. Do not treat the printed line as
+  a hard block Codex cannot clear.
 - Keep planning in the main thread.
 - Do not spawn recursive agent trees.
 - After each batch, invoke `$quality-gate`.

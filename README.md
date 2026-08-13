@@ -6,10 +6,13 @@ agentes especializados, skills governadas, hooks de segurança, quality gates e 
 compartilhados — tudo **self-contained** (vendorizado no repo, funciona sem depender de
 plugins globais).
 
-Funciona **nativamente com dois runtimes de IA** a partir do mesmo contrato compartilhado:
-- **Claude Code** — runtime principal (orquestrador Opus + subagentes Sonnet, skills, hooks).
+Funciona com **dois runtimes de IA** a partir do mesmo contrato compartilhado:
+- **Claude Code** — runtime principal, plenamente exercitado (orquestrador Opus + subagentes
+  Sonnet, skills, hooks).
 - **Codex** — runtime secundário, lendo o contrato compartilhado (`AGENTS.md`) e expondo as
-  skills essenciais + agentes nativos.
+  4 skills essenciais + agentes nativos. O suporte é real mas **menos exercitado**: os hooks
+  de projeto do Codex ainda aguardam smoke test numa versão pinada do CLI, e o impress-gate
+  não tem crítico equivalente no Codex (ver `USAGE.md` → "Using with Codex" e `CODEX.md`).
 
 E costura dois motores de disciplina:
 - **BMAD** — disciplina de **planejamento** (PRD, épicos, stories, arquitetura).
@@ -93,6 +96,7 @@ A lista completa está em **`AGENTS.md`** (o contrato de roteamento).
 ├── scripts/
 │   └── quality/
 │       ├── quick-check.mjs   # Quick check determinístico compartilhado (Claude + Codex, no Stop)
+│       ├── batch-verify.mjs  # Verificação determinística por batch (Development Gate + CI); rascunha a entrada do DELIVERY_LOG
 │       └── starter-doctor.mjs  # Diagnóstico estrutural do starter (read-only): node scripts/quality/starter-doctor.mjs
 ├── _bmad/                    # Motor BMAD (read-only — não editar)
 ├── _bmad-output/             # Saída do BMAD (artefatos efêmeros; só .gitkeep versionado)
@@ -141,9 +145,14 @@ desses papéis como agentes nativos em `.codex/agents/` (TOML) e os invoca expli
   Não implementa código.
 - **`skill-discovery`** — descobre/avalia/recomenda skills (internas ou externas) **sem
   instalar nada**; toda instalação exige aprovação humana.
+- **`impress-gate`** — gate visual (opt-in por projeto, default-on em batches de UI): um
+  crítico read-only de contexto fresco navega o app real e só aprova contra a rubrica de design.
+- **`starter-feedback`** — auditoria de uso do starter no projeto, baseada em evidência
+  (git, transcripts, log de governança); alimenta a manutenção do template.
 - **Gates** (`quality-gate`, `refactor-pass`, `release-sanity`) — disciplina de verificação;
-  o `quality-gate` roda após cada batch, `refactor-pass` após mudanças grandes, `release-sanity`
-  antes de publicar. Mais o **BMAD** e o **Superpowers** completos (vendorizados em `.claude/skills/`).
+  o `quality-gate` roda após cada batch (passo 1 = `batch-verify`), `refactor-pass` após
+  mudanças grandes, `release-sanity` antes de publicar. Mais o **BMAD** e o **Superpowers**
+  completos (vendorizados em `.claude/skills/`).
 
 ### Os hooks (rede de segurança — best-effort, não fronteira) + quick-check
 Em `.claude/hooks/` (Claude Code):
@@ -206,7 +215,8 @@ determinístico e somente-leitura, compartilhado pelos dois runtimes.
 
 Resumo dos fluxos (detalhe em `USAGE.md`):
 - **Começar / onboard** → rode `project-onboarding` (classifica novo/existente, cria os docs).
-- **Tarefa pequena** → doc/não-código: inline; código de aplicação: delega a um agente.
+- **Tarefa pequena** → doc/não-código: inline; código de aplicação: **standard** = inline
+  com aprovação (ASK, a 1ª cobre a sessão) ou delega a um agente; **light** = inline direto.
 - **Feature média/grande** → planeja com BMAD na janela Opus → implementa em subagentes Sonnet (worktree, TDD) → review.
 - **Bug** → `systematic-debugging`; **entender sistema/incidente** → `bmad-investigate`.
 - **Review** → `requesting-code-review`; **testes E2E** → `qa-tester`.

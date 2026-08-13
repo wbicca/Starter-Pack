@@ -104,7 +104,8 @@ is a read-only structural check of the starter itself.
 ## Delegation playbook
 Planning stays in this window with the human; implementation fans out to Sonnet subagents
 after the human **approves** the story list. The canonical flow, worktree rules, return
-contract, and cherry-pick consolidation live in `AGENTS.md` → "Delegation & isolation".
+contract, and consolidation rules (PR-per-story when there's a remote; cherry-pick as
+the local alternative) live in `AGENTS.md` → "Delegation & isolation".
 Orchestrator judgment for common cases:
 - Small docs fix → inline. Small app-code fix → **standard**: the ASK prompt decides
   (approve = inline; decline = delegate to one agent); **light**: inline directly (no
