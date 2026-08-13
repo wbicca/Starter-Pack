@@ -15,15 +15,26 @@
 export const INTRINSIC_SECRETS = [
   { re: /\bsk_live_[A-Za-z0-9]{4,}/, cat: "Stripe live secret token" },
   { re: /\bsk_test_[A-Za-z0-9]{4,}/, cat: "Stripe test secret token" },
+  { re: /\brk_live_[A-Za-z0-9]{4,}/, cat: "Stripe restricted live key (rk_live_)" },
+  { re: /\brk_test_[A-Za-z0-9]{4,}/, cat: "Stripe restricted test key (rk_test_)" },
+  { re: /\bwhsec_[A-Za-z0-9]{16,}/, cat: "Stripe webhook signing secret (whsec_)" },
   { re: /\bsk-ant-[A-Za-z0-9_-]{16,}/, cat: "Anthropic API key (sk-ant-)" },
   // OpenAI-style: sk- + long token (sk-ant- excluded so Anthropic keys report once).
   { re: /\bsk-(?!ant-)[A-Za-z0-9_-]{20,}/, cat: "OpenAI-style API key (sk-)" },
   { re: /\bxox[abprs]-[A-Za-z0-9-]{10,}/, cat: "Slack token (xox)" },
+  { re: /\bxapp-[0-9]-[A-Za-z0-9-]{10,}/, cat: "Slack app-level token (xapp-)" },
   { re: /\bAKIA[0-9A-Z]{12,}/, cat: "AWS access key (AKIA)" },
   { re: /\bASIA[0-9A-Z]{12,}/, cat: "AWS temp access key (ASIA)" },
   { re: /\bghp_[A-Za-z0-9]{20,}/, cat: "GitHub PAT (ghp_)" },
+  // GitHub OAuth/user/server/refresh tokens — same length, distinct prefixes.
+  { re: /\bgh[ousr]_[A-Za-z0-9]{20,}/, cat: "GitHub token (gho_/ghu_/ghs_/ghr_)" },
   { re: /\bgithub_pat_[A-Za-z0-9_]{20,}/, cat: "GitHub fine-grained PAT" },
+  { re: /\bglpat-[A-Za-z0-9_-]{16,}/, cat: "GitLab personal access token (glpat-)" },
   { re: /\bAIza[0-9A-Za-z_-]{20,}/, cat: "Google API key (AIza)" },
+  { re: /\bya29\.[0-9A-Za-z_-]{20,}/, cat: "Google OAuth access token (ya29.)" },
+  { re: /\bSG\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}/, cat: "SendGrid API key (SG.)" },
+  { re: /\bhf_[A-Za-z0-9]{16,}/, cat: "Hugging Face token (hf_)" },
+  { re: /\bdop_v1_[A-Za-z0-9]{16,}/, cat: "DigitalOcean token (dop_v1_)" },
   // PEM private key — [A-Z ]* covers RSA/EC/DSA/OPENSSH/ENCRYPTED variants (and keeps
   // the exact literal out of this source).
   { re: /-----BEGIN [A-Z ]*PRIVATE KEY-----/, cat: "PEM private key block" },
@@ -52,3 +63,23 @@ export const ASSIGNMENT_KEYS = [
 // (a NEXT_PUBLIC_* value is publishable; specific rules like *_SERVICE_ROLE_KEY still
 // apply if they match).
 export const PUBLIC_KEY_PREFIX = /^(?:NEXT_PUBLIC_|VITE_|REACT_APP_|EXPO_PUBLIC_)/i;
+
+// A JWT whose payload role is "anon" is the Supabase PUBLIC anon key — publishable by
+// design — but ONLY when the payload also carries a Supabase structural signal (a
+// string `ref` claim, or an `iss` containing "supabase"): a bare self-declared
+// `{"role":"anon"}` is forgeable and stays on the deny path. "service_role" or an
+// undecodable/other payload is never exempt. The signature is never verified — this is
+// cosmetic routing, not authentication. Single source so every layer (scan-secrets
+// write-time, quick-check Stop, session-baseline) treats the anon key identically.
+export function jwtIsPublicAnon(token) {
+  if (token.length > 8192) return false; // never a real anon key — skip the parse cost
+  try {
+    const payload = JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString("utf8"));
+    if (payload === null || payload.role !== "anon") return false;
+    const hasRef = typeof payload.ref === "string" && payload.ref.length > 0;
+    const hasSupabaseIss = typeof payload.iss === "string" && payload.iss.includes("supabase");
+    return hasRef || hasSupabaseIss;
+  } catch {
+    return false;
+  }
+}

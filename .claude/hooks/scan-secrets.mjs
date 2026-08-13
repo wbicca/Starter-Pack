@@ -10,7 +10,7 @@
 // "service_role" or undecodable payloads stay denied.
 
 import { isVersionable } from "./lib/exposure.mjs";
-import { INTRINSIC_SECRETS, ASSIGNMENT_KEYS, PUBLIC_KEY_PREFIX } from "./lib/secret-patterns.mjs";
+import { INTRINSIC_SECRETS, ASSIGNMENT_KEYS, PUBLIC_KEY_PREFIX, jwtIsPublicAnon } from "./lib/secret-patterns.mjs";
 import { logEvent } from "./lib/govlog.mjs";
 
 let LOG_ROOT = "";
@@ -134,27 +134,10 @@ function looksLikeLiteralCredential(value) {
 const ASSIGNMENTS = ASSIGNMENT_KEYS;
 const INTRINSIC = INTRINSIC_SECRETS;
 
-// A JWT whose payload role is "anon" is the Supabase PUBLIC anon key — allowed, but
-// only when the payload ALSO carries a Supabase structural signal (a string `ref`
-// claim, or an `iss` string containing "supabase"): a self-declared `role: "anon"`
-// alone is forgeable, so a bare `{"role":"anon"}` stays on the deny path.
-// "service_role" or an undecodable/other payload keeps the deny.
-// NOTE: the signature is never verified — this role check is cosmetic classification
-// to route the decision, not authentication.
-function jwtIsPublicAnon(token) {
-  // Skip decode entirely for oversized tokens (never a real anon key) — treat as
-  // non-anon so they stay denied without paying the parse cost.
-  if (token.length > 8192) return false;
-  try {
-    const payload = JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString("utf8"));
-    if (payload === null || payload.role !== "anon") return false;
-    const hasRef = typeof payload.ref === "string" && payload.ref.length > 0;
-    const hasSupabaseIss = typeof payload.iss === "string" && payload.iss.includes("supabase");
-    return hasRef || hasSupabaseIss;
-  } catch {
-    return false;
-  }
-}
+// jwtIsPublicAnon lives in ./lib/secret-patterns.mjs — one source shared with
+// quick-check and session-baseline so every layer treats the Supabase anon key
+// identically (a divergence here previously let quick-check block what this hook
+// allows).
 
 const lines = text.split("\n");
 

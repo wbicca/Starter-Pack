@@ -44,8 +44,8 @@ function stackMd({ profile = "standard", lint, typecheck, test, build, extraRows
 }
 
 function makeFixture({ stack, appChange = true, testChange = false, commitAppChange = false,
-                       branchAppChange = false, staleDeliveryLog = false, uiChange = false,
-                       nogit = false } = {}) {
+                       branchAppChange = false, staleDeliveryLog = false, squashDeliveryLog = false,
+                       uiChange = false, nogit = false } = {}) {
   const dir = mkdtempSync(join(realTmp, "batch-verify-smoke-"));
   const g = (args, env) => (nogit ? { status: 0 } : spawnSync("git", args, {
     cwd: dir, encoding: "utf8", ...(env ? { env: { ...process.env, ...env } } : {}),
@@ -73,6 +73,20 @@ function makeFixture({ stack, appChange = true, testChange = false, commitAppCha
     g(["add", "."]); g(["commit", "-q", "-m", "side"], OLD);
     g(["checkout", "-q", "-"]);
     g(["merge", "-q", "--no-ff", "side", "-m", "merge side"], NEW);
+  }
+  if (squashDeliveryLog) {
+    // Same staleness, but the later work lands as a SQUASH merge (single-parent) —
+    // `git log --merges` is empty here, so the old detection silently missed it.
+    const OLD = { GIT_COMMITTER_DATE: "2026-01-01T00:00:00 +0000", GIT_AUTHOR_DATE: "2026-01-01T00:00:00 +0000" };
+    const NEW = { GIT_COMMITTER_DATE: "2026-01-02T00:00:00 +0000", GIT_AUTHOR_DATE: "2026-01-02T00:00:00 +0000" };
+    writeFileSync(join(dir, "docs", "DELIVERY_LOG.md"), "# Delivery Log\n");
+    g(["add", "."]); g(["commit", "-q", "-m", "log"], OLD);
+    g(["checkout", "-q", "-b", "side"]);
+    writeFileSync(join(dir, "side.md"), "side\n");
+    g(["add", "."]); g(["commit", "-q", "-m", "side"], OLD);
+    g(["checkout", "-q", "-"]);
+    g(["merge", "-q", "--squash", "side"]);
+    g(["commit", "-q", "-m", "squash side"], NEW);
   }
   if (branchAppChange) {
     // Fully committed app change on a FEATURE branch: the working tree is clean, so
@@ -178,6 +192,11 @@ const cases = [
   { name: "UI batch adds impress-gate line to checklist", exit: 0,
     stderrHas: "impress-gate verdict",
     fx: { stack: stackMd({ test: OK }), uiChange: true, testChange: true } },
+  // v1.5.2: staleness must also fire for squash-merged work (gauntlet C1#3 — the old
+  // --merges check was empty and silently missed the default GitHub flow).
+  { name: "squash-merged work makes DELIVERY_LOG stale → warning", exit: 0,
+    stderrHas: "delivery-log entry",
+    fx: { stack: stackMd({ test: OK }), appChange: false, squashDeliveryLog: true } },
 ];
 
 let failed = 0;

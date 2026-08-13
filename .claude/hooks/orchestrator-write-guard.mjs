@@ -62,8 +62,11 @@ const LOG = { root: "", tool: "", agent: "main", session: "" };
 const APP_EXTS = new Set([
   ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts", ".css", ".scss",
   ".vue", ".svelte", ".py", ".rb", ".go", ".java", ".sql", ".sh", ".html", ".htm",
+  // Additional common stacks — a stack-agnostic starter must ASK on these too.
+  ".rs", ".php", ".kt", ".kts", ".c", ".h", ".cpp", ".cc", ".hpp", ".cs", ".swift",
+  ".yml", ".yaml",
 ]);
-const APP_EXT_RE = /\.(tsx?|jsx?|mjs|cjs|mts|cts|css|scss|vue|svelte|py|rb|go|java|sql|sh|html?)\b/;
+const APP_EXT_RE = /\.(tsx?|jsx?|mjs|cjs|mts|cts|css|scss|vue|svelte|py|rb|go|java|sql|sh|html?|rs|php|kts?|c|h|cpp|cc|hpp|cs|swift|ya?ml)\b/;
 // Bash write verbs, anchored to command position (start of command, after ; & | ( or a
 // newline, after a backtick, inside $( ), or as the command run by xargs) so the same
 // words inside grep patterns or prose never match. The bare `(` and backtick openers
@@ -77,7 +80,7 @@ const VERB_WRITE = /(?:^|[;&|\n(`]\s*|\$\(\s*|\bxargs\s+(?:-\S+\s+)*)(?:sudo\s+)
 // themselves: their targets live inside the patch content.
 const INTERP_EXEC = /(?:^|[;&|\n(`]\s*|\$\(\s*)(?:sudo\s+)?(?:node|python3?|ruby|perl|deno|bun)\s+(?:-\S+\s+)*(?:-[ec]\b|--eval\b|--command\b)|\bdeno\s+eval\b|\b(?:node|python3?|ruby|perl|bun)\b[^;|&\n]*<</;
 const WRITE_API_PRINT = /\b(?:process\.(?:stdout|stderr)|sys\.(?:stdout|stderr))\.write\b/g;
-const WRITE_API = /\bwriteFile(?:Sync)?\b|\bappendFile(?:Sync)?\b|\bcreateWriteStream\b|\bwrite_text\b|\bcopyFile(?:Sync)?\b|\brename(?:Sync)?\b|\bunlink(?:Sync)?\b|\brmSync\b|\bmkdir(?:Sync)?\b|\bopen\s*\([^()]*["'][wax][b+]*["']|\.write\s*\(/;
+const WRITE_API = /\bwriteFile(?:Sync)?\b|\bappendFile(?:Sync)?\b|\bcreateWriteStream\b|\bwrite_text\b|\bwrite_bytes\b|\bcopyFile(?:Sync)?\b|\brename(?:Sync)?\b|\bunlink(?:Sync)?\b|\brmSync\b|\bmkdir(?:Sync)?\b|\bopen\s*\([^()]*["'][wax][b+]*["']|\.write\s*\(/;
 const PATCH_TOOLS = /(?:^|[;&|\n(`]\s*|\$\(\s*)(?:sudo\s+)?(?:git\s+apply\b|patch\b)/;
 // Governance surface reachable from a Bash command string.
 const BASH_GOV_TARGET = /(\bCLAUDE\.md\b|\bAGENTS\.md\b|\.claude\/|\.codex\/|\.agents\/|scripts\/quality\/)/;
@@ -217,6 +220,16 @@ function askMarkerPath(sessionId) {
   const sane = sessionId.replace(/[^A-Za-z0-9-]/g, "-");
   return path.join(os.tmpdir(), "claude-inline-ask-" + sane);
 }
+// Create the marker WITHOUT following a symlink: on a shared /tmp an attacker could
+// pre-place a symlink at the predictable path, and a naive writeFileSync would follow
+// it and truncate the target. O_NOFOLLOW makes the open fail on a symlink instead.
+// Best-effort — a failure just means the next inline write asks again.
+function writeMarker(p) {
+  try {
+    const fd = fs.openSync(p, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_NOFOLLOW, 0o600);
+    fs.closeSync(fd);
+  } catch { /* symlinked / unwritable — skip silently */ }
+}
 
 // --- Project profile ------------------------------------------------------------
 // docs/STACK.md may declare `Profile: standard | light` (set by project-onboarding).
@@ -318,9 +331,7 @@ if ((input.hook_event_name ?? "") === "PostToolUse") {
         appWrite = !n.outside && !isGovPath(relPost) && APP_EXTS.has(n.ext);
       }
     }
-    if (appWrite) {
-      try { fs.writeFileSync(askMarkerPath(sessionId), ""); } catch { /* best-effort */ }
-    }
+    if (appWrite) writeMarker(askMarkerPath(sessionId));
   }
   process.exit(0);
 }

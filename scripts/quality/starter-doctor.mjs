@@ -352,8 +352,20 @@ section("Security and repository hygiene", (api) => {
   // 2026-08: 6 chronic worktree WARNs, all content already in main).
   const DEF_BRANCH = ["origin/main", "origin/master", "main", "master"]
     .find((r) => run("git", ["rev-parse", "--verify", r], { cwd: ROOT }).status === 0);
-  const inDefault = (ref) => !!DEF_BRANCH && !!ref &&
-    run("git", ["merge-base", "--is-ancestor", ref, DEF_BRANCH], { cwd: ROOT }).status === 0;
+  // "merged" = reachable from the default branch OR content already identical to it —
+  // the second arm catches squash/rebase-merge, where the tip SHA is rewritten and
+  // --is-ancestor is false even though the work landed (git default on GitHub).
+  const inDefault = (ref) => {
+    if (!DEF_BRANCH || !ref) return false;
+    if (run("git", ["merge-base", "--is-ancestor", ref, DEF_BRANCH], { cwd: ROOT }).status === 0) return true;
+    return run("git", ["diff", "--quiet", DEF_BRANCH, ref], { cwd: ROOT }).status === 0;
+  };
+  // A name is safe to embed in a copy-pasteable command ONLY if it has no shell
+  // metacharacters — git accepts `$();&|` etc. in ref/worktree names, so an untrusted
+  // name (from a PR branch or a crafted clone) could otherwise inject a command the
+  // human runs by pasting. Unsafe names get a manual-removal warning, never a command.
+  const SAFE_NAME = /^[A-Za-z0-9._/-]+$/;
+  const isSafeName = (n) => SAFE_NAME.test(n);
   let worktrees = [];
   try { worktrees = readdirSync(resolve(ROOT, ".claude/worktrees")); } catch { worktrees = []; }
   worktrees = worktrees.filter((e) => e !== ".DS_Store");
@@ -368,8 +380,15 @@ section("Security and repository hygiene", (api) => {
       api.warn(`agent worktree(s) with UNMERGED content: ${unmerged.map(stripControl).join(", ")} — consolidate (PR/cherry-pick) or discard before closing the batch`);
     }
     if (merged.length) {
-      const cmds = merged.map((w) => `git worktree remove ".claude/worktrees/${stripControl(w)}"`).join(" && ");
-      api.ok(`${merged.length} merged agent worktree(s) safe to prune — run: ${cmds}`);
+      const safe = merged.filter(isSafeName);
+      const unsafe = merged.filter((w) => !isSafeName(w));
+      if (safe.length) {
+        const cmds = safe.map((w) => `git worktree remove ".claude/worktrees/${w}"`).join(" && ");
+        api.ok(`${safe.length} merged agent worktree(s) safe to prune — run: ${cmds}`);
+      }
+      if (unsafe.length) {
+        api.warn(`${unsafe.length} merged worktree(s) have an unsafe name (shell metacharacters) — remove manually, do not paste a generated command: ${unsafe.map(stripControl).join(", ")}`);
+      }
     }
   } else {
     api.ok("no leftover agent worktrees");
@@ -380,9 +399,14 @@ section("Security and repository hygiene", (api) => {
   if (agentBranches.length) {
     const mergedBr = agentBranches.filter((b) => inDefault(b));
     const unmergedBr = agentBranches.length - mergedBr.length;
-    if (mergedBr.length) {
-      const shown = mergedBr.slice(0, 5).map(stripControl).join(" ");
-      api.ok(`${mergedBr.length} merged worktree-agent-* branch(es) safe to delete — run: git branch -d ${shown}${mergedBr.length > 5 ? " …" : ""}`);
+    const safeBr = mergedBr.filter(isSafeName);
+    const unsafeBr = mergedBr.filter((b) => !isSafeName(b));
+    if (safeBr.length) {
+      const shown = safeBr.slice(0, 5).join(" ");
+      api.ok(`${safeBr.length} merged worktree-agent-* branch(es) safe to delete — run: git branch -d ${shown}${safeBr.length > 5 ? " …" : ""}`);
+    }
+    if (unsafeBr.length) {
+      api.warn(`${unsafeBr.length} merged branch(es) have an unsafe name (shell metacharacters) — delete manually, do not paste a generated command: ${unsafeBr.map(stripControl).join(", ")}`);
     }
     if (unmergedBr > 0) {
       api.warn(`${unmergedBr} worktree-agent-* branch(es) with unmerged content — review before deleting`);

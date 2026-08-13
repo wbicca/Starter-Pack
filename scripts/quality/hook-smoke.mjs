@@ -215,6 +215,11 @@ const cases = [
     payload: write(join(FAKE_CONFIG_DIR, "projects", PROJECT_SLUG, "memory", "x.md")) },
   { hook: "write-guard", name: "main write: src/app.mjs (standard → ask)", expect: "ask",
     payload: write("src/app.mjs") },
+  // v1.5.2: extended APP_EXTS — Rust/C# now ask like any app code (gauntlet C2#5)
+  { hook: "write-guard", name: "main write: src/main.rs (standard → ask)", expect: "ask",
+    payload: write("src/main.rs") },
+  { hook: "write-guard", name: "main write: src/Svc.cs (standard → ask)", expect: "ask",
+    payload: write("src/Svc.cs") },
   { hook: "write-guard", name: "main write: scripts/quality/ (governance)", expect: "deny",
     payload: write("scripts/quality/quick-check.mjs") },
 
@@ -365,6 +370,11 @@ const cases = [
     payload: bash("`rm -rf /`") },
   { hook: "danger-bash", name: "rm -rf node_modules (critical dir)", expect: "ask",
     payload: bash(`rm -rf node_modules`) },
+  // v1.5.2: ./* and .* are equivalent wipes that slipped the `\*` anchor (gauntlet C1#1)
+  { hook: "danger-bash", name: "rm -rf ./* (current-dir wipe) → deny", expect: "deny",
+    payload: bash(`rm -rf ./*`) },
+  { hook: "danger-bash", name: "rm -rf .* (dotfile glob, can escape to parent) → deny", expect: "deny",
+    payload: bash(`rm -rf .*`) },
   { hook: "danger-bash", name: "fork bomb", expect: "deny",
     payload: bash(`:(){ :|:& };:`) },
 
@@ -450,6 +460,9 @@ const cases = [
     payload: bash(`node --eval 'require("fs").writeFileSync("src/app.ts","x")'`) },
   { hook: "write-guard", name: "main bash: python3 -c open(wb) → ask", expect: "ask",
     payload: bash(`python3 -c "open('src/app.py','wb').write(b'x')"`) },
+  // v1.5.2: Path.write_bytes is idiomatic parity with write_text (gauntlet close round)
+  { hook: "write-guard", name: "main bash: python3 -c Path.write_bytes app ext → ask", expect: "ask",
+    payload: bash(`python3 -c "from pathlib import Path; Path('src/app.py').write_bytes(b'x')"`) },
 
   // --- v1.3: destructive rm forms the target regex missed (audit H1) ---
   { hook: "danger-bash", name: "rm -rf . (project wipe) → ask", expect: "ask",
@@ -503,6 +516,17 @@ const cases = [
     payload: content(`NEXT_PUBLIC_ANALYTICS_KEY="${ENTROPIC}"`) },
   { hook: "scan-secrets", name: "generic key ${VAR} expression stays code", expect: "pass",
     payload: content(`DEPLOY_TOKEN=\${DEPLOY_TOKEN}`) },
+  // v1.5.2: provider-key shapes added after the gauntlet (C2#4) — distinct prefixes.
+  { hook: "scan-secrets", name: "GitHub OAuth token gho_ → deny", expect: "deny",
+    payload: content(`TOKEN="gho_${randAlnum(36)}"`) },
+  { hook: "scan-secrets", name: "Stripe restricted key rk_live_ → deny", expect: "deny",
+    payload: content(`KEY="rk_live_${randAlnum(24)}"`) },
+  { hook: "scan-secrets", name: "GitLab PAT in camelCase key → deny", expect: "deny",
+    payload: content(`{"apiToken":"glpat-${randAlnum(20)}"}`) },
+  { hook: "scan-secrets", name: "Stripe webhook secret whsec_ → deny", expect: "deny",
+    payload: content(`WEBHOOK="whsec_${randAlnum(24)}"`) },
+  { hook: "scan-secrets", name: "SendGrid SG. key → deny", expect: "deny",
+    payload: content(`SENDGRID="SG.${randAlnum(20)}.${randAlnum(20)}"`) },
 
   // --- v1.4: read-only scratch exemption (harness temp is not a repo mutation) ---
   // Redirects and tee into /tmp | /private/tmp pass for read-only agents (an auditor

@@ -16,8 +16,10 @@
 //     branch must not slip past the guard as "no changes").
 //   * Zero configured commands while the batch touches app code → loud warning: a
 //     PASS that executed nothing is not evidence.
-//   * docs/DELIVERY_LOG.md older than the last merge → warning: the delivery-log
-//     entry has no substitute. On a PASS with a stale log the script PRINTS a draft
+//   * docs/DELIVERY_LOG.md older than the last commit → warning: the delivery-log
+//     entry has no substitute (compares against the last commit of any kind, so
+//     squash/rebase merges — single-parent — are not missed). On a PASS with a stale
+//     log the script PRINTS a draft
 //     entry; with --log it APPENDS the draft to the log for the human to edit (the
 //     only mutation this verifier ever performs, and only on explicit opt-in — CI
 //     never passes --log).
@@ -157,7 +159,7 @@ function changedFiles(warnings) {
 
 // derived from .claude/hooks/orchestrator-write-guard.mjs (APP_EXTS) — anchored with $ and
 // /i here on purpose; not byte-identical.
-const APP_EXT_RE = /\.(tsx?|jsx?|mjs|cjs|mts|cts|css|scss|vue|svelte|py|rb|go|java|sql|sh|html?)$/i;
+const APP_EXT_RE = /\.(tsx?|jsx?|mjs|cjs|mts|cts|css|scss|vue|svelte|py|rb|go|java|sql|sh|html?|rs|php|kts?|c|h|cpp|cc|hpp|cs|swift)$/i;
 const TEST_PATH_RE = /(^|\/)(__tests__|tests?|e2e)\/|\.(test|spec)\.[^./]+$/i;
 
 // --- main ---------------------------------------------------------------------------
@@ -264,10 +266,13 @@ const logExists = existsSync(LOG_PATH);
 let logStale = false;
 if (logExists) {
   const logT = Number((git(["log", "-1", "--format=%ct", "--", "docs/DELIVERY_LOG.md"]) ?? "").trim());
-  const mergeT = Number((git(["log", "-1", "--merges", "--format=%ct"]) ?? "").trim());
-  if (Number.isFinite(logT) && Number.isFinite(mergeT) && logT > 0 && mergeT > logT) {
+  // Compare against the last commit of ANY kind, not just merges: a squash/rebase
+  // merge lands as a single-parent commit, so `--merges` was empty and the staleness
+  // check silently never fired for the default GitHub flow (round-3 gauntlet finding).
+  const headT = Number((git(["log", "-1", "--format=%ct"]) ?? "").trim());
+  if (Number.isFinite(logT) && Number.isFinite(headT) && logT > 0 && headT > logT) {
     logStale = true;
-    warnings.push("docs/DELIVERY_LOG.md is older than the last merge — batches may be " +
+    warnings.push("docs/DELIVERY_LOG.md is older than the last commit — batches may be " +
       "missing their delivery-log entry (the entry has no substitute).");
   }
 }
@@ -279,10 +284,14 @@ function draftLogEntry(results) {
   const today = new Date().toISOString().slice(0, 10);
   const head = (git(["rev-parse", "--short", "HEAD"]) ?? "").trim() || "TBD";
   const logSha = (git(["log", "-1", "--format=%H", "--", "docs/DELIVERY_LOG.md"]) ?? "").trim();
-  // What shipped = merge subjects since the log's last commit (the unlogged batches).
-  let shipped = (logSha ? (git(["log", `${logSha}..HEAD`, "--merges", "--format=%s"]) ?? "") : "")
-    .split("\n").filter(Boolean).slice(0, 10);
-  if (!shipped.length) shipped = [((git(["log", "-1", "--format=%s"]) ?? "").trim() || "TBD")];
+  // What shipped = commit subjects since the log's last commit (unlogged batches).
+  // Any commit, not just merges (squash/rebase are single-parent). Sanitize each
+  // subject so a crafted commit message cannot forge markdown headings/list items in
+  // the drafted entry (defense in depth — the human still edits before committing).
+  const clean = (s) => s.replace(/^[\s#>*-]+/, "").replace(/[`|]/g, "").trim();
+  let shipped = (logSha ? (git(["log", `${logSha}..HEAD`, "--no-merges", "--format=%s"]) ?? "") : "")
+    .split("\n").filter(Boolean).slice(0, 10).map(clean).filter(Boolean);
+  if (!shipped.length) shipped = [(clean((git(["log", "-1", "--format=%s"]) ?? "").trim()) || "TBD")];
   const validation = results.map((r) => `${r.purpose}: ${r.result}`).join(" · ");
   return [
     `### ${today} — batch close (draft by batch-verify — edit before committing)`,
@@ -310,6 +319,10 @@ if (blocker) { err("\nbatch-verify: FAIL (unconfigured Test on an app-code batch
 
 // PASS path: draft the DELIVERY_LOG entry (print when stale; append on --log) and
 // print the batch-close checklist — the gate steps a script cannot run.
+if (APPEND_LOG && !logExists) {
+  err("\nbatch-verify: --log had no effect — docs/DELIVERY_LOG.md does not exist " +
+    "(the project keeps no delivery log, or create it first).");
+}
 if (logExists && (APPEND_LOG || logStale)) {
   const draft = draftLogEntry(results);
   if (APPEND_LOG) {

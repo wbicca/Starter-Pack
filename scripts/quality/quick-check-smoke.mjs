@@ -27,6 +27,11 @@ const randAlnum = (n) =>
   Array.from({ length: n }, () => ALNUM[Math.floor(Math.random() * ALNUM.length)]).join("");
 const ANT_KEY = "sk-ant-aB3" + randAlnum(16);
 const GH_PAT = "ghp_aB3" + randAlnum(20);
+// A publishable Supabase anon JWT (role "anon" + a ref claim) — must NOT block.
+const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
+const ANON_JWT = b64({ alg: "HS256" }) + "." +
+  b64({ role: "anon", ref: "abcdefghijklmnop", iss: "https://x.supabase.co/auth/v1" }) +
+  "." + randAlnum(20);
 
 function makeFixture({ files = {}, gitignore, commit = true } = {}) {
   const dir = mkdtempSync(join(realTmp, "quick-check-smoke-"));
@@ -82,6 +87,11 @@ const cases = [
   { name: "provider key (sk-ant) in untracked file → blocker exit 2",
     run() { const { dir } = makeFixture({ files: { "notes.md": `key: ${ANT_KEY}\n` } }); this.dir = dir;
       const r = runManual(dir); return r.status === 2 && /possible secret/.test(r.stderr); } },
+  // v1.5.2: Supabase anon key is publishable — quick-check must match scan-secrets and
+  // NOT block it (gauntlet C1#2: the layers had diverged).
+  { name: "Supabase anon JWT in untracked file → NOT a blocker, exit 0",
+    run() { const { dir } = makeFixture({ files: { "cfg.ts": `const k="${ANON_JWT}"\n` } }); this.dir = dir;
+      const r = runManual(dir); return r.status === 0 && !/possible secret/.test(r.stderr); } },
   { name: "GitHub PAT in added diff line → blocker exit 2",
     run() { const { dir } = makeFixture(); this.dir = dir;
       writeFileSync(join(dir, "README.md"), `fixture\nvalue ${GH_PAT}\n`);

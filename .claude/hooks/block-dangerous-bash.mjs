@@ -79,6 +79,10 @@ if (/\brm\b/.test(normRm) && /-[a-z]*r/.test(normRm) && RM_TARGET.test(normRm)) 
 // --- 2) Other catastrophic/irreversible patterns → DENY ---
 const DANGEROUS = [
   { re: /rm\s+-[a-z]*r[a-z]*f?\s+\*/, why: "rm -rf * deletes everything in the directory." },
+  // `./*` is equivalent to `* ` (wipes the current dir); `.*` globs dotfiles AND, in
+  // many shells, matches `..` — escaping into the parent. Both slipped past the `\*`
+  // anchor above because a `.` sits before the star.
+  { re: /rm\s+-[a-z]*r[a-z]*f?\s+\.\/?\*/, why: "rm -rf ./* or .* wipes the current directory (and .* can escape to the parent)." },
   { re: /\bsudo\s+rm\b/, why: "sudo rm can destroy system files." },
   { re: /:\(\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;\s*:/, why: "fork bomb." },
 ];

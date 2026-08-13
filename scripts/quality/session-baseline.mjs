@@ -25,7 +25,7 @@ import { resolve } from "node:path";
 // placeholder exemption, so it records a SUPERSET of what quick-check flags — the safe
 // direction (a drifted narrower copy here produced false completion-blockers:
 // un-baselined findings the session did not create).
-import { INTRINSIC_SECRETS } from "../../.claude/hooks/lib/secret-patterns.mjs";
+import { INTRINSIC_SECRETS, jwtIsPublicAnon } from "../../.claude/hooks/lib/secret-patterns.mjs";
 
 // ---------------------------------------------------------------------------
 // Utilities (mirrors scripts/quality/quick-check.mjs)
@@ -57,7 +57,18 @@ const inSkippedDir = (f) =>
   f.endsWith("/") || SKIP_DIRS.some((d) => f.startsWith(d) || f.includes("/" + d));
 
 // Intrinsic secret shapes — from the shared lib (one source with quick-check).
-const INTRINSIC = INTRINSIC_SECRETS.map((s) => s.re);
+// A match counts UNLESS it is only the publishable Supabase anon key (same exemption
+// quick-check applies), so an anon-key-only file is never baselined as a secret file
+// and never re-emitted as a persistent warning.
+function hasIntrinsicSecret(content) {
+  for (const s of INTRINSIC_SECRETS) {
+    const m = content.match(s.re);
+    if (!m) continue;
+    if (s.jwt && jwtIsPublicAnon(m[0])) continue;
+    return true;
+  }
+  return false;
+}
 
 // ---------------------------------------------------------------------------
 // Capped text read — null for missing, oversized (>512KB), or binary files
@@ -122,7 +133,7 @@ try {
   for (const rel of uniq([...untracked, ...modified])) {
     if (inSkippedDir(rel)) continue;
     const content = readTextCapped(resolve(root, rel));
-    if (content != null && INTRINSIC.some((re) => re.test(content))) secretFiles.push(rel);
+    if (content != null && hasIntrinsicSecret(content)) secretFiles.push(rel);
   }
 
   const baseline = {
@@ -139,9 +150,11 @@ try {
   const brief = [];
   if (existsSync(resolve(root, "docs/DELIVERY_LOG.md"))) {
     const logT = Number(run("git", ["log", "-1", "--format=%ct", "--", "docs/DELIVERY_LOG.md"], { cwd: root }).stdout);
-    const mergeT = Number(run("git", ["log", "-1", "--merges", "--format=%ct"], { cwd: root }).stdout);
-    if (Number.isFinite(logT) && Number.isFinite(mergeT) && logT > 0 && mergeT > logT) {
-      brief.push("docs/DELIVERY_LOG.md is older than the last merge (batch-verify --log drafts the missing entry)");
+    // Last commit of any kind (squash/rebase merges are single-parent — `--merges`
+    // would silently never fire on the default GitHub flow).
+    const headT = Number(run("git", ["log", "-1", "--format=%ct"], { cwd: root }).stdout);
+    if (Number.isFinite(logT) && Number.isFinite(headT) && logT > 0 && headT > logT) {
+      brief.push("docs/DELIVERY_LOG.md is older than the last commit (batch-verify --log drafts the missing entry)");
     }
   }
   let wts = [];
@@ -149,11 +162,15 @@ try {
   if (wts.length) {
     const defBranch = ["origin/main", "origin/master", "main", "master"]
       .find((r) => run("git", ["rev-parse", "--verify", r], { cwd: root }).status === 0);
+    // Merged = reachable OR content already identical (squash/rebase-safe, matching
+    // starter-doctor's inDefault).
+    const isMerged = (sha) => !!defBranch && !!sha &&
+      (run("git", ["merge-base", "--is-ancestor", sha, defBranch], { cwd: root }).status === 0 ||
+       run("git", ["diff", "--quiet", defBranch, sha], { cwd: root }).status === 0);
     let merged = 0;
     for (const w of wts) {
       const sha = run("git", ["-C", resolve(root, ".claude/worktrees", w), "rev-parse", "HEAD"]).stdout;
-      if (defBranch && sha &&
-          run("git", ["merge-base", "--is-ancestor", sha, defBranch], { cwd: root }).status === 0) merged++;
+      if (isMerged(sha)) merged++;
     }
     if (merged > 0) {
       brief.push(`${merged} merged agent worktree(s) awaiting cleanup (starter-doctor prints the removal commands)`);
@@ -162,6 +179,12 @@ try {
   const stackText = readTextCapped(resolve(root, "docs/STACK.md"));
   if (stackText && /\b\d{2,}\s+(?:testes?|tests?|arquivos|files|specs?)\b/i.test(stackText)) {
     brief.push("docs/STACK.md records a volatile count — reference the command, not its output");
+  }
+  // Visibility for the maintenance override: an inherited env var silently downgrades
+  // governance DENY → ASK for the whole session. Surface it so the weakening is never
+  // invisible (the env var persists across every session launched from that shell).
+  if (process.env.CLAUDE_ORCHESTRATOR_WRITE_OVERRIDE === "1") {
+    brief.push("CLAUDE_ORCHESTRATOR_WRITE_OVERRIDE is active — governance DENY is downgraded to ASK this session; unset it when the maintenance batch is done");
   }
   if (brief.length) process.stdout.write("PENDING_STATE: " + brief.join(" · ") + "\n");
 } catch {

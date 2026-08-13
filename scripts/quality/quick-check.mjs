@@ -28,7 +28,7 @@ import { createHash } from "node:crypto";
 import { resolve, normalize, relative } from "node:path";
 // Shared secret patterns — one source with scan-secrets and session-baseline
 // (module-relative path: works from any cwd).
-import { INTRINSIC_SECRETS } from "../../.claude/hooks/lib/secret-patterns.mjs";
+import { INTRINSIC_SECRETS, jwtIsPublicAnon } from "../../.claude/hooks/lib/secret-patterns.mjs";
 import { logEvent } from "../../.claude/hooks/lib/govlog.mjs";
 
 // ---------------------------------------------------------------------------
@@ -203,8 +203,9 @@ function conflictMarkerFiles(root, sets) {
 // --- secret patterns ---
 // Single source: .claude/hooks/lib/secret-patterns.mjs (shared with scan-secrets and
 // session-baseline). The lib's char-classes keep source files from self-matching.
-// The `jwt` metadata (Supabase anon exemption) is a scan-secrets concern — this
-// end-of-turn net flags every JWT-shaped token.
+// The Supabase public anon key (JWT with role "anon" + a Supabase signal) is
+// publishable by design — exempted here too, so this net does not block at end of
+// turn what the write-time scanner deliberately allows.
 const INTRINSIC = INTRINSIC_SECRETS;
 
 const PLACEHOLDERS = new Set(["your_key_here", "changeme", "change_me", "placeholder", "example_value"]);
@@ -225,6 +226,8 @@ function matchIntrinsic(text, file, findings) {
     if (!m) continue;
     // For DB URL, skip obvious placeholder passwords.
     if (s.group != null && isPlaceholder(m[s.group])) continue;
+    // Supabase public anon key is publishable — same exemption as the write-time scanner.
+    if (s.jwt && jwtIsPublicAnon(m[0])) continue;
     if (!findings.some((f) => f.file === file && f.cat === s.cat)) {
       findings.push({ file, cat: s.cat });
     }
@@ -269,7 +272,9 @@ function checkOutsidePaths(root) {
   const bad = status
     .split("\n")
     .filter(Boolean)
-    .map((l) => l.slice(3).trim().replace(/^"(.*)"$/, "$1"))
+    // Drop the XY status prefix, then for a rename ("old -> new") keep the destination.
+    .map((l) => { const p = l.slice(3).trim(); return p.includes(" -> ") ? p.split(" -> ").pop() : p; })
+    .map((f) => f.trim().replace(/^"(.*)"$/, "$1"))
     .filter((f) => {
       try {
         const abs = normalize(resolve(root, f));
